@@ -6,11 +6,11 @@ do
     echo $normal
 
     case $normal in 'carpet')
-            epochs=1
+            epochs=10
             eval_epoch=1
             ;;
         *)  
-            epochs=1
+            epochs=200
             eval_epoch=1
             ;;
     esac
@@ -23,9 +23,9 @@ do
             ;;
     esac
 
-    CUDA_VISIBLE_DEVICES=0 python ../main.py --dataset mvtec --batch_size 16 \
+    CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
      --lr ${lr} --d_lr 1e-04 --adv_conf 0.02 --epochs ${epochs} \
-    --normal $normal --seed 111 --img_size 32 \
+    --normal $normal --seed 111 --img_size 256 \
     --labeled_anomaly_class_num ${labeled_anomaly_class_num} \
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \

@@ -12,8 +12,8 @@ class PretrainedFeatureExtractor(nn.Module):
         super(PretrainedFeatureExtractor, self).__init__()
         weight = None
         self.expansion = 1
-        default_channels = [64, 128, 256, 512]
-        default_output_sizes = [image_size // 4, image_size // 8, image_size // 16, image_size // 32]
+        default_channels = [64, 128, 256, 512]  # 每一层特征子图的通道数，也就是每一层特征子图的张数
+        default_output_sizes = [image_size // 4, image_size // 8, image_size // 16, image_size // 32]  # 每一层特征子图的尺寸
         if backbone == 'resnet18':
             weight = models.ResNet18_Weights.DEFAULT
             self.backbone = models.resnet18(weights=weight)
@@ -54,15 +54,19 @@ class PretrainedFeatureExtractor(nn.Module):
         self.output_layers = layers
         
     def forward(self, x):
+        # 1. 对输入图像进行处理，得到特征子图
         x = self.backbone.conv1(x)
         x = self.backbone.bn1(x)
         x = self.backbone.relu(x)
         x = self.backbone.maxpool(x)
 
+        # 2. 逐步获得4层，所有特征子图
         x1 = self.backbone.layer1(x)
         x2 = self.backbone.layer2(x1)
         x3 = self.backbone.layer3(x2)
         x4 = self.backbone.layer4(x3)
+
+        # 3. 根据配置，返回指定层数的特征子图
         outputs = []
         if 1 in self.output_layers:
             outputs.append(x1)
@@ -83,9 +87,10 @@ class ED(nn.Module):
     
     def forward(self, x):
         z = self.encoder(x)
-        o = self.decoder(z)
-        return o
+        features, recon_img = self.decoder(z)
+        return features, recon_img
     
+# 这部分没有位置编码，所以这部分是图像级别异常检测的鉴别器
 class Discriminator(nn.Module):
     def __init__(self, input_sizes=[64, 32, 16], input_channels=[64, 128, 256], expansion=4):
         super(Discriminator, self).__init__()
@@ -137,8 +142,9 @@ class Discriminator(nn.Module):
         label = torch.ones_like(score) * label_value
         loss = ((1 - label) * score + label * (margin - score).clamp_(min=0.)).mean()
         return loss
-    
 
+
+# 这部分加入了位置编码，所以说这部分应该是细粒度检测的鉴别器
 class Discriminator(nn.Module):
     def __init__(self, input_sizes=[64, 32, 16], input_channels=[64, 128, 256], expansion=4):
         super(Discriminator, self).__init__()

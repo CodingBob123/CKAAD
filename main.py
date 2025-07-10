@@ -149,24 +149,24 @@ def train(args):
                 anomaly_img = normal_img[:0]
             anomaly_size = anomaly_img.size(0)
             normal_inputs = pfe(normal_img)
-            normal_outputs = ae(normal_inputs)
+            # 修改：获取特征重建和像素重建
+            normal_outputs, recon_img = ae(normal_inputs)
             
             if anomaly_size > 0: 
                 anomaly_inputs = pfe(anomaly_img)
-                anomaly_outputs = ae(anomaly_inputs)
+                anomaly_outputs, _ = ae(anomaly_inputs)
                 
                 outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
             else:
                 outputs = normal_outputs
-                
-                
+            
             dis_loss = torch.tensor(0.0).to(device)
             adv_loss = torch.tensor(0.0).to(device)
             
             normal_inputs_detach = [i.detach() for i in normal_inputs]
             if anomaly_size > 0:
                 anomaly_inputs_detach = [i.detach() for i in anomaly_inputs]
-                
+            
             outputs_detach = [o.detach() for o in outputs]
             if anomaly_size > 0:
                 dis_loss = discriminator.calculate_loss(normal_inputs_detach, true_label) + (1 - gamma) * discriminator.calculate_loss(anomaly_inputs_detach, fake_label) + gamma * discriminator.calculate_loss(outputs_detach, fake_label)
@@ -174,10 +174,15 @@ def train(args):
                 dis_loss.backward()
                 torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
                 discriminator_optimizer.step()
-                    
+                
                 adv_loss = discriminator.calculate_loss(outputs, true_label)
             
-            recon_loss = loss_function(normal_inputs, normal_outputs)
+            recon_loss_feat = loss_function(normal_inputs, normal_outputs)
+            # 新增：像素空间重建损失
+            recon_loss_pixel = torch.nn.functional.mse_loss(recon_img, normal_img)
+            # 总重建损失（可调权重）
+            alpha, beta = 1.0, 1.0
+            recon_loss = alpha * recon_loss_feat + beta * recon_loss_pixel
             ae_loss = recon_loss + args.adv_conf  * adv_loss
             ae_optimizer.zero_grad()
             ae_loss.backward()

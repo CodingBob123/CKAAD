@@ -28,7 +28,7 @@ class MVTecDataset(Dataset):
         defect_types = os.listdir(self.img_path)
 
         for defect_type in defect_types:
-            if defect_type == 'good':
+            if defect_type == 'good': 
                 img_paths = glob.glob(os.path.join(self.img_path, defect_type) + "/*.png")
                 img_tot_paths.extend(img_paths)
                 gt_tot_paths.extend([0] * len(img_paths))

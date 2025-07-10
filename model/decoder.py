@@ -181,19 +181,31 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         if backbone == 'resnet18':
             self.backbone = DeResNet(DeBasicBlock, [2, 2, 2, 2], output_channels)
+            final_channels = output_channels[0]
         elif backbone == 'resnet34':
             self.backbone = DeResNet(DeBasicBlock, [3, 4, 6, 3], output_channels)
+            final_channels = output_channels[0]
         elif backbone == 'resnet50':
             self.backbone = DeResNet(DeBottleneck, [3, 4, 6, 3], output_channels)
+            final_channels = output_channels[0] * DeBottleneck.expansion
         elif backbone == 'resnet101':
             self.backbone = DeResNet(DeBottleneck, [3, 4, 23, 3], output_channels)
+            final_channels = output_channels[0] * DeBottleneck.expansion
         elif backbone == 'resnet152':
             self.backbone = DeResNet(DeBottleneck, [3, 8, 36, 3], output_channels)
+            final_channels = output_channels[0] * DeBottleneck.expansion
         elif backbone == 'wide_resnet50_2':
             self.backbone = DeResNet(DeBottleneck, [3, 4, 6, 3], output_channels, width_per_group=64 * 2)
+            final_channels = output_channels[0] * DeBottleneck.expansion
         elif backbone == 'wide_resnet101_2':
             self.backbone = DeResNet(DeBottleneck, [3, 4, 23, 3], output_channels, width_per_group=64 * 2)
-            
+            final_channels = output_channels[0] * DeBottleneck.expansion
+        # 新增：输出重建图像的卷积层（假设3通道RGB）
+        self.final_conv = nn.Conv2d(final_channels, 3, kernel_size=3, padding=1)
+        
     def forward(self, x):
-        return self.backbone(x)
+        features = self.backbone(x)
+        # features[0] 是最高分辨率的特征
+        recon_img = self.final_conv(features[0])
+        return features, recon_img
     

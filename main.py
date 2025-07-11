@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
-
+import torch.nn.functional as F
 
 def parse_args():
     
@@ -136,6 +136,8 @@ def train(args):
         discriminator.train()
         dis_loss_list = []
         recon_loss_list = []
+        recon_loss_feat_list = []
+        recon_loss_pixel_list = []
         adv_loss_list = []
         ae_loss_list = []
         
@@ -179,9 +181,11 @@ def train(args):
             
             recon_loss_feat = loss_function(normal_inputs, normal_outputs)
             # 新增：像素空间重建损失
+            if recon_img.shape[-2:] != normal_img.shape[-2:]:
+                recon_img = F.interpolate(recon_img, size=normal_img.shape[-2:], mode='bilinear', align_corners=False)
             recon_loss_pixel = torch.nn.functional.mse_loss(recon_img, normal_img)
             # 总重建损失（可调权重）
-            alpha, beta = 1.0, 1.0
+            alpha, beta = 1, 1
             recon_loss = alpha * recon_loss_feat + beta * recon_loss_pixel
             ae_loss = recon_loss + args.adv_conf  * adv_loss
             ae_optimizer.zero_grad()
@@ -191,11 +195,13 @@ def train(args):
             dis_loss_list.append(dis_loss.item())
             ae_loss_list.append(ae_loss.item())
             recon_loss_list.append(recon_loss.item())
+            recon_loss_feat_list.append(recon_loss_feat.item())
+            recon_loss_pixel_list.append(recon_loss_pixel.item())
             adv_loss_list.append(adv_loss.item())
 
-        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, np.mean(dis_loss_list),
+        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}, recon_loss_feat: {:.6f}, recon_loss_pixel: {:.6f}".format(epoch, epochs, np.mean(dis_loss_list),
                                                                                                                                  np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list),
-                                                                                                                                 ))
+                                                                                                                                 np.mean(recon_loss_feat_list), np.mean(recon_loss_pixel_list)))
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args)

@@ -119,6 +119,8 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
             img = img.to(device)
             inputs = encoder(img)
             outputs = ed(inputs)
+            if isinstance(outputs, tuple):
+                outputs = outputs[0]
             gt_list.append(label != int(args.normal))
             anomaly_map = cal_anomaly_map(inputs, outputs, out_size=img.size(-1), amap_mode='add')
             if args.dataset in ['isic']:
@@ -147,6 +149,8 @@ def evaluation_pixel(encoder, ed, dataloader, device, args):
             img = img.to(device)
             inputs = encoder(img)
             outputs = ed(inputs)
+            if isinstance(outputs, tuple):
+                outputs = outputs[0]
             gt = gt.squeeze(1)
             anomaly_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
             gt[gt > 0.5] = 1

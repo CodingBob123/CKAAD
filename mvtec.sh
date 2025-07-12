@@ -1,17 +1,17 @@
 #!/bin/bash
-labeled_anomaly_ratio=0.05
+labeled_anomaly_ratio=0.04
 labeled_anomaly_class_num=1
-for normal in 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper' 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+for normal in 'cable' 'capsule' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill'
 do
     echo $normal
 
     case $normal in 'carpet')
-            epochs=20
-            eval_epoch=2
+            epochs=120
+            eval_epoch=20
             ;;
         *)  
-            epochs=20
-            eval_epoch=2
+            epochs=120
+            eval_epoch=20
             ;;
     esac
 

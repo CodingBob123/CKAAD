@@ -10,6 +10,7 @@ from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 def parse_args():
     
@@ -97,6 +98,32 @@ def loss_function(a, b):
                                       b[item].view(b[item].shape[0], -1)))
     return loss
 
+def printPicture(dis_loss_list, recon_loss_list, adv_loss_list, ae_loss_list, recon_loss_feat_list, recon_loss_pixel_list, save_path=None):
+    """
+    绘制2行3列的损失折线图，并可选择保存到文件
+    """
+    losses = [dis_loss_list, recon_loss_list, adv_loss_list, ae_loss_list, recon_loss_feat_list, recon_loss_pixel_list]
+    titles = [
+        'Discriminator Loss',
+        'Reconstruction Loss',
+        'Adversarial Loss',
+        'AE Loss',
+        'Reconstruction Feature Loss',
+        'Reconstruction Pixel Loss'
+    ]
+    plt.figure(figsize=(18, 8))
+    for i, (loss, title) in enumerate(zip(losses, titles)):
+        plt.subplot(2, 3, i+1)
+        plt.plot(range(1, len(loss)+1), loss, marker='o')
+        plt.title(title)
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.grid(True)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
+
 def train(args):
     log_dir = os.path.join(args.log_dir, "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num), args.dataset)
     if not os.path.exists(log_dir):
@@ -131,15 +158,27 @@ def train(args):
     gamma = 0.5
     true_label = 0
     fake_label = 1
+
+    # 用于收集所有epoch的损失数据
+    dis_loss_list_all = []
+    recon_loss_list_all = []
+    recon_loss_feat_list_all = []
+    recon_loss_pixel_list_all = []
+    adv_loss_list_all = []
+    ae_loss_list_all = []
+    
     for epoch in range(1, epochs+1):
         ae.train()
         discriminator.train()
+        
+        # 每个epoch的临时损失列表
         dis_loss_list = []
         recon_loss_list = []
         recon_loss_feat_list = []
         recon_loss_pixel_list = []
         adv_loss_list = []
         ae_loss_list = []
+
         
         for normal, anomaly in tqdm.tqdm(zip(train_dataloader, cycle(anomaly_dataloader))):
             normal_img = normal[0].to(device)
@@ -199,6 +238,14 @@ def train(args):
             recon_loss_pixel_list.append(recon_loss_pixel.item())
             adv_loss_list.append(adv_loss.item())
 
+        # 记录每个epoch的平均损失
+        dis_loss_list_all.append(np.mean(dis_loss_list))
+        recon_loss_list_all.append(np.mean(recon_loss_list))
+        recon_loss_feat_list_all.append(np.mean(recon_loss_feat_list))
+        recon_loss_pixel_list_all.append(np.mean(recon_loss_pixel_list))
+        adv_loss_list_all.append(np.mean(adv_loss_list))
+        ae_loss_list_all.append(np.mean(ae_loss_list))
+        
         logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}, recon_loss_feat: {:.6f}, recon_loss_pixel: {:.6f}".format(epoch, epochs, np.mean(dis_loss_list),
                                                                                                                                  np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list),
                                                                                                                                  np.mean(recon_loss_feat_list), np.mean(recon_loss_pixel_list)))
@@ -212,6 +259,13 @@ def train(args):
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
        
+    # 训练结束后绘图
+    # 确保pic目录存在
+    pic_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pic')
+    os.makedirs(pic_dir, exist_ok=True)
+    save_path = os.path.join(pic_dir, '{}.jpg'.format(args.normal))
+    printPicture(dis_loss_list_all, recon_loss_list_all, adv_loss_list_all, ae_loss_list_all, recon_loss_feat_list_all, recon_loss_pixel_list_all, save_path=save_path)
+
 def print_args(logger, args):
     logger.info('--------args----------')
     for k in list(vars(args).keys()):

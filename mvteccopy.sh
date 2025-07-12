@@ -1,17 +1,17 @@
 #!/bin/bash
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
-for normal in 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper' 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+for normal in 'cable'
 do
     echo $normal
 
     case $normal in 'carpet')
-            epochs=20
-            eval_epoch=2
+            epochs=120
+            eval_epoch=20
             ;;
         *)  
-            epochs=20
-            eval_epoch=2
+            epochs=120
+            eval_epoch=20
             ;;
     esac
 
@@ -29,5 +29,5 @@ do
     --labeled_anomaly_class_num ${labeled_anomaly_class_num} \
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
-    --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3
+    --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 2 3
 done

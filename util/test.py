@@ -29,15 +29,26 @@ def transform_invert(img_, transform_train):
     return img_
 
 
-def cal_anomaly_map(fs_list, ft_list, out_size=224, amap_mode='mul'):
+def cal_anomaly_map(fs_list, ft_list, out_size=224, amap_mode='mul', recon_img=None, original_img=None):
+    """
+    计算异常图
+    Args:
+        fs_list: 源特征列表
+        ft_list: 目标特征列表  
+        out_size: 输出尺寸
+        amap_mode: 融合模式
+        recon_img: 重建图像（可选）
+        original_img: 原始图像（可选）
+    """
     batch = 1 if len(fs_list[0].size()) == 2 else fs_list[0].size(0)
     if amap_mode == 'mul':
         anomaly_map = torch.ones([batch, 1, out_size, out_size], device=fs_list[0].device)
     else:
         anomaly_map = torch.zeros([batch, 1, out_size, out_size], device=fs_list[0].device)
     a_map_list = []
+    
+    # 特征重建异常图
     for i in range(len(ft_list)):
-        
         fs = fs_list[i]
         ft = ft_list[i]
         
@@ -52,6 +63,25 @@ def cal_anomaly_map(fs_list, ft_list, out_size=224, amap_mode='mul'):
             anomaly_map = torch.max(anomaly_map, a_map)
         else:
             anomaly_map += a_map
+    
+    # 如果提供了图像重建，计算像素级异常图
+    if recon_img is not None and original_img is not None:
+        # 确保尺寸匹配
+        if recon_img.shape[-2:] != original_img.shape[-2:]:
+            recon_img = F.interpolate(recon_img, size=original_img.shape[-2:], mode='bilinear', align_corners=False)
+        
+        # 计算像素级差异
+        pixel_diff = torch.mean(torch.abs(recon_img - original_img), dim=1, keepdim=True)
+        pixel_diff = F.interpolate(pixel_diff, size=out_size, mode='bilinear', align_corners=True)
+        
+        # 融合特征重建和像素重建的异常图
+        if amap_mode == 'mul':
+            anomaly_map *= pixel_diff
+        elif amap_mode == 'max':
+            anomaly_map = torch.max(anomaly_map, pixel_diff)
+        else:
+            anomaly_map += pixel_diff
+    
     anomaly_map = anomaly_map.cpu().numpy()
     anomaly_map_list = []
     for i in range(len(anomaly_map)):
@@ -120,9 +150,15 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
             inputs = encoder(img)
             outputs = ed(inputs)
             if isinstance(outputs, tuple):
-                outputs = outputs[0]
+                features, recon_img = outputs
+            else:
+                features = outputs
+                recon_img = None
+            
             gt_list.append(label != int(args.normal))
-            anomaly_map = cal_anomaly_map(inputs, outputs, out_size=img.size(-1), amap_mode='add')
+            # 使用新的异常图计算函数，包含图像重建
+            anomaly_map = cal_anomaly_map(inputs, features, out_size=img.size(-1), amap_mode='add', 
+                                        recon_img=recon_img, original_img=img)
             if args.dataset in ['isic']:
                 fea_score = anomaly_map.reshape(img.size(0), -1).mean(axis=-1)
             else:
@@ -150,9 +186,15 @@ def evaluation_pixel(encoder, ed, dataloader, device, args):
             inputs = encoder(img)
             outputs = ed(inputs)
             if isinstance(outputs, tuple):
-                outputs = outputs[0]
+                features, recon_img = outputs
+            else:
+                features = outputs
+                recon_img = None
+                
             gt = gt.squeeze(1)
-            anomaly_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+            # 使用新的异常图计算函数，包含图像重建
+            anomaly_map = cal_anomaly_map(inputs, features, img.shape[-1], amap_mode='add',
+                                        recon_img=recon_img, original_img=img)
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
             all_gts.append(gt.cpu().numpy())
@@ -190,8 +232,16 @@ def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfi
             imgs = data[0].to(device)
             inputs = pfe(imgs)
             outputs = ae(inputs)
+            if isinstance(outputs, tuple):
+                features, recon_img = outputs
+            else:
+                features = outputs
+                recon_img = None
+                
             labels = data[-1]
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='a')
+            # 使用新的异常图计算函数，包含图像重建
+            anomaly_maps = cal_anomaly_map(inputs, features, imgs.shape[-1], amap_mode='add',
+                                         recon_img=recon_img, original_img=imgs)
             
             imgs = transform_invert(imgs, transform)
             

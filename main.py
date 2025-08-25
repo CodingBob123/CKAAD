@@ -1,4 +1,5 @@
 import torch
+from contextlib import nullcontext
 import numpy as np
 import random
 import os
@@ -48,6 +49,9 @@ def parse_args():
     parser.add_argument('--adv_conf', type=float, default=0.02, help='adversial loss conf')
     
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
+    
+    parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
+    parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
     
     return parser.parse_args()
 
@@ -131,6 +135,19 @@ def train(args):
     gamma = 0.5
     true_label = 0
     fake_label = 1
+    
+    # AMP setup
+    use_cuda_amp = args.use_amp and (device == 'cuda')
+    if use_cuda_amp:
+        from torch.cuda.amp import autocast, GradScaler
+        scaler_ae = GradScaler()
+        scaler_d = GradScaler()
+        amp_ctx = autocast
+        logger.info("AMP enabled (autocast + GradScaler)")
+    else:
+        scaler_ae = None
+        scaler_d = None
+        amp_ctx = nullcontext
     for epoch in range(1, epochs+1):
         ae.train()
         discriminator.train()
@@ -148,12 +165,14 @@ def train(args):
             else:
                 anomaly_img = normal_img[:0]
             anomaly_size = anomaly_img.size(0)
-            normal_inputs = pfe(normal_img)
-            normal_outputs = ae(normal_inputs)
+            with amp_ctx():
+                normal_inputs = pfe(normal_img)
+                normal_outputs = ae(normal_inputs)
             
             if anomaly_size > 0: 
-                anomaly_inputs = pfe(anomaly_img)
-                anomaly_outputs = ae(anomaly_inputs)
+                with amp_ctx():
+                    anomaly_inputs = pfe(anomaly_img)
+                    anomaly_outputs = ae(anomaly_inputs)
                 
                 outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
             else:
@@ -169,19 +188,35 @@ def train(args):
                 
             outputs_detach = [o.detach() for o in outputs]
             if anomaly_size > 0:
-                dis_loss = discriminator.calculate_loss(normal_inputs_detach, true_label) + (1 - gamma) * discriminator.calculate_loss(anomaly_inputs_detach, fake_label) + gamma * discriminator.calculate_loss(outputs_detach, fake_label)
+                with amp_ctx():
+                    dis_loss = discriminator.calculate_loss(normal_inputs_detach, true_label) + (1 - gamma) * discriminator.calculate_loss(anomaly_inputs_detach, fake_label) + gamma * discriminator.calculate_loss(outputs_detach, fake_label)
                 discriminator_optimizer.zero_grad()
-                dis_loss.backward()
-                torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
-                discriminator_optimizer.step()
+                if use_cuda_amp:
+                    scaler_d.scale(dis_loss).backward()
+                    # Unscale before clipping
+                    scaler_d.unscale_(discriminator_optimizer)
+                    torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
+                    scaler_d.step(discriminator_optimizer)
+                    scaler_d.update()
+                else:
+                    dis_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
+                    discriminator_optimizer.step()
                     
-                adv_loss = discriminator.calculate_loss(outputs, true_label)
+                with amp_ctx():
+                    adv_loss = discriminator.calculate_loss(outputs, true_label)
             
-            recon_loss = loss_function(normal_inputs, normal_outputs)
-            ae_loss = recon_loss + args.adv_conf  * adv_loss
+            with amp_ctx():
+                recon_loss = loss_function(normal_inputs, normal_outputs)
+                ae_loss = recon_loss + args.adv_conf  * adv_loss
             ae_optimizer.zero_grad()
-            ae_loss.backward()
-            ae_optimizer.step()
+            if use_cuda_amp:
+                scaler_ae.scale(ae_loss).backward()
+                scaler_ae.step(ae_optimizer)
+                scaler_ae.update()
+            else:
+                ae_loss.backward()
+                ae_optimizer.step()
 
             dis_loss_list.append(dis_loss.item())
             ae_loss_list.append(ae_loss.item())
@@ -193,11 +228,13 @@ def train(args):
                                                                                                                                  ))
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
-                valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args)
+                with amp_ctx():
+                    valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args)
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
                 
-            metrics = evaluation(pfe, ae, test_dataloader, device, args)
+            with amp_ctx():
+                metrics = evaluation(pfe, ae, test_dataloader, device, args)
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
        

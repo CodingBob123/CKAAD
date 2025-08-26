@@ -121,8 +121,8 @@ class Discriminator(nn.Module):
                                        nn.InstanceNorm1d(input_channels[-1] // 4),
                                        nn.LeakyReLU(0.1, inplace=True),
                                        nn.Linear(input_channels[-1] // 4, 1, bias=False))
-    
-    
+
+
     def forward(self, x):
         x = [self.layers[i](xi) for i, xi in enumerate(x)]
         x = torch.cat(x, dim=1)
@@ -130,48 +130,4 @@ class Discriminator(nn.Module):
         z = z.view(z.size(0), -1)
         score = self.cls_layer(z)
         return score
-    
-    def calculate_loss(self, x, label_value, margin=5.0):
-        score = self(x)
-        score = torch.abs(score.view(-1))
-        label = torch.ones_like(score) * label_value
-        loss = ((1 - label) * score + label * (margin - score).clamp_(min=0.)).mean()
-        return loss
-    
-
-class Discriminator(nn.Module):
-    def __init__(self, input_sizes=[64, 32, 16], input_channels=[64, 128, 256], expansion=4):
-        super(Discriminator, self).__init__()
-        self.expansion = expansion
-        input_channels = [c * self.expansion for c in input_channels]
-        layers = []
-        positional_embeds = []
-        for s, c in zip(input_sizes, input_channels):
-            layers.append(
-                nn.Sequential(nn.Conv2d(in_channels=c, out_channels=c, kernel_size=1, stride=1, padding=0, bias=False),
-                              nn.LeakyReLU(0.1, inplace=True),
-                              nn.Conv2d(in_channels=c, out_channels=c, kernel_size=1, stride=1, padding=0, bias=False),
-                              nn.LeakyReLU(0.1, inplace=True),
-                              nn.Conv2d(in_channels=c, out_channels=1, kernel_size=1, stride=1, padding=0, bias=False),
-                              )
-            )
-            positional_embeds.append(nn.Parameter(torch.randn(1, c, s, s), requires_grad=True))
-        
-        self.layers = nn.ModuleList(layers)
-        self.positional_embeds = nn.ParameterList(positional_embeds)
-    
-    def forward(self, x):
-        b = x[0].size(0)
-        x = [torch.nn.functional.normalize(xi, dim=1) for xi in x]
-        scores = [self.layers[i](xi).view(b,-1) for i, xi in enumerate(x)]
-        return scores
-    
-    def calculate_loss(self, x, label_value, margin=5.0):
-        scores = self(x)
-        loss = 0
-        for score in scores:
-            score = torch.abs(score.view(-1))
-            label = torch.ones_like(score) * label_value
-            loss += ((1 - label) * score + label * (margin - score).clamp_(min=0.)).mean()
-        return loss
             

@@ -10,6 +10,7 @@ from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
+import torch.autograd as autograd
 
 
 def parse_args():
@@ -49,6 +50,10 @@ def parse_args():
     parser.add_argument('--adv_conf', type=float, default=0.02, help='adversial loss conf')
     
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
+    
+    parser.add_argument('--lambda_gp', type=float, default=10.0, help='gradient penalty coefficient')
+    
+    parser.add_argument('--n_critic', type=int, default=5, help='number of critic iterations per generator iteration')
     
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
@@ -101,6 +106,37 @@ def loss_function(a, b):
                                       b[item].view(b[item].shape[0], -1)))
     return loss
 
+def compute_gradient_penalty(discriminator, real_samples, fake_samples, device):
+    """Calculates the gradient penalty loss for WGAN GP"""
+    # Random weight term for interpolation between real and fake samples
+    batch_size = real_samples[0].size(0)
+    alphas = torch.rand(batch_size, 1, 1, 1, device=device)
+
+    # Get random interpolation between real and fake samples
+    interpolates = []
+    for real, fake in zip(real_samples, fake_samples):
+        alpha = alphas.expand_as(real)
+        interpolated_sample = (alpha * real + (1 - alpha) * fake).requires_grad_(True)
+        interpolates.append(interpolated_sample)
+
+    d_interpolates = discriminator(interpolates)
+    grad_outputs = torch.ones_like(d_interpolates, requires_grad=False).to(device)
+
+    # Get gradient w.r.t. interpolates
+    gradients = autograd.grad(
+        outputs=d_interpolates,
+        inputs=interpolates,
+        grad_outputs=grad_outputs,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )
+
+    # Concatenate gradients from all interpolated tensors and calculate the norm
+    gradients_flat = torch.cat([grad.view(batch_size, -1) for grad in gradients], dim=1)
+    gradient_penalty = ((gradients_flat.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty
+
 def train(args):
     log_dir = os.path.join(args.log_dir, "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num), args.dataset)
     if not os.path.exists(log_dir):
@@ -132,10 +168,6 @@ def train(args):
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
     
-    gamma = 0.5
-    true_label = 0
-    fake_label = 1
-    
     # AMP setup
     use_cuda_amp = args.use_amp and (device == 'cuda')
     if use_cuda_amp:
@@ -148,15 +180,13 @@ def train(args):
         scaler_ae = None
         scaler_d = None
         amp_ctx = nullcontext
-    for epoch in range(1, epochs+1):
+
+    for epoch in range(1, epochs + 1):
         ae.train()
         discriminator.train()
-        dis_loss_list = []
-        recon_loss_list = []
-        adv_loss_list = []
-        ae_loss_list = []
-        
-        for normal, anomaly in tqdm.tqdm(zip(train_dataloader, cycle(anomaly_dataloader))):
+        d_loss_list, recon_loss_list, adv_loss_list, ae_loss_list = [], [], [], []
+
+        for i, (normal, anomaly) in enumerate(tqdm.tqdm(zip(train_dataloader, cycle(anomaly_dataloader)))):
             normal_img = normal[0].to(device)
             if anomaly is not None:
                 anomaly_img = anomaly[0].to(device)
@@ -165,67 +195,89 @@ def train(args):
             else:
                 anomaly_img = normal_img[:0]
             anomaly_size = anomaly_img.size(0)
+
+            # --------------------- #
+            #  Train Discriminator  #
+            # --------------------- #
+            discriminator_optimizer.zero_grad()
+
             with amp_ctx():
                 normal_inputs = pfe(normal_img)
                 normal_outputs = ae(normal_inputs)
-            
-            if anomaly_size > 0: 
-                with amp_ctx():
+
+                # Detach to avoid training AE
+                normal_outputs_detach = [o.detach() for o in normal_outputs]
+
+                # Real loss
+                real_loss = -torch.mean(discriminator(normal_inputs))
+
+                # Fake loss from reconstructed normal images
+                fake_loss_recon = torch.mean(discriminator(normal_outputs_detach))
+
+                # Fake loss from anomaly images, if available
+                if anomaly_size > 0:
                     anomaly_inputs = pfe(anomaly_img)
-                    anomaly_outputs = ae(anomaly_inputs)
-                
-                outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
-            else:
-                outputs = normal_outputs
-                
-                
-            dis_loss = torch.tensor(0.0).to(device)
-            adv_loss = torch.tensor(0.0).to(device)
-            
-            normal_inputs_detach = [i.detach() for i in normal_inputs]
-            if anomaly_size > 0:
-                anomaly_inputs_detach = [i.detach() for i in anomaly_inputs]
-                
-            outputs_detach = [o.detach() for o in outputs]
-            if anomaly_size > 0:
-                with amp_ctx():
-                    dis_loss = discriminator.calculate_loss(normal_inputs_detach, true_label) + (1 - gamma) * discriminator.calculate_loss(anomaly_inputs_detach, fake_label) + gamma * discriminator.calculate_loss(outputs_detach, fake_label)
-                discriminator_optimizer.zero_grad()
-                if use_cuda_amp:
-                    scaler_d.scale(dis_loss).backward()
-                    # Unscale before clipping
-                    scaler_d.unscale_(discriminator_optimizer)
-                    torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
-                    scaler_d.step(discriminator_optimizer)
-                    scaler_d.update()
+                    fake_loss_anomaly = torch.mean(discriminator(anomaly_inputs))
+                    fake_samples_for_gp = [torch.cat([no, ai]) for no, ai in zip(normal_outputs_detach, anomaly_inputs)]
+                    real_samples_for_gp = [torch.cat([ni, ni]) for ni in normal_inputs] # Use normal inputs twice to match size
                 else:
-                    dis_loss.backward()
-                    torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
-                    discriminator_optimizer.step()
-                    
-                with amp_ctx():
-                    adv_loss = discriminator.calculate_loss(outputs, true_label)
-            
-            with amp_ctx():
-                recon_loss = loss_function(normal_inputs, normal_outputs)
-                ae_loss = recon_loss + args.adv_conf  * adv_loss
-            ae_optimizer.zero_grad()
+                    fake_loss_anomaly = torch.tensor(0.0).to(device)
+                    fake_samples_for_gp = normal_outputs_detach
+                    real_samples_for_gp = normal_inputs
+
+                # Gradient penalty
+                gradient_penalty = compute_gradient_penalty(discriminator, real_samples_for_gp, fake_samples_for_gp, device)
+
+                # Total discriminator loss
+                d_loss = fake_loss_recon + fake_loss_anomaly + real_loss + args.lambda_gp * gradient_penalty
+
             if use_cuda_amp:
-                scaler_ae.scale(ae_loss).backward()
-                scaler_ae.step(ae_optimizer)
-                scaler_ae.update()
+                scaler_d.scale(d_loss).backward()
+                scaler_d.step(discriminator_optimizer)
+                scaler_d.update()
             else:
-                ae_loss.backward()
-                ae_optimizer.step()
+                d_loss.backward()
+                discriminator_optimizer.step()
+            
+            d_loss_list.append(d_loss.item())
 
-            dis_loss_list.append(dis_loss.item())
-            ae_loss_list.append(ae_loss.item())
-            recon_loss_list.append(recon_loss.item())
-            adv_loss_list.append(adv_loss.item())
+            # ----------------- #
+            #  Train Generator  #
+            # ----------------- #
+            # Train the generator only once every n_critic iterations
+            if i % args.n_critic == 0:
+                ae_optimizer.zero_grad()
 
-        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, np.mean(dis_loss_list),
-                                                                                                                                 np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list),
-                                                                                                                                 ))
+                with amp_ctx():
+                    # We need to re-compute the outputs for the generator pass
+                    normal_outputs_gen = ae(normal_inputs)
+                    
+                    # Reconstruction loss
+                    recon_loss = loss_function(normal_inputs, normal_outputs_gen)
+                    
+                    # Adversarial loss
+                    adv_loss = -torch.mean(discriminator(normal_outputs_gen))
+                    
+                    # Total generator loss
+                    ae_loss = recon_loss + args.adv_conf * adv_loss
+
+                if use_cuda_amp:
+                    scaler_ae.scale(ae_loss).backward()
+                    scaler_ae.step(ae_optimizer)
+                    scaler_ae.update()
+                else:
+                    ae_loss.backward()
+                    ae_optimizer.step()
+
+                recon_loss_list.append(recon_loss.item())
+                adv_loss_list.append(adv_loss.item())
+                ae_loss_list.append(ae_loss.item())
+
+        logger.info(
+            "epoch [{}/{}], d_loss: {:.6f}, recon_loss: {:.6f}, adv_loss: {:.6f}, ae_loss: {:.6f}".format(
+                epoch, epochs, np.mean(d_loss_list), np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list)
+            )
+        )
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 with amp_ctx():

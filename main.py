@@ -58,6 +58,9 @@ def parse_args():
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
     
+    parser.add_argument('--use_attention', action='store_true', help='enable self-attention mechanism')
+    parser.add_argument('--use_rel_disc', action='store_true', help='use relativistic discriminator loss')
+    
     return parser.parse_args()
 
 
@@ -163,7 +166,7 @@ def train(args):
     for param in pfe.parameters():
         param.requires_grad_(False)
     pfe.eval()
-    ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
+    ae = ED(backbone=args.model, input_channels=pfe.output_channels, use_attention=args.use_attention).to(device)
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
@@ -208,28 +211,52 @@ def train(args):
                 # Detach to avoid training AE
                 normal_outputs_detach = [o.detach() for o in normal_outputs]
 
-                # Real loss
-                real_loss = -torch.mean(discriminator(normal_inputs))
-
-                # Fake loss from reconstructed normal images
-                fake_loss_recon = torch.mean(discriminator(normal_outputs_detach))
-
-                # Fake loss from anomaly images, if available
-                if anomaly_size > 0:
-                    anomaly_inputs = pfe(anomaly_img)
-                    fake_loss_anomaly = torch.mean(discriminator(anomaly_inputs))
-                    fake_samples_for_gp = [torch.cat([no, ai]) for no, ai in zip(normal_outputs_detach, anomaly_inputs)]
-                    real_samples_for_gp = [torch.cat([ni, ni]) for ni in normal_inputs] # Use normal inputs twice to match size
+                if args.use_rel_disc:
+                    # Relativistic discriminator loss
+                    real_logits = discriminator(normal_inputs)
+                    fake_logits_recon = discriminator(normal_outputs_detach)
+                    
+                    # Real loss (real samples should be rated higher than fake samples)
+                    real_loss = torch.mean((real_logits - torch.mean(fake_logits_recon) - 1) ** 2)
+                    
+                    # Fake loss from reconstructed normal images
+                    fake_loss_recon = torch.mean((fake_logits_recon - torch.mean(real_logits) + 1) ** 2)
+                    
+                    # Fake loss from anomaly images, if available
+                    if anomaly_size > 0:
+                        anomaly_inputs = pfe(anomaly_img)
+                        fake_logits_anomaly = discriminator(anomaly_inputs)
+                        fake_loss_anomaly = torch.mean((fake_logits_anomaly - torch.mean(real_logits) + 1) ** 2)
+                    else:
+                        fake_loss_anomaly = torch.tensor(0.0).to(device)
+                    
+                    # Total discriminator loss
+                    d_loss = (real_loss + fake_loss_recon + fake_loss_anomaly) / 3.0
+                    
                 else:
-                    fake_loss_anomaly = torch.tensor(0.0).to(device)
-                    fake_samples_for_gp = normal_outputs_detach
-                    real_samples_for_gp = normal_inputs
+                    # WGAN-GP loss
+                    # Real loss
+                    real_loss = -torch.mean(discriminator(normal_inputs))
 
-                # Gradient penalty
-                gradient_penalty = compute_gradient_penalty(discriminator, real_samples_for_gp, fake_samples_for_gp, device)
+                    # Fake loss from reconstructed normal images
+                    fake_loss_recon = torch.mean(discriminator(normal_outputs_detach))
 
-                # Total discriminator loss
-                d_loss = fake_loss_recon + fake_loss_anomaly + real_loss + args.lambda_gp * gradient_penalty
+                    # Fake loss from anomaly images, if available
+                    if anomaly_size > 0:
+                        anomaly_inputs = pfe(anomaly_img)
+                        fake_loss_anomaly = torch.mean(discriminator(anomaly_inputs))
+                        fake_samples_for_gp = [torch.cat([no, ai]) for no, ai in zip(normal_outputs_detach, anomaly_inputs)]
+                        real_samples_for_gp = [torch.cat([ni, ni]) for ni in normal_inputs] # Use normal inputs twice to match size
+                    else:
+                        fake_loss_anomaly = torch.tensor(0.0).to(device)
+                        fake_samples_for_gp = normal_outputs_detach
+                        real_samples_for_gp = normal_inputs
+
+                    # Gradient penalty
+                    gradient_penalty = compute_gradient_penalty(discriminator, real_samples_for_gp, fake_samples_for_gp, device)
+
+                    # Total discriminator loss
+                    d_loss = fake_loss_recon + fake_loss_anomaly + real_loss + args.lambda_gp * gradient_penalty
 
             if use_cuda_amp:
                 scaler_d.scale(d_loss).backward()
@@ -256,7 +283,14 @@ def train(args):
                     recon_loss = loss_function(normal_inputs, normal_outputs_gen)
                     
                     # Adversarial loss
-                    adv_loss = -torch.mean(discriminator(normal_outputs_gen))
+                    if args.use_rel_disc:
+                        # Relativistic adversarial loss for generator
+                        real_logits = discriminator(normal_inputs)
+                        fake_logits = discriminator(normal_outputs_gen)
+                        adv_loss = torch.mean((fake_logits - torch.mean(real_logits) - 1) ** 2)
+                    else:
+                        # WGAN adversarial loss
+                        adv_loss = -torch.mean(discriminator(normal_outputs_gen))
                     
                     # Total generator loss
                     ae_loss = recon_loss + args.adv_conf * adv_loss

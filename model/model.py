@@ -76,10 +76,10 @@ class PretrainedFeatureExtractor(nn.Module):
 
 
 class ED(nn.Module):
-    def __init__(self, backbone='resnet18', input_channels=[64, 128, 256]):
+    def __init__(self, backbone='resnet18', input_channels=[64, 128, 256], use_attention=True):
         super(ED, self).__init__()
-        self.encoder = Encoder(backbone=backbone, input_channels=input_channels)
-        self.decoder = Decoder(backbone=backbone, output_channels=input_channels)
+        self.encoder = Encoder(backbone=backbone, input_channels=input_channels, use_attention=use_attention)
+        self.decoder = Decoder(backbone=backbone, output_channels=input_channels, use_attention=use_attention)
     
     def forward(self, x):
         z = self.encoder(x)

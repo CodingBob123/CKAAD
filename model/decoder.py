@@ -1,5 +1,6 @@
 from torch import Tensor
 import torch.nn as nn
+import torch.nn.functional as F
 from typing import Type, Callable, Union, List, Optional
 import functools
 
@@ -18,6 +19,37 @@ def deconv2x2(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1,
     """1x1 convolution"""
     return nn.ConvTranspose2d(in_planes, out_planes, kernel_size=2, stride=stride,
                               groups=groups, bias=False, dilation=dilation)
+
+
+class SelfAttention(nn.Module):
+    """Self attention module for feature maps"""
+    def __init__(self, in_dim):
+        super(SelfAttention, self).__init__()
+        self.query_conv = nn.Conv2d(in_dim, in_dim // 8, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_dim, in_dim // 8, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_dim, in_dim, kernel_size=1)
+        self.gamma = nn.Parameter(torch.zeros(1))
+        
+    def forward(self, x):
+        batch_size, C, height, width = x.size()
+        
+        # Projections
+        proj_query = self.query_conv(x).view(batch_size, -1, width * height).permute(0, 2, 1)  # B x HW x C/8
+        proj_key = self.key_conv(x).view(batch_size, -1, width * height)  # B x C/8 x HW
+        
+        # Attention map
+        energy = torch.bmm(proj_query, proj_key)  # B x HW x HW
+        attention = F.softmax(energy, dim=-1)  # B x HW x HW
+        
+        # Output
+        proj_value = self.value_conv(x).view(batch_size, -1, width * height)  # B x C x HW
+        out = torch.bmm(proj_value, attention.permute(0, 2, 1))  # B x C x HW
+        out = out.view(batch_size, C, height, width)
+        
+        # Residual connection with learnable weight
+        out = self.gamma * out + x
+        
+        return out
 
 
 class DeBasicBlock(nn.Module):
@@ -129,12 +161,14 @@ class DeResNet(nn.Module):
         layers: List[int],
         output_channels: List[int],
         norm_layer: Optional[Callable[..., nn.Module]] = None,
-        width_per_group: int = 64
+        width_per_group: int = 64,
+        use_attention: bool = True
     ) -> None:
         super(DeResNet, self).__init__()
         if norm_layer is None:
             norm_layer = functools.partial(nn.InstanceNorm2d, affine=True)
         self._norm_layer = norm_layer
+        self.use_attention = use_attention
 
         self.dilation = 1
         self.base_width = width_per_group
@@ -143,6 +177,13 @@ class DeResNet(nn.Module):
         for o_channel, layer in zip(output_channels[::-1], layers):
             deconv_layers.append(self._make_layer(block, o_channel * 2 * block.expansion, o_channel, layer, 2))
         self.layers = nn.ModuleList(deconv_layers)
+        
+        # Add self-attention modules after each deconvolution layer
+        if self.use_attention:
+            self.attention_modules = nn.ModuleList([
+                SelfAttention(output_channels[i] * block.expansion) 
+                for i in range(len(output_channels))
+            ])
         
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -172,27 +213,30 @@ class DeResNet(nn.Module):
         outputs = []
         for i in range(len(self.layers)):
             x = self.layers[i](x)
+            # Apply self-attention if enabled
+            if self.use_attention and i < len(self.attention_modules):
+                x = self.attention_modules[i](x)
             outputs.append(x)
         return outputs[::-1]
 
 
 class Decoder(nn.Module):
-    def __init__(self, backbone='wide_resnet50_2', output_channels=[64, 128, 256]):
+    def __init__(self, backbone='wide_resnet50_2', output_channels=[64, 128, 256], use_attention=True):
         super(Decoder, self).__init__()
         if backbone == 'resnet18':
-            self.backbone = DeResNet(DeBasicBlock, [2, 2, 2, 2], output_channels)
+            self.backbone = DeResNet(DeBasicBlock, [2, 2, 2, 2], output_channels, use_attention=use_attention)
         elif backbone == 'resnet34':
-            self.backbone = DeResNet(DeBasicBlock, [3, 4, 6, 3], output_channels)
+            self.backbone = DeResNet(DeBasicBlock, [3, 4, 6, 3], output_channels, use_attention=use_attention)
         elif backbone == 'resnet50':
-            self.backbone = DeResNet(DeBottleneck, [3, 4, 6, 3], output_channels)
+            self.backbone = DeResNet(DeBottleneck, [3, 4, 6, 3], output_channels, use_attention=use_attention)
         elif backbone == 'resnet101':
-            self.backbone = DeResNet(DeBottleneck, [3, 4, 23, 3], output_channels)
+            self.backbone = DeResNet(DeBottleneck, [3, 4, 23, 3], output_channels, use_attention=use_attention)
         elif backbone == 'resnet152':
-            self.backbone = DeResNet(DeBottleneck, [3, 8, 36, 3], output_channels)
+            self.backbone = DeResNet(DeBottleneck, [3, 8, 36, 3], output_channels, use_attention=use_attention)
         elif backbone == 'wide_resnet50_2':
-            self.backbone = DeResNet(DeBottleneck, [3, 4, 6, 3], output_channels, width_per_group=64 * 2)
+            self.backbone = DeResNet(DeBottleneck, [3, 4, 6, 3], output_channels, width_per_group=64 * 2, use_attention=use_attention)
         elif backbone == 'wide_resnet101_2':
-            self.backbone = DeResNet(DeBottleneck, [3, 4, 23, 3], output_channels, width_per_group=64 * 2)
+            self.backbone = DeResNet(DeBottleneck, [3, 4, 23, 3], output_channels, width_per_group=64 * 2, use_attention=use_attention)
             
     def forward(self, x):
         return self.backbone(x)

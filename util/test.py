@@ -78,6 +78,9 @@ def cvt2heatmap(gray):
 
 
 def calculate_metrics(scores, labels, acc=True):
+    """
+    计算指标：AUROC、F1、ACC
+    """
     precision, recall, thresholds = precision_recall_curve(labels, scores)
     f1_scores = 2 * (precision * recall) / (precision + recall + 1e-16)
     best_threshold = thresholds[np.argmax(f1_scores)]

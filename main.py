@@ -11,6 +11,7 @@ from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
 import torch.autograd as autograd
+import torch.nn.functional as F
 
 
 def parse_args():
@@ -51,11 +52,16 @@ def parse_args():
     
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
     
-    parser.add_argument('--lambda_gp', type=float, default=10.0, help='gradient penalty coefficient')
+    parser.add_argument('--lambda_gp', type=float, default=1.0, help='gradient penalty coefficient')
     
-    parser.add_argument('--n_critic', type=int, default=5, help='number of critic iterations per generator iteration')
+    parser.add_argument('--n_critic', type=int, default=3, help='number of critic iterations per generator iteration')
+    
+    parser.add_argument('--feature_matching', action='store_true', help='use feature matching loss')
+    
+    parser.add_argument('--fm_weight', type=float, default=10.0, help='feature matching loss weight')
     
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
+    
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
     
     return parser.parse_args()
@@ -137,6 +143,17 @@ def compute_gradient_penalty(discriminator, real_samples, fake_samples, device):
     gradient_penalty = ((gradients_flat.norm(2, dim=1) - 1) ** 2).mean()
     return gradient_penalty
 
+def feature_matching_loss(discriminator, real_features, fake_features):
+    """计算特征匹配损失"""
+    real_features = discriminator.extract_features(real_features)
+    fake_features = discriminator.extract_features(fake_features)
+    
+    loss = 0
+    for real_feat, fake_feat in zip(real_features, fake_features):
+        loss += F.mse_loss(fake_feat.mean(0), real_feat.mean(0))
+    
+    return loss
+
 def train(args):
     log_dir = os.path.join(args.log_dir, "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num), args.dataset)
     if not os.path.exists(log_dir):
@@ -165,8 +182,14 @@ def train(args):
     pfe.eval()
     ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
-    ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
-    discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
+    
+    # 由于使用了谱归一化，我们可以使用更大的学习率
+    ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.0, 0.999))
+    discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr * 2, betas=(0.0, 0.999))
+    
+    # 学习率调度器
+    ae_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(ae_optimizer, T_max=epochs)
+    d_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(discriminator_optimizer, T_max=epochs)
     
     # AMP setup
     use_cuda_amp = args.use_amp and (device == 'cuda')
@@ -184,7 +207,7 @@ def train(args):
     for epoch in range(1, epochs + 1):
         ae.train()
         discriminator.train()
-        d_loss_list, recon_loss_list, adv_loss_list, ae_loss_list = [], [], [], []
+        d_loss_list, recon_loss_list, adv_loss_list, ae_loss_list, fm_loss_list = [], [], [], [], []
 
         for i, (normal, anomaly) in enumerate(tqdm.tqdm(zip(train_dataloader, cycle(anomaly_dataloader)))):
             normal_img = normal[0].to(device)
@@ -225,7 +248,7 @@ def train(args):
                     fake_samples_for_gp = normal_outputs_detach
                     real_samples_for_gp = normal_inputs
 
-                # Gradient penalty
+                # 由于添加了谱归一化，可以减少梯度惩罚的权重
                 gradient_penalty = compute_gradient_penalty(discriminator, real_samples_for_gp, fake_samples_for_gp, device)
 
                 # Total discriminator loss
@@ -258,8 +281,16 @@ def train(args):
                     # Adversarial loss
                     adv_loss = -torch.mean(discriminator(normal_outputs_gen))
                     
+                    # Feature matching loss (if enabled)
+                    fm_loss = torch.tensor(0.0).to(device)
+                    if args.feature_matching:
+                        fm_loss = feature_matching_loss(discriminator, normal_inputs, normal_outputs_gen)
+                        fm_loss_list.append(fm_loss.item())
+                    
                     # Total generator loss
                     ae_loss = recon_loss + args.adv_conf * adv_loss
+                    if args.feature_matching:
+                        ae_loss += args.fm_weight * fm_loss
 
                 if use_cuda_amp:
                     scaler_ae.scale(ae_loss).backward()
@@ -273,11 +304,20 @@ def train(args):
                 adv_loss_list.append(adv_loss.item())
                 ae_loss_list.append(ae_loss.item())
 
-        logger.info(
-            "epoch [{}/{}], d_loss: {:.6f}, recon_loss: {:.6f}, adv_loss: {:.6f}, ae_loss: {:.6f}".format(
-                epoch, epochs, np.mean(d_loss_list), np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list)
-            )
+        # 更新学习率
+        ae_scheduler.step()
+        d_scheduler.step()
+
+        # 记录训练信息
+        log_info = "epoch [{}/{}], d_loss: {:.6f}, recon_loss: {:.6f}, adv_loss: {:.6f}, ae_loss: {:.6f}".format(
+            epoch, epochs, np.mean(d_loss_list), np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list)
         )
+        
+        if args.feature_matching and fm_loss_list:
+            log_info += ", fm_loss: {:.6f}".format(np.mean(fm_loss_list))
+            
+        logger.info(log_info)
+        
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 with amp_ctx():

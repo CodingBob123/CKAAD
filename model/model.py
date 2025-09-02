@@ -5,6 +5,7 @@ from model.encoder import Encoder
 from model.decoder import Decoder
 import numpy as np
 import math
+from torch.nn.utils import spectral_norm
 
 
 class PretrainedFeatureExtractor(nn.Module):
@@ -95,9 +96,11 @@ class Discriminator(nn.Module):
         for s, c in zip(input_sizes, input_channels):
             layer = []
             while s > input_sizes[-1]:
-                layer.append(nn.Sequential(nn.Conv2d(in_channels=c, out_channels=c * 2, kernel_size=3, padding=1, stride=2, bias=False),
-                                           nn.InstanceNorm2d(c * 2),
-                                           nn.LeakyReLU(0.1, inplace=True),))
+                layer.append(nn.Sequential(
+                    spectral_norm(nn.Conv2d(in_channels=c, out_channels=c * 2, kernel_size=3, padding=1, stride=2, bias=False)),
+                    nn.InstanceNorm2d(c * 2),
+                    nn.LeakyReLU(0.1, inplace=True),
+                ))
                 s = s // 2
                 c = c * 2
             layers.append(nn.Sequential(*layer))
@@ -108,20 +111,34 @@ class Discriminator(nn.Module):
         out_channels = input_channels[-1]
         size = input_sizes[-1]
         while size > 2:
-            layers.append(nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, stride=2, bias=False),
-                                    nn.InstanceNorm2d(input_channels[-1]),
-                                    nn.LeakyReLU(0.1, inplace=True)))
+            layers.append(nn.Sequential(
+                spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, stride=2, bias=False)),
+                nn.InstanceNorm2d(input_channels[-1]),
+                nn.LeakyReLU(0.1, inplace=True)
+            ))
             in_channels = out_channels
             size = size // 2
         
-        layers.append(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, padding=0, stride=2, bias=False))
+        layers.append(spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, padding=0, stride=2, bias=False)))
         self.layer1 = nn.Sequential(*layers)
         
-        self.cls_layer = nn.Sequential(nn.Linear(input_channels[-1], input_channels[-1] // 4, bias=False),
-                                       nn.InstanceNorm1d(input_channels[-1] // 4),
-                                       nn.LeakyReLU(0.1, inplace=True),
-                                       nn.Linear(input_channels[-1] // 4, 1, bias=False))
+        self.cls_layer = nn.Sequential(
+            spectral_norm(nn.Linear(input_channels[-1], input_channels[-1] // 4, bias=False)),
+            nn.InstanceNorm1d(input_channels[-1] // 4),
+            nn.LeakyReLU(0.1, inplace=True),
+            spectral_norm(nn.Linear(input_channels[-1] // 4, 1, bias=False))
+        )
 
+        # 初始化权重
+        self._init_weights()
+
+    def _init_weights(self):
+        """使用正交初始化来改善谱归一化的效果"""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.orthogonal_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         x = [self.layers[i](xi) for i, xi in enumerate(x)]
@@ -130,4 +147,17 @@ class Discriminator(nn.Module):
         z = z.view(z.size(0), -1)
         score = self.cls_layer(z)
         return score
+            
+    def extract_features(self, x):
+        """提取中间层特征用于特征匹配损失"""
+        features = []
+        x_processed = [self.layers[i](xi) for i, xi in enumerate(x)]
+        features.extend(x_processed)
+        
+        x_cat = torch.cat(x_processed, dim=1)
+        for i, layer in enumerate(self.layer1[:-1]):  # 除了最后一层
+            x_cat = layer(x_cat)
+            features.append(x_cat)
+            
+        return features
             

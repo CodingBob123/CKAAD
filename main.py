@@ -46,23 +46,25 @@ def parse_args():
     
     parser.add_argument('--layer', nargs='+', type=int, default=[2], help='choose pretrain resnet layer to reconstruct')
     
-    parser.add_argument('--d_lr', type=float, default=1e-05, help='discriminator learning rate')
+    parser.add_argument('--d_lr', type=float, default=2e-05, help='discriminator learning rate')
     
-    parser.add_argument('--adv_conf', type=float, default=0.02, help='adversial loss conf')
+    parser.add_argument('--adv_conf', type=float, default=0.05, help='adversial loss conf')
     
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
     
     # 已移除梯度惩罚参数
     
-    parser.add_argument('--n_critic', type=int, default=3, help='number of critic iterations per generator iteration')
+    parser.add_argument('--n_critic', type=int, default=2, help='number of critic iterations per generator iteration')
     
     parser.add_argument('--feature_matching', action='store_true', help='use feature matching loss')
     
-    parser.add_argument('--fm_weight', type=float, default=10.0, help='feature matching loss weight')
+    parser.add_argument('--fm_weight', type=float, default=8.0, help='feature matching loss weight')
     
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
+    
+    parser.add_argument('--sn_scale', type=float, default=1.2, help='spectral normalization scaling factor (>1: weaker, <1: stronger)')
     
     return parser.parse_args()
 
@@ -152,11 +154,11 @@ def train(args):
         param.requires_grad_(False)
     pfe.eval()
     ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
-    discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
+    discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion, sn_scale=args.sn_scale).to(device)
     
-    # 由于使用了谱归一化，我们可以使用更大的学习率
-    ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.0, 0.999))
-    discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr * 2, betas=(0.0, 0.999))
+    # 优化学习率和优化器参数
+    ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
+    discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr * 3, betas=(0.5, 0.999))
     
     # 学习率调度器
     ae_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(ae_optimizer, T_max=epochs)

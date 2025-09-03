@@ -7,6 +7,43 @@ import numpy as np
 import math
 from torch.nn.utils import spectral_norm
 
+# 添加自定义谱归一化函数，可以控制谱归一化的强度
+def custom_spectral_norm(module, name='weight', n_power_iterations=1, eps=1e-12, dim=None, scale=1.0):
+    """
+    自定义谱归一化函数，增加了scale参数来调整归一化强度
+    scale > 1.0: 减弱谱归一化效果
+    scale = 1.0: 标准谱归一化
+    scale < 1.0: 增强谱归一化效果
+    """
+    spectral_normed_module = torch.nn.utils.spectral_norm(
+        module, name, n_power_iterations, eps, dim
+    )
+    
+    # 获取原始forward方法
+    original_forward = spectral_normed_module.forward
+    
+    # 重定义forward方法，加入scale
+    def forward_with_scale(*args, **kwargs):
+        # 保存原始权重
+        original_weight = getattr(spectral_normed_module, name + '_orig').data.clone()
+        
+        # 调用原始forward方法进行谱归一化
+        result = original_forward(*args, **kwargs)
+        
+        # 如果scale不是1.0，调整权重
+        if scale != 1.0:
+            current_weight = getattr(spectral_normed_module, name)
+            # 计算调整后的权重: w_adjusted = w_orig - scale * (w_orig - w_sn)
+            adjusted_weight = original_weight - scale * (original_weight - current_weight)
+            # 更新权重
+            setattr(spectral_normed_module, name, adjusted_weight)
+        
+        return result
+    
+    # 替换forward方法
+    spectral_normed_module.forward = forward_with_scale
+    return spectral_normed_module
+
 
 class PretrainedFeatureExtractor(nn.Module):
     def __init__(self, backbone='resnet18', pretrained=True, layers=[2], image_size=256):
@@ -88,18 +125,20 @@ class ED(nn.Module):
         return o
     
 class Discriminator(nn.Module):
-    def __init__(self, input_sizes=[64, 32, 16], input_channels=[64, 128, 256], expansion=4):
+    def __init__(self, input_sizes=[64, 32, 16], input_channels=[64, 128, 256], expansion=4, sn_scale=1.2):
         super(Discriminator, self).__init__()
         self.expansion = expansion
+        self.sn_scale = sn_scale  # 谱归一化的缩放因子
         input_channels = [c * self.expansion for c in input_channels]
         layers = []
         for s, c in zip(input_sizes, input_channels):
             layer = []
             while s > input_sizes[-1]:
                 layer.append(nn.Sequential(
-                    spectral_norm(nn.Conv2d(in_channels=c, out_channels=c * 2, kernel_size=3, padding=1, stride=2, bias=False)),
+                    custom_spectral_norm(nn.Conv2d(in_channels=c, out_channels=c * 2, kernel_size=3, padding=1, stride=2, bias=False), 
+                                        n_power_iterations=2, scale=self.sn_scale),
                     nn.InstanceNorm2d(c * 2),
-                    nn.LeakyReLU(0.1, inplace=True),
+                    nn.LeakyReLU(0.2, inplace=True),
                 ))
                 s = s // 2
                 c = c * 2
@@ -112,21 +151,25 @@ class Discriminator(nn.Module):
         size = input_sizes[-1]
         while size > 2:
             layers.append(nn.Sequential(
-                spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, stride=2, bias=False)),
+                custom_spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, stride=2, bias=False),
+                                    n_power_iterations=2, scale=self.sn_scale),
                 nn.InstanceNorm2d(input_channels[-1]),
-                nn.LeakyReLU(0.1, inplace=True)
+                nn.LeakyReLU(0.2, inplace=True)
             ))
             in_channels = out_channels
             size = size // 2
         
-        layers.append(spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, padding=0, stride=2, bias=False)))
+        layers.append(custom_spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, padding=0, stride=2, bias=False),
+                                          n_power_iterations=2, scale=self.sn_scale))
         self.layer1 = nn.Sequential(*layers)
         
         self.cls_layer = nn.Sequential(
-            spectral_norm(nn.Linear(input_channels[-1], input_channels[-1] // 4, bias=False)),
+            custom_spectral_norm(nn.Linear(input_channels[-1], input_channels[-1] // 4, bias=False), 
+                                n_power_iterations=2, scale=self.sn_scale),
             nn.InstanceNorm1d(input_channels[-1] // 4),
-            nn.LeakyReLU(0.1, inplace=True),
-            spectral_norm(nn.Linear(input_channels[-1] // 4, 1, bias=False))
+            nn.LeakyReLU(0.2, inplace=True),
+            custom_spectral_norm(nn.Linear(input_channels[-1] // 4, 1, bias=False), 
+                                n_power_iterations=2, scale=self.sn_scale)
         )
 
         # 初始化权重

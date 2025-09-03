@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
-import torch.autograd as autograd
+# 已移除 autograd 导入，因为不再需要梯度惩罚
 import torch.nn.functional as F
 
 
@@ -52,7 +52,7 @@ def parse_args():
     
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
     
-    parser.add_argument('--lambda_gp', type=float, default=1.0, help='gradient penalty coefficient')
+    # 已移除梯度惩罚参数
     
     parser.add_argument('--n_critic', type=int, default=3, help='number of critic iterations per generator iteration')
     
@@ -112,36 +112,7 @@ def loss_function(a, b):
                                       b[item].view(b[item].shape[0], -1)))
     return loss
 
-def compute_gradient_penalty(discriminator, real_samples, fake_samples, device):
-    """Calculates the gradient penalty loss for WGAN GP"""
-    # Random weight term for interpolation between real and fake samples
-    batch_size = real_samples[0].size(0)
-    alphas = torch.rand(batch_size, 1, 1, 1, device=device)
-
-    # Get random interpolation between real and fake samples
-    interpolates = []
-    for real, fake in zip(real_samples, fake_samples):
-        alpha = alphas.expand_as(real)
-        interpolated_sample = (alpha * real + (1 - alpha) * fake).requires_grad_(True)
-        interpolates.append(interpolated_sample)
-
-    d_interpolates = discriminator(interpolates)
-    grad_outputs = torch.ones_like(d_interpolates, requires_grad=False).to(device)
-
-    # Get gradient w.r.t. interpolates
-    gradients = autograd.grad(
-        outputs=d_interpolates,
-        inputs=interpolates,
-        grad_outputs=grad_outputs,
-        create_graph=True,
-        retain_graph=True,
-        only_inputs=True,
-    )
-
-    # Concatenate gradients from all interpolated tensors and calculate the norm
-    gradients_flat = torch.cat([grad.view(batch_size, -1) for grad in gradients], dim=1)
-    gradient_penalty = ((gradients_flat.norm(2, dim=1) - 1) ** 2).mean()
-    return gradient_penalty
+# 已移除梯度惩罚函数
 
 def feature_matching_loss(discriminator, real_features, fake_features):
     """计算特征匹配损失"""
@@ -241,18 +212,12 @@ def train(args):
                 if anomaly_size > 0:
                     anomaly_inputs = pfe(anomaly_img)
                     fake_loss_anomaly = torch.mean(discriminator(anomaly_inputs))
-                    fake_samples_for_gp = [torch.cat([no, ai]) for no, ai in zip(normal_outputs_detach, anomaly_inputs)]
-                    real_samples_for_gp = [torch.cat([ni, ni]) for ni in normal_inputs] # Use normal inputs twice to match size
                 else:
                     fake_loss_anomaly = torch.tensor(0.0).to(device)
-                    fake_samples_for_gp = normal_outputs_detach
-                    real_samples_for_gp = normal_inputs
 
-                # 由于添加了谱归一化，可以减少梯度惩罚的权重
-                gradient_penalty = compute_gradient_penalty(discriminator, real_samples_for_gp, fake_samples_for_gp, device)
-
+                # 已移除梯度惩罚，仅保留WGAN损失
                 # Total discriminator loss
-                d_loss = fake_loss_recon + fake_loss_anomaly + real_loss + args.lambda_gp * gradient_penalty
+                d_loss = fake_loss_recon + fake_loss_anomaly + real_loss
 
             if use_cuda_amp:
                 scaler_d.scale(d_loss).backward()

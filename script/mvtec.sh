@@ -11,7 +11,7 @@ do
             ;;
         *)  
             epochs=200
-            eval_epoch=1
+            eval_epoch=10
             ;;
     esac
 

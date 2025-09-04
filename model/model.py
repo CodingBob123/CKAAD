@@ -5,6 +5,8 @@ from model.encoder import Encoder
 from model.decoder import Decoder
 import numpy as np
 import math
+from model.image_level_discriminator import ImageLevelDiscriminator
+from model.patch_level_discriminator import PatchLevelDiscriminator
 
 
 class PretrainedFeatureExtractor(nn.Module):
@@ -130,4 +132,63 @@ class Discriminator(nn.Module):
         z = z.view(z.size(0), -1)
         score = self.cls_layer(z)
         return score
+
+
+class EnhancedDiscriminator(nn.Module):
+    """
+    Enhanced discriminator that can use either image-level or patch-level discriminator
+    with multi-head attention and spectral normalization
+    """
+    def __init__(self, input_sizes=[64, 32, 16], input_channels=[64, 128, 256], expansion=4, 
+                 mode='image', use_spectral_norm=True, use_attention=True, use_position_encoding=True,
+                 margin=5.0):
+        """
+        Args:
+            input_sizes: List of spatial sizes for each scale
+            input_channels: List of channel counts for each scale
+            expansion: Channel expansion factor
+            mode: 'image' for image-level discriminator, 'patch' for patch-level discriminator
+            use_spectral_norm: Whether to use spectral normalization
+            use_attention: Whether to use multi-head attention
+            use_position_encoding: Whether to use position encoding
+            margin: Margin for hinge loss (only used for patch-level discriminator)
+        """
+        super(EnhancedDiscriminator, self).__init__()
+        
+        self.mode = mode
+        
+        if mode == 'image':
+            self.discriminator = ImageLevelDiscriminator(
+                input_sizes=input_sizes,
+                input_channels=input_channels,
+                expansion=expansion,
+                use_spectral_norm=use_spectral_norm,
+                use_attention=use_attention,
+                use_position_encoding=use_position_encoding
+            )
+        elif mode == 'patch':
+            self.discriminator = PatchLevelDiscriminator(
+                input_sizes=input_sizes,
+                input_channels=input_channels,
+                expansion=expansion,
+                use_spectral_norm=use_spectral_norm,
+                use_attention=use_attention,
+                use_position_encoding=use_position_encoding,
+                margin=margin
+            )
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'image' or 'patch'")
+    
+    def forward(self, x):
+        return self.discriminator(x)
+    
+    def calculate_loss(self, x, label_value, margin=None):
+        """
+        Calculate loss for patch-level discriminator
+        Only applicable for patch-level discriminator
+        """
+        if self.mode == 'patch':
+            return self.discriminator.calculate_loss(x, label_value, margin)
+        else:
+            raise NotImplementedError("calculate_loss is only implemented for patch-level discriminator")
             

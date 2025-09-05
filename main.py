@@ -99,6 +99,9 @@ def get_res_str(metrics):
     return score_res_str
 
 def loss_function(a, b):
+    """
+        这个是生成器的重建损失函数
+    """
     cos_loss = torch.nn.CosineSimilarity()
     loss = 0
     for item in range(len(a)):
@@ -107,6 +110,9 @@ def loss_function(a, b):
     return loss
 
 def compute_gradient_penalty(discriminator, real_samples, fake_samples, device):
+    """
+        计算梯度惩罚的函数
+    """
     """Calculates the gradient penalty loss for WGAN GP"""
     # Random weight term for interpolation between real and fake samples
     batch_size = real_samples[0].size(0)

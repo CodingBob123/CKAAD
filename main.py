@@ -10,6 +10,14 @@ from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
 
+# AFS integration imports
+from afs.afs import AFS
+from model.afs_adapter import AFSBackboneAdapter
+from dataset.afs_init_dataset import AFSInitDataset
+from torch.utils.data import DataLoader
+from utils.afs_synth import AFSSynthesizer
+from model.afs_gate import AFSGate
+
 
 def parse_args():
     
@@ -48,6 +56,23 @@ def parse_args():
     parser.add_argument('--adv_conf', type=float, default=0.02, help='adversial loss conf')
     
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
+
+    # AFS integration args
+    parser.add_argument('--use_afs', action='store_true', help='enable AFS channel selection initialization')
+    parser.add_argument('--afs_init_bsn', type=int, default=200, help='AFS init batch steps')
+    parser.add_argument('--afs_planes', type=int, default=64, help='AFS per-layer selected channels (planes)')
+
+    # AFS training-time triplet synthesis
+    parser.add_argument('--afs_use_triplet', action='store_true', help='generate (image, gt_image, mask) triplets at training time for AFS downstream usage')
+    parser.add_argument('--afs_sdas_dir', type=str, default=None, help='directory of SDAS images')
+    parser.add_argument('--afs_dtd_dir', type=str, default=None, help='directory of DTD images')
+    parser.add_argument('--afs_sdas_alpha_min', type=float, default=0.4, help='min alpha for SDAS blending')
+    parser.add_argument('--afs_sdas_alpha_max', type=float, default=0.8, help='max alpha for SDAS blending')
+    parser.add_argument('--afs_dtd_alpha_min', type=float, default=0.6, help='min alpha for DTD blending')
+    parser.add_argument('--afs_dtd_alpha_max', type=float, default=0.9, help='max alpha for DTD blending')
+    parser.add_argument('--afs_perlin_scale', type=int, default=6, help='Perlin noise max scale exponent')
+    parser.add_argument('--afs_min_perlin_scale', type=int, default=0, help='Perlin noise min scale exponent')
+    parser.add_argument('--afs_perlin_th', type=float, default=0.5, help='Perlin noise threshold')
     
     return parser.parse_args()
 
@@ -97,6 +122,47 @@ def loss_function(a, b):
                                       b[item].view(b[item].shape[0], -1)))
     return loss
 
+def _build_afs(pfe, args, device, logger, train_base_dataset):
+    # Compute inplanes/instrides from selected layers
+    default_channels = {1:64, 2:128, 3:256, 4:512}
+    expansion = pfe.expansion
+    inplanes = {ln: default_channels[ln] * expansion for ln in args.layer}
+    instrides = {1:4, 2:8, 3:16, 4:32}
+    instrides = {ln: instrides[ln] for ln in args.layer}
+
+    # Build one block that aligns all selected layers to the finest stride
+    target_stride = min(instrides.values())
+    structure = [{
+        'name': 'block1',
+        'stride': target_stride,
+        'layers': [{'idx': ln, 'planes': min(args.afs_planes, inplanes[ln])} for ln in args.layer]
+    }]
+
+    afs = AFS(inplanes=inplanes, instrides=instrides, structure=structure, init_bsn=args.afs_init_bsn)
+    afs.to(device)
+
+    # Create adapter model with .backbone API
+    adapter = AFSBackboneAdapter(pfe, layer_numbers=args.layer, device=device).to(device)
+
+    # Build init dataset/loader (wrap training dataset to synthesize anomaly + mask)
+    init_ds = AFSInitDataset(train_base_dataset)
+    init_loader = DataLoader(init_ds, batch_size=8, shuffle=True, drop_last=True)
+
+    logger.info("Initializing AFS indexes with {} steps...".format(args.afs_init_bsn))
+    afs.init_idxs(adapter, init_loader, distributed=False)
+    logger.info("AFS initialization done. Structure: {}".format(structure))
+
+    # Build gating
+    # collect selected indices for each chosen layer (from single block)
+    selected = {}
+    for ln in args.layer:
+        tensor_idx = afs.indexes[f"block1_{ln}"].data.clone().detach()
+        selected[ln] = tensor_idx
+    gate = AFSGate(layer_numbers=args.layer, inplanes=inplanes, selected_indices=selected).to(device)
+
+    return afs, adapter, gate
+
+
 def train(args):
     log_dir = os.path.join(args.log_dir, "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num), args.dataset)
     if not os.path.exists(log_dir):
@@ -127,6 +193,32 @@ def train(args):
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
+
+    # Optional: AFS initialization (one-shot, fixed indexes)
+    afs = None
+    afs_adapter = None
+    afs_gate = None
+    if args.use_afs:
+        # use the underlying training dataset object as base for AFS synth wrapper
+        train_base_dataset = train_dataloader.dataset
+        afs, afs_adapter, afs_gate = _build_afs(pfe, args, device, logger, train_base_dataset)
+
+    # Optional: training-time triplet synthesizer (SDAS/DTD sources)
+    afs_synth = None
+    if args.use_afs and args.afs_use_triplet:
+        afs_synth = AFSSynthesizer(
+            resize_hw=(args.img_size, args.img_size),
+            dataset_name=args.dataset,
+            subclass=args.normal,
+            sdas_dir=args.afs_sdas_dir,
+            dtd_dir=args.afs_dtd_dir,
+            sdas_transparency_range=(args.afs_sdas_alpha_min, args.afs_sdas_alpha_max),
+            dtd_transparency_range=(args.afs_dtd_alpha_min, args.afs_dtd_alpha_max),
+            perlin_scale=args.afs_perlin_scale,
+            min_perlin_scale=args.afs_min_perlin_scale,
+            perlin_noise_threshold=args.afs_perlin_th,
+        )
+        logger.info("AFS training-time triplet synthesis enabled. SDAS: {} | DTD: {}".format(args.afs_sdas_dir, args.afs_dtd_dir))
     
     gamma = 0.5
     true_label = 0
@@ -141,6 +233,15 @@ def train(args):
         
         for normal, anomaly in tqdm.tqdm(zip(train_dataloader, cycle(anomaly_dataloader))):
             normal_img = normal[0].to(device)
+
+            # Optionally run triplet synthesis and AFS forward (not needed after gating, but kept if user enabled)
+            if afs is not None and afs_adapter is not None and afs_synth is not None:
+                with torch.no_grad():
+                    syn_image, syn_gt, syn_mask = afs_synth.batch_synthesize(normal_img)
+                    inputs = {"image": syn_image, "gt_image": syn_gt, "mask": syn_mask}
+                    feats_dict = afs_adapter.backbone(inputs, train=True)
+                    _ = afs(feats_dict, train=True)
+
             if anomaly is not None:
                 anomaly_img = anomaly[0].to(device)
             elif args.dataset in ['mvtec', 'visa', 'btad'] and len(normal) == 4:
@@ -148,11 +249,17 @@ def train(args):
             else:
                 anomaly_img = normal_img[:0]
             anomaly_size = anomaly_img.size(0)
+
+            # Extract PFE features and apply gate if available
             normal_inputs = pfe(normal_img)
+            if afs_gate is not None:
+                normal_inputs = afs_gate.apply_list(normal_inputs)
             normal_outputs = ae(normal_inputs)
             
             if anomaly_size > 0: 
                 anomaly_inputs = pfe(anomaly_img)
+                if afs_gate is not None:
+                    anomaly_inputs = afs_gate.apply_list(anomaly_inputs)
                 anomaly_outputs = ae(anomaly_inputs)
                 
                 outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]

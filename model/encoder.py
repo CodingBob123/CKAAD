@@ -17,6 +17,13 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
 
 
 class AttnBasicBlock(nn.Module):
+    """
+    结构：3×3 → 3×3
+    通道数：保持 planes
+    用于浅层网络（ResNet-18/34）
+
+
+    """
     expansion: int = 1
 
     def __init__(
@@ -42,26 +49,33 @@ class AttnBasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
-        identity = x
+        identity = x  # x:[N,C,H,W]
+        # 默认 stride 为1，通过卷积核在局部区域滑动，提取纹理、边缘、模式等局部特征；
+        out = self.conv1(x)  # 卷积 out:[N,C,H,W]
+        out = self.ln1(out)  #  BN: [N,C,H,W]
+        out = self.relu(out) #  [N,C,H,W]
 
-        out = self.conv1(x)
-        out = self.ln1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.ln2(out)
+        out = self.conv2(out)  # 卷积 out:[N,C,H,W]
+        out = self.ln2(out)    # [N,C,H,W]
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            identity = self.downsample(x)  # [N, planes, H/stride, W/stride] 步长不确定，为1时与原shape一致
 
-        out += identity
-        out = self.relu(out)
+        out += identity   # 残差相加: [N, planes, H/stride, W/stride]
+        out = self.relu(out)   # ReLU: [N, planes, H/stride, W/stride]
 
-        return out
+        return out   # 输出: [N, planes, H/stride, W/stride]
 
 
 class AttnBottleneck(nn.Module):
-    
+    """
+    结构：1×1 → 3×3 → 1×1
+    通道数：扩展为 planes * 4
+    用于深层网络（ResNet-50/101/152）
+
+    这种设计大幅度降低了参数量和计算量，同时保持了模型表达能力。
+    适合构建 更深层的 Encoder，捕获更抽象、更高级的特征。
+    """
     expansion: int = 4
 
     def __init__(
@@ -89,26 +103,26 @@ class AttnBottleneck(nn.Module):
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
-        identity = x
+        identity = x          # [N, inplanes, H, W]    inplanes=C
 
-        out = self.conv1(x)
-        out = self.ln1(out)
-        out = self.relu(out)
+        out = self.conv1(x)   # 1x1 卷积降维 → [N, width, H, W]
+        out = self.ln1(out)   # BN → [N, width, H, W]
+        out = self.relu(out)  # ReLU → [N, width, H, W]
 
-        out = self.conv2(out)
-        out = self.ln2(out)
-        out = self.relu(out)
+        out = self.conv2(out) # 3x3 卷积提取特征 → [N, width, H/stride, W/stride]
+        out = self.ln2(out)   # BN → [N, width, H/stride, W/stride]
+        out = self.relu(out)  # ReLU → [N, width, H/stride, W/stride]
 
-        out = self.conv3(out)
-        out = self.ln3(out)
+        out = self.conv3(out) # 1x1 卷积升维 → [N, planes*4, H/stride, W/stride]
+        out = self.ln3(out)   # BN → [N, planes*4, H/stride, W/stride]
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            identity = self.downsample(x)   # [N, planes*4, H/stride, W/stride]
 
-        out += identity
-        out = self.relu(out)
+        out += identity       # 残差连接 → [N, planes*4, H/stride, W/stride]
+        out = self.relu(out)  # ReLU → [N, planes*4, H/stride, W/stride]
 
-        return out
+        return out   # 输出: [N, planes*4, H/stride, W/stride]
 
 
 class FusionLayer(nn.Module):
@@ -127,8 +141,9 @@ class FusionLayer(nn.Module):
         self.dilation = 1
         self.base_width = width_per_group
         
-        conv_layers = []
+        conv_layers = []   #  原文一开始使用的是三层预训练特征块，每一块转换通道用的卷积层列表（共三个列表）
         for input_channel in input_channels:
+            # 函数会返回卷积层列表，不同层级的输入被映射到统一通道数 input_channels[-1] * block.expansion（ 256×4=1024）。
             conv_layers.append(self._make_conv_layer(block, input_channel * block.expansion, input_channels[-1]))
         self.conv_layers = nn.ModuleList(conv_layers)
         
@@ -143,6 +158,7 @@ class FusionLayer(nn.Module):
                 nn.init.constant_(m.bias, 0)
     
     def _make_conv_layer(self, block, inplanes: int, out_planes: int) -> nn.Sequential:
+        """ _make_conv_layer 会不断用 3×3 stride=2 的卷积调整，直到输入通道和目标通道对齐。"""
         layers = []
         norm_layer = self._norm_layer
         while out_planes * block.expansion != inplanes:
@@ -174,10 +190,20 @@ class FusionLayer(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x: Tensor) -> Tensor:
-       
-        feature = [self.conv_layers[i](xi) for i, xi in enumerate(x)]
-        feature = torch.cat(feature, dim=1)
-        output = self.encode_layer1(feature)
+        """
+        输入是 [x1, x2, x3]，
+        x1: [B, 64*exp, H1, W1]
+        x2: [B,128*exp, H2, W2]
+        x3: [B,256*exp, H3, W3]
+        （exp = 1 for BasicBlock, 4 for Bottleneck）
+
+        """
+        # 利用卷积层列表，对每一个预训练特征块进行多尺度特征对齐  _make_conv_layer
+        feature = [self.conv_layers[i](xi) for i, xi in enumerate(x)]  # → 每个 feature[i] : [B, 256*exp, H3, W3] （对齐到最后一个尺度）
+        # 将对齐好的特征块进行拼接
+        feature = torch.cat(feature, dim=1)   # → [B, 3*256*exp, H3, W3]
+        # 拼接后，对整个融合特征 做进一步编码 包括下采样（减小空间分辨率，扩大感受野），残差block堆叠，增强特征表达
+        output = self.encode_layer1(feature)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()
 

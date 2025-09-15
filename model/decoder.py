@@ -50,9 +50,9 @@ class DeBasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
-        identity = x
+        identity = x  # [N, inplanes, H,   W]
 
-        out = self.conv1(x)
+        out = self.conv1(x)  # deconv2x2, s=2 →   [N, planes,   2H,  2W]    conv3x3, stride=1 → [N, planes,   H,   W] 下面保持不变
         out = self.bn1(out)
         out = self.relu(out)
 
@@ -65,10 +65,17 @@ class DeBasicBlock(nn.Module):
         out += identity
         out = self.relu(out)
 
-        return out
+        return out  #                      [N, planes,   2H,  2W]  /  [N, planes,   H,   W]
 
 
 class DeBottleneck(nn.Module):
+    """
+    DeBottleneck = “瓶颈式残差上采样块”：
+    1×1（降维到 width）→ 3×3 或 2×2 deconv（保持/放大空间）→ 1×1（升维到 planes*4）+ 残差相加；
+
+    与论文思路完全一致：用残差转置卷积逐级上采样，重建多尺度特征。
+
+    """
     expansion: int = 4
 
     def __init__(
@@ -99,30 +106,137 @@ class DeBottleneck(nn.Module):
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
-        identity = x
-        out = self.conv1(x)
+        # 输入张量：x 的形状为 [N, inplanes, H, W]
+        # 其中 N 是批次大小，inplanes 是输入通道数，H 和 W 是空间维度
         
-        out = self.bn1(out)
-        out = self.relu(out)
+        identity = x        # 保存原始输入作为残差连接
+                      # 形状：[N, inplanes, H, W]
+        
+        # 第一个卷积层：1x1 卷积，用于降维
+        out = self.conv1(x) # 1x1卷积：inplanes → width
+                       # 形状：[N, width, H, W]
+        
+        # 第一个批归一化和激活
+        out = self.bn1(out) # 批归一化，形状不变
+                       # 形状：[N, width, H, W]
+        out = self.relu(out) # ReLU激活，形状不变
+                        # 形状：[N, width, H, W]
 
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
+        # 第二个卷积层：根据stride决定是3x3卷积还是2x2转置卷积
+        out = self.conv2(out)  # 如果stride=1：3x3卷积，空间不变
+                          # 如果stride=2：2x2转置卷积，上采样2倍
+                          # 形状：stride=1时 [N, width, H, W]
+                          #       stride=2时 [N, width, 2H, 2W]
+        
+        # 第二个批归一化和激活
+        out = self.bn2(out)    # 批归一化，形状不变
+                          # 形状：stride=1时 [N, width, H, W]
+                          #       stride=2时 [N, width, 2H, 2W]
+        out = self.relu(out)   # ReLU激活，形状不变
+                          # 形状：stride=1时 [N, width, H, W]
+                          #       stride=2时 [N, width, 2H, 2W]
 
-        out = self.conv3(out)
-        out = self.bn3(out)
+        # 第三个卷积层：1x1卷积，用于升维
+        out = self.conv3(out)  # 1x1卷积：width → planes*4
+                          # 形状：stride=1时 [N, planes*4, H, W]
+                          #       stride=2时 [N, planes*4, 2H, 2W]
+        
+        out = self.bn3(out)    # 批归一化，形状不变
+                          # 形状：stride=1时 [N, planes*4, H, W]
+                          #       stride=2时 [N, planes*4, 2H, 2W]
 
+        # 残差连接：如果需要上采样，则对identity进行相应的上采样
         if self.upsample is not None:
-            identity = self.upsample(x)
+            identity = self.upsample(x)   # 对原始输入进行上采样
+                                    # 形状：stride=1时 [N, planes*4, H, W]
+                                    #       stride=2时 [N, planes*4, 2H, 2W]
 
-        out += identity
-        out = self.relu(out)
+        # 残差相加
+        out += identity   # 元素级相加，形状必须相同
+                    # 形状：stride=1时 [N, planes*4, H, W]
+                    #       stride=2时 [N, planes*4, 2H, 2W]
+        
+        # 最终激活
+        out = self.relu(out)   # ReLU激活，形状不变
+                          # 形状：stride=1时 [N, planes*4, H, W]
+                          #       stride=2时 [N, planes*4, 2H, 2W]
 
-        return out
+        return out   # 返回最终结果
+                # 形状：stride=1时 [N, planes*4, H, W]
+                #       stride=2时 [N, planes*4, 2H, 2W]
 
 
 class DeResNet(nn.Module):
-
+    """
+    输入张量: [N, 2048, H, W]
+        │
+        ▼
+    ┌───────────────────────┐
+    │ 第0层 (3个DeBottleneck块) │
+    │ inplanes=2048, planes=256 │
+    └───────────────────────┘
+        │
+        ▼
+    [N, 1024, 2H, 2W]
+        │
+        ▼
+    ┌───────────────────────┐
+    │ 第1层 (4个DeBottleneck块) │
+    │ inplanes=1024, planes=128 │
+    └───────────────────────┘
+        │
+        ▼
+    [N, 512, 4H, 4W]
+        │
+        ▼
+    ┌───────────────────────┐
+    │ 第2层 (6个DeBottleneck块) │
+    │ inplanes=512, planes=64  │
+    └───────────────────────┘
+        │
+        ▼
+    [N, 256, 8H, 8W]
+    """
+    """
+    参数对应关系（通用形式）
+    层索引	output_channels[::-1]	layers (使用前3个)	实际输入通道 (inplanes)	实际输出通道 (planes×expansion)	块数量
+    0	C₃	L₁	C₃×2×E	C₃×E	L₁
+    1	C₂	L₂	C₂×2×E	C₂×E	L₂
+    2	C₁	L₃	C₁×2×E	C₁×E	L₃
+    张量形状变化（通用形式）
+    层索引	输入形状	第一个块输出形状	最终输出形状	上采样倍率
+    0	[N, C_in, H, W]	[N, C₃×E, 2H, 2W]	[N, C₃×E, 2H, 2W]	2倍
+    1	[N, C₃×E, 2H, 2W]	[N, C₂×E, 4H, 4W]	[N, C₂×E, 4H, 4W]	2倍
+    2	[N, C₂×E, 4H, 4W]	[N, C₁×E, 8H, 8W]	[N, C₁×E, 8H, 8W]	2倍
+    输入张量: [N, C_in, H, W]
+        │
+        ▼
+    ┌───────────────────────────┐
+    │ 第0层 (L₁个DeBottleneck块)  │
+    │ inplanes=C₃×2×E, planes=C₃ │
+    └───────────────────────────┘
+        │
+        ▼
+    [N, C₃×E, 2H, 2W]
+        │
+        ▼
+    ┌───────────────────────────┐
+    │ 第1层 (L₂个DeBottleneck块)  │
+    │ inplanes=C₂×2×E, planes=C₂ │
+    └───────────────────────────┘
+        │
+        ▼
+    [N, C₂×E, 4H, 4W]
+        │
+        ▼
+    ┌───────────────────────────┐
+    │ 第2层 (L₃个DeBottleneck块)  │
+    │ inplanes=C₁×2×E, planes=C₁ │
+    └───────────────────────────┘
+        │
+        ▼
+    [N, C₁×E, 8H, 8W]
+    """
     def __init__(
         self,
         block: Type[Union[DeBasicBlock, DeBottleneck]],
@@ -174,6 +288,13 @@ class DeResNet(nn.Module):
             x = self.layers[i](x)
             outputs.append(x)
         return outputs[::-1]
+        """
+        [
+            [N, C₁×E, 8H, 8W],   # 最低层特征（分辨率最高）
+            [N, C₂×E, 4H, 4W],   # 中间层特征
+            [N, C₃×E, 2H, 2W]    # 最高层特征（分辨率最低）
+        ]
+        """
 
 
 class Decoder(nn.Module):

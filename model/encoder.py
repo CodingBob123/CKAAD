@@ -3,6 +3,7 @@ from torch import Tensor
 import torch.nn as nn
 from typing import Type, Callable, Union, Optional, List
 import functools
+from model.SENetv2 import SEAttention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -147,8 +148,11 @@ class FusionLayer(nn.Module):
             conv_layers.append(self._make_conv_layer(block, input_channel * block.expansion, input_channels[-1]))
         self.conv_layers = nn.ModuleList(conv_layers)
         
-        self.encode_layer1 = self._make_layer(block, input_channels[-1] * block.expansion * len(input_channels), input_channels[-1] * 2, layers, stride=2)
+        # 添加SEAttention模块，通道数为最后一层的通道数乘以扩展系数
+        self.se_attention = SEAttention(channel=input_channels[-1] * block.expansion, reduction=16)
         
+        # 修改encode_layer1的输入通道数，现在直接使用SE模块的输出，不再拼接
+        self.encode_layer1 = self._make_layer(block, input_channels[-1] * block.expansion, input_channels[-1] * 2, layers, stride=2)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -199,11 +203,13 @@ class FusionLayer(nn.Module):
 
         """
         # 利用卷积层列表，对每一个预训练特征块进行多尺度特征对齐  _make_conv_layer
-        feature = [self.conv_layers[i](xi) for i, xi in enumerate(x)]  # → 每个 feature[i] : [B, 256*exp, H3, W3] （对齐到最后一个尺度）
-        # 将对齐好的特征块进行拼接
-        feature = torch.cat(feature, dim=1)   # → [B, 3*256*exp, H3, W3]
-        # 拼接后，对整个融合特征 做进一步编码 包括下采样（减小空间分辨率，扩大感受野），残差block堆叠，增强特征表达
-        output = self.encode_layer1(feature)  # → [B, 512*exp, H3/2, W3/2]
+        features = [self.conv_layers[i](xi) for i, xi in enumerate(x)]  # → 每个 features[i] : [B, 256*exp, H3, W3] （对齐到最后一个尺度）
+        
+        # 使用SEAttention模块处理三个对齐后的特征
+        output = self.se_attention(features[0], features[1], features[2])  # → [B, 256*exp, H3, W3]
+        
+        # 将SE注意力处理后的特征直接送入encode_layer1
+        output = self.encode_layer1(output)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()
 

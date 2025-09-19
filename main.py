@@ -98,6 +98,17 @@ def loss_function(a, b):
     return loss
 
 def train(args):
+    """
+    CKAAD:整个模型的训练过程
+    
+    训练流程概述:
+    1. 准备数据：正常样本和异常样本
+    2. 特征提取：使用预训练模型提取多层级特征
+    3. 自编码器训练：重建正常样本特征
+    4. 判别器训练：区分正常特征、异常特征和重建特征
+    5. 对抗训练：使重建特征更接近正常特征
+    """
+    # 1.设置日志的目录和文件名，并打印日志
     log_dir = os.path.join(args.log_dir, "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num), args.dataset)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -113,24 +124,41 @@ def train(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logger.info("device: {}".format(device))
 
+    # 2.加载数据集，获取数据加载器
     dataset = OODDataSet(root='./data', dataset=args.dataset, image_size=args.img_size, category=args.normal,
                          labeled_anomaly_ratio=args.labeled_anomaly_ratio,
                          labeled_anomaly_class_num=args.labeled_anomaly_class_num,
                          labeled_anomaly_class=args.labeled_anomaly_class)
     train_dataloader, valid_dataloader, anomaly_dataloader, test_dataloader = dataset.get_data_loader(batch_size=batch_size)
 
+    # 3.初始化模型
+    # 3.1 初始化预训练特征提取器，冻结参数
+    # 根据args.layer参数选择提取哪几层特征，例如[1,2,3]表示提取ResNet的第1、2、3层特征
     pfe = PretrainedFeatureExtractor(args.model, layers=args.layer, image_size=args.img_size).to(device)
     for param in pfe.parameters():
-        param.requires_grad_(False)
-    pfe.eval()
+        param.requires_grad_(False)  # 冻结特征提取器参数
+    pfe.eval()  # 设置为评估模式
+    
+    # 3.2 初始化编码器-解码器(自编码器)
+    # 输入通道数由预训练模型的输出通道数决定，例如对于ResNet50和layers=[1,2,3]，为[256,512,1024]
     ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
+    
+    # 3.3 初始化判别器
+    # input_sizes: 各层特征图的空间尺寸，例如[64,32,16]
+    # input_channels: 各层特征图的通道数，例如[64,128,256]
+    # expansion: 通道扩展系数，ResNet18/34为1，ResNet50/101等为4
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
+    
+    # 3.4 初始化优化器
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
     
-    gamma = 0.5
-    true_label = 0
-    fake_label = 1
+    # 设置权重系数和标签
+    gamma = 0.5  # 控制重建特征损失的权重
+    true_label = 0  # 正常样本的标签
+    fake_label = 1  # 异常样本的标签
+    
+    # 4.开始训练循环
     for epoch in range(1, epochs+1):
         ae.train()
         discriminator.train()
@@ -139,58 +167,105 @@ def train(args):
         adv_loss_list = []
         ae_loss_list = []
         
+        # 使用zip和cycle将正常数据和异常数据配对
+        # cycle确保异常数据可以循环使用，即使异常数据少于正常数据
         for normal, anomaly in tqdm.tqdm(zip(train_dataloader, cycle(anomaly_dataloader))):
-            normal_img = normal[0].to(device)
-            if anomaly is not None:
-                anomaly_img = anomaly[0].to(device)
-            elif args.dataset in ['mvtec', 'visa', 'btad'] and len(normal) == 4:
-                anomaly_img = normal[1].to(device)
-            else:
-                anomaly_img = normal_img[:0]
-            anomaly_size = anomaly_img.size(0)
-            normal_inputs = pfe(normal_img)
-            normal_outputs = ae(normal_inputs)
+            # 5.1 准备输入数据
+            normal_img = normal[0].to(device)  # 正常图像: [batch_size, 3, img_size, img_size]
             
-            if anomaly_size > 0: 
-                anomaly_inputs = pfe(anomaly_img)
-                anomaly_outputs = ae(anomaly_inputs)
-                
-                outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
+            # 处理异常图像，根据不同情况获取异常样本
+            if anomaly is not None:
+                anomaly_img = anomaly[0].to(device)  # 异常图像: [batch_size, 3, img_size, img_size]
+            elif args.dataset in ['mvtec', 'visa', 'btad'] and len(normal) == 4:
+                anomaly_img = normal[1].to(device)  # 某些数据集中，normal包含正常和异常样本
             else:
-                outputs = normal_outputs
+                anomaly_img = normal_img[:0]  # 创建空张量，表示没有异常样本
                 
+            anomaly_size = anomaly_img.size(0)  # 异常样本的数量
+            
+            # 5.2 特征提取和重建
+            # 使用预训练特征提取器提取正常样本的多层级特征
+            normal_inputs = pfe(normal_img)  # 列表，包含多个特征图: [
+                                            #   [batch_size, 64*exp, H1, W1], 
+                                            #   [batch_size, 128*exp, H2, W2], 
+                                            #   [batch_size, 256*exp, H3, W3]
+                                            # ]
+                                            # 其中exp是扩展系数，H1>H2>H3, W1>W2>W3
+                                            # 例如对于img_size=256，可能为[64,32,16]
+            
+            # 使用自编码器重建正常样本特征
+            normal_outputs = ae(normal_inputs)  # 列表，包含多个重建特征图，形状与normal_inputs相同
+            
+            # 如果有异常样本，则提取和重建异常样本特征
+            if anomaly_size > 0: 
+                anomaly_inputs = pfe(anomaly_img)  # 列表，形状与normal_inputs相同
+                anomaly_outputs = ae(anomaly_inputs)  # 列表，形状与normal_outputs相同
                 
+                # 将正常样本重建特征和异常样本重建特征在批次维度上拼接
+                # 对每个层级的特征分别拼接
+                outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]  
+                # outputs是列表，每个元素形状为: [batch_size*2, C, H, W]
+            else:
+                outputs = normal_outputs  # 如果没有异常样本，直接使用正常样本重建特征
+                
+            # 5.3 初始化损失值
             dis_loss = torch.tensor(0.0).to(device)
             adv_loss = torch.tensor(0.0).to(device)
             
-            normal_inputs_detach = [i.detach() for i in normal_inputs]
+            # 5.4 分离特征图的梯度，准备训练判别器
+            # 分离正常样本特征的梯度
+            normal_inputs_detach = [i.detach() for i in normal_inputs]  # 形状与normal_inputs相同，但不计算梯度
+            
+            # 如果有异常样本，分离异常样本特征的梯度
             if anomaly_size > 0:
-                anomaly_inputs_detach = [i.detach() for i in anomaly_inputs]
+                anomaly_inputs_detach = [i.detach() for i in anomaly_inputs]  # 形状与anomaly_inputs相同，但不计算梯度
                 
-            outputs_detach = [o.detach() for o in outputs]
+            # 分离重建特征的梯度
+            outputs_detach = [o.detach() for o in outputs]  # 形状与outputs相同，但不计算梯度
+            
+            # 5.5 训练判别器
             if anomaly_size > 0:
-                dis_loss = discriminator.calculate_loss(normal_inputs_detach, true_label) + (1 - gamma) * discriminator.calculate_loss(anomaly_inputs_detach, fake_label) + gamma * discriminator.calculate_loss(outputs_detach, fake_label)
+                # 判别器损失由三部分组成:
+                # 1. 正常样本特征应被判为真(标签0)
+                # 2. 异常样本特征应被判为假(标签1)，权重为(1-gamma)
+                # 3. 重建特征应被判为假(标签1)，权重为gamma
+                dis_loss = discriminator.calculate_loss(normal_inputs_detach, true_label) + \
+                          (1 - gamma) * discriminator.calculate_loss(anomaly_inputs_detach, fake_label) + \
+                          gamma * discriminator.calculate_loss(outputs_detach, fake_label)
+                
+                # 更新判别器参数
                 discriminator_optimizer.zero_grad()
                 dis_loss.backward()
-                torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)  # 梯度裁剪，防止梯度爆炸
                 discriminator_optimizer.step()
                     
+                # 5.6 计算对抗损失
+                # 希望重建特征能够欺骗判别器，被判为真(标签0)
                 adv_loss = discriminator.calculate_loss(outputs, true_label)
             
+            # 5.7 计算重建损失和自编码器总损失
+            # 重建损失使用余弦相似度，衡量正常样本特征和重建特征的相似程度
             recon_loss = loss_function(normal_inputs, normal_outputs)
-            ae_loss = recon_loss + args.adv_conf  * adv_loss
+            
+            # 自编码器总损失 = 重建损失 + 对抗损失*权重
+            ae_loss = recon_loss + args.adv_conf * adv_loss
+            
+            # 更新自编码器参数
             ae_optimizer.zero_grad()
             ae_loss.backward()
             ae_optimizer.step()
 
+            # 5.8 记录各项损失值
             dis_loss_list.append(dis_loss.item())
             ae_loss_list.append(ae_loss.item())
             recon_loss_list.append(recon_loss.item())
             adv_loss_list.append(adv_loss.item())
 
+        # 6. 打印当前epoch的训练损失
         logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, np.mean(dis_loss_list),
                                                                                                                                  np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list),
                                                                                                                                  ))
+        # 7. 定期评估模型性能
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args)

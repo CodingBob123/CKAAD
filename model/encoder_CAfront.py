@@ -5,7 +5,6 @@ from typing import Type, Callable, Union, Optional, List
 import functools
 from model.SENetv2 import SEAttention
 from model.CoorAttention import CoordAtt
-from model.ECANet import ECAAttention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -164,10 +163,6 @@ class FusionLayer(nn.Module):
         # 拼接后的总通道数：分支数 × 对齐后的通道数（均为 input_channels[-1] * block.expansion）
         ca_aligned_channel = input_channels[-1] * block.expansion
         inplanes_after_concat = ca_aligned_channel * len(input_channels)
-        
-        # 初始化 ECAAttention：作用于拼接后的特征
-        self.eca_attention = ECAAttention(kernel_size=3)
-        
         self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
 
         for m in self.modules():
@@ -230,10 +225,7 @@ class FusionLayer(nn.Module):
         # 3) 将对齐后的三个分支在通道维度上拼接
         fused = torch.cat(features, dim=1)
         
-        # 3.5) 对拼接后的特征应用 ECA 通道注意力
-        fused = self.eca_attention(fused)
-        
-        # 4) 送入后续编码层
+        # 送入后续编码层
         output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()

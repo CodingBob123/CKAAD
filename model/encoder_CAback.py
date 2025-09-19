@@ -5,7 +5,6 @@ from typing import Type, Callable, Union, Optional, List
 import functools
 from model.SENetv2 import SEAttention
 from model.CoorAttention import CoordAtt
-from model.ECANet import ECAAttention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -155,19 +154,14 @@ class FusionLayer(nn.Module):
         # 修改encode_layer1的输入通道数，现在直接使用SE模块的输出，不再拼接
         # self.encode_layer1 = self._make_layer(block, input_channels[-1] * block.expansion, input_channels[-1] * 2, layers, stride=2)
         
-        # 为每个分支添加坐标注意力模块（在原始预训练特征上先进行CA增强）
-        branch_channels = [c * block.expansion for c in input_channels]
+        # 为每个分支添加坐标注意力模块（输入输出通道均为对齐后的通道数）
+        ca_channel = input_channels[-1] * block.expansion
         self.coord_atts = nn.ModuleList([
-            CoordAtt(inp=ch, oup=ch) for ch in branch_channels
+            CoordAtt(inp=ca_channel, oup=ca_channel) for _ in input_channels
         ])
         
-        # 拼接后的总通道数：分支数 × 对齐后的通道数（均为 input_channels[-1] * block.expansion）
-        ca_aligned_channel = input_channels[-1] * block.expansion
-        inplanes_after_concat = ca_aligned_channel * len(input_channels)
-        
-        # 初始化 ECAAttention：作用于拼接后的特征
-        self.eca_attention = ECAAttention(kernel_size=3)
-        
+        # 修改encode_layer1的输入通道数：拼接后通道数 = 分支数 × 对齐后的通道数
+        inplanes_after_concat = ca_channel * len(input_channels)
         self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
 
         for m in self.modules():
@@ -218,22 +212,22 @@ class FusionLayer(nn.Module):
         （exp = 1 for BasicBlock, 4 for Bottleneck）
 
         """
-        # 1) 在原始预训练特征上先进行坐标注意力增强（不进行多尺度对齐）
-        ca_features = [self.coord_atts[i](xi) for i, xi in enumerate(x)]
-        
-        # 2) 对每一个分支进行特征通道/尺度对齐到最后一个尺度
-        features = [self.conv_layers[i](fi) for i, fi in enumerate(ca_features)]  # 每个 → [B, 256*exp, H3, W3]
+        # 利用卷积层列表，对每一个预训练特征块进行多尺度特征对齐  _make_conv_layer
+        features = [self.conv_layers[i](xi) for i, xi in enumerate(x)]  # → 每个 features[i] : [B, 256*exp, H3, W3] （对齐到最后一个尺度）
         
         # SEAttention版本：使用SEAttention模块处理三个对齐后的特征（保留占位，暂不启用）
         # se_output = self.se_attention(features[0], features[1], features[2])  # → [B, 256*exp, H3, W3]
         
-        # 3) 将对齐后的三个分支在通道维度上拼接
-        fused = torch.cat(features, dim=1)
+        # 逐分支应用坐标注意力
+        ca_features = [self.coord_atts[i](fi) for i, fi in enumerate(features)]
         
-        # 3.5) 对拼接后的特征应用 ECA 通道注意力
-        fused = self.eca_attention(fused)
+        # 将各分支的CA增强特征在通道维度上拼接
+        if len(ca_features) > 1:
+            fused = torch.cat(ca_features, dim=1)
+        else:
+            fused = ca_features[0]
         
-        # 4) 送入后续编码层
+        # 将拼接后的特征送入encode_layer1
         output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()

@@ -128,7 +128,7 @@ class Discriminator(nn.Module):
         layers = []
         for s, c in zip(input_sizes, input_channels):
             layer = []
-            # 如果当前尺寸大于目标尺寸(input_sizes[-1])，则进行下采样
+            # 如果当前尺寸大于目标尺寸(input_sizes[-1] 16)，则进行下采样
             while s > input_sizes[-1]:
                 # 添加一个下采样块: 3x3卷积(stride=2) + 实例归一化 + LeakyReLU
                 layer.append(nn.Sequential(

@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F  # 用于SSIM损失中的插值操作
 import numpy as np
 import random
 import os
@@ -90,12 +91,171 @@ def get_res_str(metrics):
     return score_res_str
 
 def loss_function(a, b):
+    """
+    原始重建损失函数：使用余弦相似度
+    
+    参数:
+        a: 原始特征列表（正常样本的多层级特征）
+        b: 重建特征列表（自编码器输出的多层级特征）
+    
+    返回:
+        loss: 余弦相似度损失值
+    """
     cos_loss = torch.nn.CosineSimilarity()
     loss = 0
     for item in range(len(a)):
         loss += torch.mean(1-cos_loss(a[item].view(b[item].shape[0], -1),
                                       b[item].view(b[item].shape[0], -1)))
     return loss
+
+
+def ssim_loss(pred, target, window_size=11, size_average=True):
+    """
+    SSIM (Structural Similarity Index) 损失函数
+    参考论文: "Image Quality Assessment: From Error Visibility to Structural Similarity" (Wang et al., TIP 2004)
+    
+    SSIM用于衡量两张图像的结构相似性，相比像素级损失（如L1、L2），SSIM更关注：
+    - 亮度相似性 (luminance)
+    - 对比度相似性 (contrast)  
+    - 结构相似性 (structure) <- 这是关键！对局部结构模式（边缘、纹理）更敏感
+    
+    ========== 如何在现有模型中建立和使用SSIM损失 ==========
+    
+    1. 【建立SSIM损失函数】
+       本函数已经实现，包含：
+       - 高斯窗口生成
+       - 亮度、对比度、结构相似性的计算
+       - 最终的SSIM值和损失转换
+    
+    2. 【应用到特征级损失】
+       由于当前模型是基于特征图（而非原始图像）进行训练，有两种使用方式：
+       
+       方式A: 在特征图上直接计算SSIM（推荐）
+           - 在 loss_function() 或训练循环中，对每个层级的特征图计算SSIM
+           - 优点：直接优化特征的结构相似性
+           - 实现：见下面的示例代码
+       
+       方式B: 如果有重构图像，在图像空间计算SSIM
+           - 如果decoder最终输出重构图像，可以在图像上计算SSIM
+           - 优点：更直观，但需要完整的图像解码器
+    
+    3. 【如何加入到现有模型训练中】
+       修改位置：main.py 的 train() 函数中，大约第248行附近
+       
+       原代码：
+           recon_loss = loss_function(normal_inputs, normal_outputs)
+           ae_loss = recon_loss + args.adv_conf * adv_loss
+       
+       修改为：
+           # 原始余弦相似度损失
+           recon_loss_cos = loss_function(normal_inputs, normal_outputs)
+           
+           # SSIM结构损失（需要先上采样特征图到相同尺寸，或直接对特征图计算）
+           # 方式1: 对每个层级特征分别计算SSIM（推荐）
+           ssim_loss_value = 0.0
+           for feat_pred, feat_target in zip(normal_outputs, normal_inputs):
+               # 如果特征图尺寸太小（如8x8），可以上采样到合适尺寸（如32x32）再计算
+               if feat_pred.shape[-1] < 11:  # window_size需要小于特征图尺寸
+                   feat_pred = F.interpolate(feat_pred, size=(32, 32), mode='bilinear', align_corners=False)
+                   feat_target = F.interpolate(feat_target, size=(32, 32), mode='bilinear', align_corners=False)
+               # 将多通道特征图转换为单通道（取平均）或保持多通道
+               # 方法1: 对每个通道分别计算SSIM后平均
+               ssim_channel_sum = 0
+               for c in range(feat_pred.shape[1]):
+                   ssim_channel_sum += ssim_loss(feat_pred[:, c:c+1], feat_target[:, c:c+1], 
+                                                window_size=min(11, feat_pred.shape[-1]), size_average=True)
+               ssim_loss_value += ssim_channel_sum / feat_pred.shape[1]
+           
+           # 组合损失（可以调整lambda_ssim权重，建议从0.1开始）
+           lambda_ssim = 0.1  # SSIM损失的权重，可根据效果调整
+           recon_loss = recon_loss_cos + lambda_ssim * ssim_loss_value
+           ae_loss = recon_loss + args.adv_conf * adv_loss
+       
+       方式2（简化版，更快）：
+           # 仅对最高分辨率的特征层计算SSIM（如第一层特征）
+           if len(normal_outputs) > 0:
+               feat_pred = normal_outputs[0]  # 假设是最高分辨率层
+               feat_target = normal_inputs[0]
+               # 如果尺寸合适，直接计算；否则上采样
+               if feat_pred.shape[-1] >= 11:
+                   ssim_loss_value = ssim_loss(feat_pred[:, 0:1], feat_target[:, 0:1])  # 仅第一个通道
+               else:
+                   feat_pred_up = F.interpolate(feat_pred[:, 0:1], size=(32, 32), mode='bilinear')
+                   feat_target_up = F.interpolate(feat_target[:, 0:1], size=(32, 32), mode='bilinear')
+                   ssim_loss_value = ssim_loss(feat_pred_up, feat_target_up)
+               
+               recon_loss = loss_function(normal_inputs, normal_outputs) + 0.1 * ssim_loss_value
+           else:
+               recon_loss = loss_function(normal_inputs, normal_outputs)
+           
+           ae_loss = recon_loss + args.adv_conf * adv_loss
+    
+    4. 【参数调整建议】
+       - lambda_ssim: SSIM损失权重，建议从0.05-0.2范围尝试
+       - window_size: 高斯窗口大小，默认为11，如果特征图很小可以调小（如7）
+       - 如果训练不稳定，可以先用较小的lambda_ssim（如0.05），逐步增大
+    
+    5. 【注意事项】
+       - SSIM对特征图尺寸有要求（至少 >= window_size）
+       - 如果特征图尺寸太小，建议上采样后再计算
+       - 多通道特征图可以逐通道计算SSIM后平均，或者取第一个通道
+       - SSIM值的范围是[-1, 1]，我们计算 (1 - SSIM) / 2 作为损失值，范围是[0, 1]
+    
+    参数:
+        pred: 预测特征图 [B, C, H, W] 或 [B, 1, H, W]
+        target: 目标特征图 [B, C, H, W] 或 [B, 1, H, W]
+        window_size: 高斯窗口大小，默认为11（必须是奇数）
+        size_average: 是否对批次维度求平均，默认为True
+    
+    返回:
+        loss: SSIM损失值，范围约[0, 1]，值越小表示结构越相似
+    """
+    def create_window(window_size, channel):
+        """创建高斯窗口"""
+        def gaussian(window_size, sigma):
+            gauss = torch.Tensor([torch.exp(torch.tensor(-(x - window_size//2)**2/float(2*sigma**2))) 
+                                  for x in range(window_size)])
+            return gauss/gauss.sum()
+        
+        _1D_window = gaussian(window_size, 1.5).unsqueeze(1)
+        _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
+        window = _2D_window.expand(channel, 1, window_size, window_size).contiguous()
+        return window
+    
+    # 获取通道数（如果pred是单通道[B,1,H,W]，则为1；如果是多通道[B,C,H,W]，则为C）
+    channel = pred.size(1)
+    
+    # 创建高斯窗口（如果窗口大小变化或通道数变化，需要重新创建）
+    # 这里简化处理，假设window_size和channel在训练过程中不变
+    window = create_window(window_size, channel).to(pred.device)
+    
+    # 计算均值（使用高斯窗口进行加权平均）
+    mu1 = F.conv2d(pred, window, padding=window_size//2, groups=channel)
+    mu2 = F.conv2d(target, window, padding=window_size//2, groups=channel)
+    
+    mu1_sq = mu1.pow(2)
+    mu2_sq = mu2.pow(2)
+    mu1_mu2 = mu1 * mu2
+    
+    # 计算方差和协方差
+    sigma1_sq = F.conv2d(pred * pred, window, padding=window_size//2, groups=channel) - mu1_sq
+    sigma2_sq = F.conv2d(target * target, window, padding=window_size//2, groups=channel) - mu2_sq
+    sigma12 = F.conv2d(pred * target, window, padding=window_size//2, groups=channel) - mu1_mu2
+    
+    # SSIM公式中的常数（防止分母为0）
+    C1 = 0.01 ** 2
+    C2 = 0.03 ** 2
+    
+    # 计算SSIM
+    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
+    
+    if size_average:
+        # 返回平均SSIM损失：将SSIM值转换为损失（1 - ssim）/ 2，使其范围在[0, 1]
+        # SSIM范围是[-1, 1]，我们将其转换为损失值[0, 1]
+        return (1 - ssim_map.mean()) / 2
+    else:
+        # 返回每个位置的SSIM损失
+        return (1 - ssim_map) / 2
 
 def train(args):
     """
@@ -246,6 +406,53 @@ def train(args):
             # 5.7 计算重建损失和自编码器总损失
             # 重建损失使用余弦相似度，衡量正常样本特征和重建特征的相似程度
             recon_loss = loss_function(normal_inputs, normal_outputs)
+            
+            # ========== SSIM结构感知损失（可选，已实现但默认不启用）==========
+            # 如需启用SSIM损失，请取消下面的注释，并根据特征图尺寸调整参数
+            # SSIM损失可以增强对结构模式的感知能力，特别是边缘、纹理等局部结构
+            
+            # 【使用方法1：对所有层级特征计算SSIM（推荐，但计算量较大）】
+            # ssim_loss_value = 0.0
+            # for feat_pred, feat_target in zip(normal_outputs, normal_inputs):
+            #     # 如果特征图尺寸小于11，需要上采样（window_size默认为11）
+            #     if feat_pred.shape[-1] < 11:
+            #         feat_pred_up = F.interpolate(feat_pred, size=(32, 32), mode='bilinear', align_corners=False)
+            #         feat_target_up = F.interpolate(feat_target, size=(32, 32), mode='bilinear', align_corners=False)
+            #     else:
+            #         feat_pred_up = feat_pred
+            #         feat_target_up = feat_target
+            #     # 对每个通道分别计算SSIM后平均（或只取第一个通道：feat_pred_up[:, 0:1]）
+            #     ssim_channel_sum = 0
+            #     num_channels = min(feat_pred_up.shape[1], 8)  # 限制通道数，减少计算量
+            #     for c in range(num_channels):
+            #         ssim_channel_sum += ssim_loss(feat_pred_up[:, c:c+1], feat_target_up[:, c:c+1], 
+            #                                      window_size=min(11, feat_pred_up.shape[-1]), size_average=True)
+            #     ssim_loss_value += ssim_channel_sum / num_channels
+            # # 组合SSIM损失（权重可调，建议从0.05-0.2范围尝试）
+            # lambda_ssim = 0.1  # SSIM损失权重，可根据效果调整
+            # recon_loss = recon_loss + lambda_ssim * ssim_loss_value
+            
+            # 【使用方法2：仅对最高分辨率特征层计算SSIM（更快，推荐先试）】
+            # if len(normal_outputs) > 0:
+            #     feat_pred = normal_outputs[0]  # 最高分辨率层（通常是第一层）
+            #     feat_target = normal_inputs[0]
+            #     # 如果特征图尺寸合适（>=11），直接计算；否则上采样
+            #     if feat_pred.shape[-1] >= 11:
+            #         # 仅使用第一个通道计算SSIM（加快计算）
+            #         ssim_loss_value = ssim_loss(feat_pred[:, 0:1], feat_target[:, 0:1], 
+            #                                     window_size=min(11, feat_pred.shape[-1]), size_average=True)
+            #     else:
+            #         # 上采样到合适尺寸
+            #         target_size = max(32, feat_pred.shape[-1] * 2)  # 至少32x32
+            #         feat_pred_up = F.interpolate(feat_pred[:, 0:1], size=(target_size, target_size), 
+            #                                    mode='bilinear', align_corners=False)
+            #         feat_target_up = F.interpolate(feat_target[:, 0:1], size=(target_size, target_size), 
+            #                                      mode='bilinear', align_corners=False)
+            #         ssim_loss_value = ssim_loss(feat_pred_up, feat_target_up, window_size=11, size_average=True)
+            #     
+            #     # 组合损失（权重可调）
+            #     lambda_ssim = 0.1  # 建议从0.05开始，逐步调整到0.1-0.2
+            #     recon_loss = recon_loss + lambda_ssim * ssim_loss_value
             
             # 自编码器总损失 = 重建损失 + 对抗损失*权重
             ae_loss = recon_loss + args.adv_conf * adv_loss

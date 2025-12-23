@@ -4,8 +4,9 @@ import torch.nn as nn
 from typing import Type, Callable, Union, Optional, List
 import functools
 from model.SENetv2 import SEAttention
-from model.CoorAttention import CoordAtt
+from model.ECoorAttention import CoordAtt
 from model.ECANet import ECAAttention
+from model.AxialAttention import AxialAttention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -168,7 +169,28 @@ class FusionLayer(nn.Module):
         # 初始化 ECAAttention：作用于拼接后的特征
         self.eca_attention = ECAAttention(kernel_size=3)
         
+        # ========== 结构感知模块：Axial Attention ==========
+        # 【推荐位置：拼接后、encode_layer1前】
+        # 优势：
+        # 1. 在特征压缩前进行结构增强，保留最多空间细节
+        # 2. 可以建模跨分支的结构关系（融合特征包含所有尺度信息）
+        # 3. 与ECA互补：ECA负责通道选择，Axial负责空间结构建模
+        # 4. 与CoordAtt配合：CoordAtt提取行列重要性，Axial建模行列内patch关系
+        # 输入通道数：拼接后的通道数 inplanes_after_concat
+        # 例如：对于wide_resnet50_2，input_channels=[64,128,256]，block.expansion=4
+        #      对齐后每个分支通道数 = 256*4 = 1024
+        #      拼接后 = 1024*3 = 3072
+        self.axial_attention = AxialAttention(dim=inplanes_after_concat, heads=8, dim_head=64)
+        
         self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
+        
+        # ========== 结构感知模块：Axial Attention ==========
+        # 在encode_layer1的输出特征上应用轴向注意力，增强patch间的结构感知能力
+        # 输入通道数：input_channels[-1] * 2 * block.expansion
+        # 例如：对于wide_resnet50_2，input_channels[-1]=256, block.expansion=4
+        #      则输入通道数为 256*2*4 = 2048
+        axial_input_dim = input_channels[-1] * 2 * block.expansion
+        self.axial_attention = AxialAttention(dim=axial_input_dim, heads=8, dim_head=64)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -228,12 +250,35 @@ class FusionLayer(nn.Module):
         # se_output = self.se_attention(features[0], features[1], features[2])  # → [B, 256*exp, H3, W3]
         
         # 3) 将对齐后的三个分支在通道维度上拼接
-        fused = torch.cat(features, dim=1)
+        fused = torch.cat(features, dim=1)  # → [B, 3*256*exp, H3, W3] 例如：[B, 3072, 16, 16]
         
         # 3.5) 对拼接后的特征应用 ECA 通道注意力
-        fused = self.eca_attention(fused)
+        # ECA：选择"哪些通道重要"（通道维度特征选择）
+        fused = self.eca_attention(fused)  # → [B, 3*256*exp, H3, W3]
         
+        """
+        这里隐藏一下之前版本的内容
         # 4) 送入后续编码层
+        output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]
+        
+        # 5) 应用Axial Attention增强结构感知能力
+        """
+
+        # 4) 应用Axial Attention增强结构感知能力（在特征压缩前进行结构增强）
+        # Axial Attention分别对Height和Width维度进行自注意力计算
+        # 捕捉行列方向的长程依赖关系，特别适合增强patch间的结构感知
+        # 
+        # 【为什么在这个位置？】
+        # 1. 信息保留最优：在encode_layer1压缩前，保留最多的空间细节
+        # 2. 跨分支建模：融合特征包含所有尺度信息，可以建模跨尺度的结构关系
+        # 3. 与现有模块配合：
+        #    - CoordAtt（分支级）：提取"哪些行列有重要特征"
+        #    - ECA（融合级）：选择"哪些通道重要"
+        #    - Axial（融合级）：建模"同一行/列内的patch间关系" ← 这里
+        # 4. 计算效率平衡：虽然通道数大，但只需1个模块，且特征图尺寸还未缩小
+        fused = self.axial_attention(fused)  # → [B, 3*256*exp, H3, W3]
+        
+        # 5) 送入后续编码层进行特征压缩和抽象
         output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()

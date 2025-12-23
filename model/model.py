@@ -1,7 +1,7 @@
 from torchvision import models
 import torch
 import torch.nn as nn
-from model.encoder_SENet import Encoder
+from model.encoder import Encoder
 from model.decoder import Decoder
 import numpy as np
 import math

@@ -1,3 +1,4 @@
+from typing import Any
 import torch
 import numpy as np
 import random
@@ -9,6 +10,7 @@ from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
+import matplotlib.pyplot as plt
 
 
 def parse_args():
@@ -97,6 +99,35 @@ def loss_function(a, b):
                                       b[item].view(b[item].shape[0], -1)))
     return loss
 
+def loss_draw(loss_history, save_path=None):
+    """
+    绘制损失曲线。
+    - 横轴：epoch
+    - 纵轴：不同损失值
+    - 布局：单行，列数 = 损失项目数
+    - 比例尺稍大：调整为较大的画布和线宽，宽度随列数自适应
+    """
+    if not loss_history:
+        return
+    
+    items = list[Any](loss_history.items())
+    cols = max(1, len(items))
+    
+    plt.figure(figsize=(6 * cols, 5))  # 单行放宽
+    for idx, (name, values) in enumerate[Any](items, start=1):
+        ax = plt.subplot(1, cols, idx)
+        if values:
+            epochs = range(1, len(values) + 1)
+            ax.plot(epochs, values, marker='o', linewidth=2)
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel(name)
+        ax.set_title(name)
+        ax.grid(True, linestyle='--', alpha=0.6)
+    plt.tight_layout(w_pad=2.0)
+    if save_path:
+        plt.savefig(save_path, dpi=200)
+    plt.close()
+
 def train(args):
     """
     CKAAD:整个模型的训练过程
@@ -157,6 +188,14 @@ def train(args):
     gamma = 0.5  # 控制重建特征损失的权重
     true_label = 0  # 正常样本的标签
     fake_label = 1  # 异常样本的标签
+    
+    # 记录各类损失用于绘图
+    loss_history = {
+        "dis_loss": [],
+        "recon_loss": [],
+        "adv_loss": [],
+        "ae_loss": [],
+    }
     
     # 4.开始训练循环
     for epoch in range(1, epochs+1):
@@ -262,9 +301,17 @@ def train(args):
             adv_loss_list.append(adv_loss.item())
 
         # 6. 打印当前epoch的训练损失
-        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, np.mean(dis_loss_list),
-                                                                                                                                 np.mean(recon_loss_list), np.mean(adv_loss_list), np.mean(ae_loss_list),
+        epoch_dis = np.mean(dis_loss_list)
+        epoch_recon = np.mean(recon_loss_list)
+        epoch_adv = np.mean(adv_loss_list)
+        epoch_ae = np.mean(ae_loss_list)
+        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, epoch_dis,
+                                                                                                                                 epoch_recon, epoch_adv, epoch_ae,
                                                                                                                                  ))
+        loss_history["dis_loss"].append(epoch_dis)
+        loss_history["recon_loss"].append(epoch_recon)
+        loss_history["adv_loss"].append(epoch_adv)
+        loss_history["ae_loss"].append(epoch_ae)
         # 7. 定期评估模型性能
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
@@ -275,6 +322,12 @@ def train(args):
             metrics = evaluation(pfe, ae, test_dataloader, device, args)
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
+    
+    # 8. 训练结束后绘制损失曲线
+    loss_img_name = "loss_curve_n_{}_a_{}_s_{}.png".format(args.normal, args.labeled_anomaly_class, args.seed)
+    loss_save_path = os.path.join(log_dir, loss_img_name)
+    loss_draw(loss_history, loss_save_path)
+    logger.info("Loss curve saved to: {}".format(loss_save_path))
        
 def print_args(logger, args):
     logger.info('--------args----------')

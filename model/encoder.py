@@ -6,7 +6,7 @@ import functools
 from model.SENetv2 import SEAttention
 from model.Efficient_CA_complex import CoordAtt_ECA
 from model.ECANet import ECAAttention
-
+from model.MultiScaleDirectionalConvBlock import MultiScaleDirectionalConvBlock
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""
@@ -167,7 +167,9 @@ class FusionLayer(nn.Module):
         
         # 初始化 ECAAttention：作用于拼接后的特征
         self.eca_attention = ECAAttention(kernel_size=3)
-        
+
+        # ========== 结构感知模块：MultiScaleDirectionalConvBlock  =========
+        self.MSDCB = MultiScaleDirectionalConvBlock(channels=inplanes_after_concat)
         self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
 
         for m in self.modules():
@@ -232,6 +234,9 @@ class FusionLayer(nn.Module):
         
         # 3.5) 对拼接后的特征应用 ECA 通道注意力
         fused = self.eca_attention(fused)
+
+        # 3.6) 对拼接后的特征应用 MultiScaleDirectionalConvBlock
+        fused = self.MSDCB(fused)
         
         # 4) 送入后续编码层
         output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]

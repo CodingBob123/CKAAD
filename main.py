@@ -1,4 +1,3 @@
-from typing import Any
 import torch
 import numpy as np
 import random
@@ -10,6 +9,8 @@ from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
 from itertools import cycle
 import tqdm
+import matplotlib
+matplotlib.use('Agg')  # 设置非GUI后端，避免WSL图形界面问题
 import matplotlib.pyplot as plt
 
 
@@ -104,29 +105,59 @@ def loss_draw(loss_history, save_path=None):
     绘制损失曲线。
     - 横轴：epoch
     - 纵轴：不同损失值
-    - 布局：单行，列数 = 损失项目数
-    - 比例尺稍大：调整为较大的画布和线宽，宽度随列数自适应
+    - 布局：2x2网格，四个子图
+    - 比例尺较大：调整为较大的画布和线宽
     """
     if not loss_history:
+        print("Warning: loss_history is empty, skipping plot generation")
         return
-    
-    items = list[Any](loss_history.items())
-    cols = max(1, len(items))
-    
-    plt.figure(figsize=(6 * cols, 5))  # 单行放宽
-    for idx, (name, values) in enumerate[Any](items, start=1):
-        ax = plt.subplot(1, cols, idx)
-        if values:
-            epochs = range(1, len(values) + 1)
-            ax.plot(epochs, values, marker='o', linewidth=2)
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel(name)
-        ax.set_title(name)
-        ax.grid(True, linestyle='--', alpha=0.6)
-    plt.tight_layout(w_pad=2.0)
-    if save_path:
-        plt.savefig(save_path, dpi=200)
-    plt.close()
+
+    try:
+        items = list(loss_history.items())
+        if len(items) != 4:
+            print(f"Warning: Expected 4 loss items, got {len(items)}")
+            return
+
+        # 创建2x2子图布局
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))  # 更大的画布尺寸
+        axes = axes.ravel()  # 扁平化axes数组
+
+        for idx, (name, values) in enumerate(items):
+            ax = axes[idx]
+            if values and len(values) > 0:
+                epochs = range(1, len(values) + 1)
+                ax.plot(epochs, values, marker='o', linewidth=3, markersize=5, color='blue')
+                ax.set_xlabel('Epoch', fontsize=12)
+                ax.set_ylabel(name, fontsize=12)
+                ax.set_title(f'{name} vs Epoch', fontsize=14, fontweight='bold')
+                ax.grid(True, linestyle='--', alpha=0.7)
+                ax.tick_params(axis='both', which='major', labelsize=10)
+                # 设置更大的边距
+                ax.margins(x=0.05, y=0.1)
+            else:
+                ax.set_title(f"{name}\n(No data)", fontsize=14)
+                ax.axis('off')
+
+        plt.tight_layout(pad=3.0)
+
+        if save_path:
+            # 确保目录存在
+            save_dir = os.path.dirname(save_path)
+            if save_dir and not os.path.exists(save_dir):
+                os.makedirs(save_dir, exist_ok=True)
+
+            # 保存为jpg格式
+            plt.savefig(save_path, format='jpg', dpi=300, bbox_inches='tight')
+            print(f"Loss curve saved to: {save_path}")
+        else:
+            # 在无图形界面环境中，不显示图片，直接跳过
+            print("Warning: No save path provided, skipping plot display in headless environment")
+
+        plt.close()
+
+    except Exception as e:
+        print(f"Error generating loss plot: {e}")
+        plt.close()
 
 def train(args):
     """
@@ -188,7 +219,7 @@ def train(args):
     gamma = 0.5  # 控制重建特征损失的权重
     true_label = 0  # 正常样本的标签
     fake_label = 1  # 异常样本的标签
-    
+
     # 记录各类损失用于绘图
     loss_history = {
         "dis_loss": [],
@@ -300,35 +331,51 @@ def train(args):
             recon_loss_list.append(recon_loss.item())
             adv_loss_list.append(adv_loss.item())
 
-        # 6. 打印当前epoch的训练损失
+        # 6. 打印当前epoch的训练损失并记录到历史
         epoch_dis = np.mean(dis_loss_list)
         epoch_recon = np.mean(recon_loss_list)
         epoch_adv = np.mean(adv_loss_list)
         epoch_ae = np.mean(ae_loss_list)
+
         logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, epoch_dis,
                                                                                                                                  epoch_recon, epoch_adv, epoch_ae,
                                                                                                                                  ))
+
+        # 记录损失历史用于绘图
         loss_history["dis_loss"].append(epoch_dis)
         loss_history["recon_loss"].append(epoch_recon)
         loss_history["adv_loss"].append(epoch_adv)
         loss_history["ae_loss"].append(epoch_ae)
+
         # 7. 定期评估模型性能
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args)
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
-                
+
             metrics = evaluation(pfe, ae, test_dataloader, device, args)
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
-    
-    # 8. 训练结束后绘制损失曲线
-    loss_img_name = "loss_curve_n_{}_a_{}_s_{}.png".format(args.normal, args.labeled_anomaly_class, args.seed)
-    loss_save_path = os.path.join(log_dir, loss_img_name)
-    loss_draw(loss_history, loss_save_path)
-    logger.info("Loss curve saved to: {}".format(loss_save_path))
-       
+
+    # 8. 训练结束后保存最终损失曲线
+    try:
+        pic_dir = "./pic/"
+        if not os.path.exists(pic_dir):
+            os.makedirs(pic_dir, exist_ok=True)
+
+        loss_img_name = "loss_curve_final_n_{}_a_{}_s_{}.jpg".format(args.normal, args.labeled_anomaly_class, args.seed)
+        loss_save_path = os.path.join(pic_dir, loss_img_name)
+
+        # 检查损失历史记录是否为空
+        if any(loss_history.values()):
+            loss_draw(loss_history, loss_save_path)
+            logger.info("Final loss curve saved to: {}".format(loss_save_path))
+        else:
+            logger.warning("Loss history is empty, skipping plot generation")
+    except Exception as e:
+        logger.error("Failed to generate final loss curve: {}".format(str(e)))
+
 def print_args(logger, args):
     logger.info('--------args----------')
     for k in list(vars(args).keys()):

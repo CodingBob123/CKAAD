@@ -6,6 +6,7 @@ import functools
 from model.SENetv2 import SEAttention
 from model.Efficient_CA_complex import CoordAtt_ECA
 from model.ECANet import ECAAttention
+from model.SEAAttention import Sea_Attention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -167,7 +168,21 @@ class FusionLayer(nn.Module):
         
         # 初始化 ECAAttention：作用于拼接后的特征
         self.eca_attention = ECAAttention(kernel_size=3)
-        
+
+        # ========== 结构感知模块：SEAttention ==========
+        # SEAFORMER: Squeeze-Enhanced Axial Transformer
+        # 包含两个关键组件：
+        # 1. Squeeze Axial Attention: 轴向注意力，建模行/列方向长程依赖
+        # 2. Detail Enhancement Kernel: 细节增强核，提升局部边界和形状感知
+        # 优势：
+        # - 轴向建模：补足多尺度方向感知的全局性不足
+        # - 细节增强：通过3x3卷积提升边界清晰度
+        # - 与CoordAtt互补：CoordAtt是分支级行列感知，SEAttention是融合后全局行列建模
+        # - 与ECA配合：ECA负责通道选择，SEAttention负责空间结构建模
+        # 输入通道数：拼接后的总通道数 inplanes_after_concat
+        # 例如：wide_resnet50_2时为 256*4*3 = 3072
+        self.sea_attention = Sea_Attention(dim=inplanes_after_concat, key_dim=64, num_heads=8, attn_ratio=2)
+
         self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
 
         for m in self.modules():
@@ -231,9 +246,21 @@ class FusionLayer(nn.Module):
         fused = torch.cat(features, dim=1)
         
         # 3.5) 对拼接后的特征应用 ECA 通道注意力
+        # ECA：通道维度特征选择，选择哪些通道重要
         fused = self.eca_attention(fused)
-        
-        # 4) 送入后续编码层
+
+        # 3.6) 应用SEAttention增强结构感知能力
+        # SEAttention包含：
+        # - Squeeze Axial Attention: 建模行/列方向长程依赖
+        # - Detail Enhancement Kernel: 通过局部卷积增强边界和细节
+        # 优势：
+        # - 补足轴向（行/列）方向的结构感知
+        # - 提升局部边界和形状的清晰度
+        # - 与CoordAtt形成分支级→全局级的互补
+        # - 在特征压缩前进行结构增强，保留更多空间信息
+        fused = self.sea_attention(fused)
+
+        # 4) 送入后续编码层进行特征压缩和抽象
         output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()

@@ -3,6 +3,10 @@ from torch import Tensor
 import torch.nn as nn
 from typing import Type, Callable, Union, Optional, List
 import functools
+from model.SENetv2 import SEAttention
+from model.Efficient_CA_complex import CoordAtt_ECA
+from model.ECANet import ECAAttention
+from model.SEAAttention import Sea_Attention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -147,8 +151,39 @@ class FusionLayer(nn.Module):
             conv_layers.append(self._make_conv_layer(block, input_channel * block.expansion, input_channels[-1]))
         self.conv_layers = nn.ModuleList(conv_layers)
         
-        self.encode_layer1 = self._make_layer(block, input_channels[-1] * block.expansion * len(input_channels), input_channels[-1] * 2, layers, stride=2)
+        # SEAttention 版本：添加SEAttention模块，通道数为最后一层的通道数乘以扩展系数 
+        # self.se_attention = SEAttention(channel=input_channels[-1] * block.expansion, reduction=16)
+        # 修改encode_layer1的输入通道数，现在直接使用SE模块的输出，不再拼接
+        # self.encode_layer1 = self._make_layer(block, input_channels[-1] * block.expansion, input_channels[-1] * 2, layers, stride=2)
         
+        # 为每个分支添加坐标注意力模块（在原始预训练特征上先进行CA增强）
+        branch_channels = [c * block.expansion for c in input_channels]
+        self.coord_atts = nn.ModuleList([
+            CoordAtt_ECA(inp=ch, oup=ch) for ch in branch_channels
+        ])
+        
+        # 拼接后的总通道数：分支数 × 对齐后的通道数（均为 input_channels[-1] * block.expansion）
+        ca_aligned_channel = input_channels[-1] * block.expansion
+        inplanes_after_concat = ca_aligned_channel * len(input_channels)
+        
+        # 初始化 ECAAttention：作用于拼接后的特征
+        self.eca_attention = ECAAttention(kernel_size=3)
+
+        # ========== 结构感知模块：SEAttention ==========
+        # SEAFORMER: Squeeze-Enhanced Axial Transformer
+        # 包含两个关键组件：
+        # 1. Squeeze Axial Attention: 轴向注意力，建模行/列方向长程依赖
+        # 2. Detail Enhancement Kernel: 细节增强核，提升局部边界和形状感知
+        # 优势：
+        # - 轴向建模：补足多尺度方向感知的全局性不足
+        # - 细节增强：通过3x3卷积提升边界清晰度
+        # - 与CoordAtt互补：CoordAtt是分支级行列感知，SEAttention是融合后全局行列建模
+        # - 与ECA配合：ECA负责通道选择，SEAttention负责空间结构建模
+        # 输入通道数：拼接后的总通道数 inplanes_after_concat
+        # 例如：wide_resnet50_2时为 256*4*3 = 3072
+        self.sea_attention = Sea_Attention(dim=inplanes_after_concat, key_dim=64, num_heads=8, attn_ratio=2)
+
+        self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -198,12 +233,35 @@ class FusionLayer(nn.Module):
         （exp = 1 for BasicBlock, 4 for Bottleneck）
 
         """
-        # 利用卷积层列表，对每一个预训练特征块进行多尺度特征对齐  _make_conv_layer
-        feature = [self.conv_layers[i](xi) for i, xi in enumerate(x)]  # → 每个 feature[i] : [B, 256*exp, H3, W3] （对齐到最后一个尺度）
-        # 将对齐好的特征块进行拼接
-        feature = torch.cat(feature, dim=1)   # → [B, 3*256*exp, H3, W3]
-        # 拼接后，对整个融合特征 做进一步编码 包括下采样（减小空间分辨率，扩大感受野），残差block堆叠，增强特征表达
-        output = self.encode_layer1(feature)  # → [B, 512*exp, H3/2, W3/2]
+        # 1) 在原始预训练特征上先进行坐标注意力增强（不进行多尺度对齐）
+        # ca_features = [self.coord_atts[i](xi) for i, xi in enumerate(x)]
+        
+        # 2) 对每一个分支进行特征通道/尺度对齐到最后一个尺度
+        features = [self.conv_layers[i](fi) for i, fi in enumerate(x)]  # 每个 → [B, 256*exp, H3, W3]
+        
+        # SEAttention版本：使用SEAttention模块处理三个对齐后的特征（保留占位，暂不启用）
+        # se_output = self.se_attention(features[0], features[1], features[2])  # → [B, 256*exp, H3, W3]
+        
+        # 3) 将对齐后的三个分支在通道维度上拼接
+        fused = torch.cat(features, dim=1)
+        
+        # 3.5) 对拼接后的特征应用 ECA 通道注意力
+        # ECA：通道维度特征选择，选择哪些通道重要
+        fused = self.eca_attention(fused)
+
+        # 3.6) 应用SEAttention增强结构感知能力
+        # SEAttention包含：
+        # - Squeeze Axial Attention: 建模行/列方向长程依赖
+        # - Detail Enhancement Kernel: 通过局部卷积增强边界和细节
+        # 优势：
+        # - 补足轴向（行/列）方向的结构感知
+        # - 提升局部边界和形状的清晰度
+        # - 与CoordAtt形成分支级→全局级的互补
+        # - 在特征压缩前进行结构增强，保留更多空间信息
+        fused = self.sea_attention(fused)
+
+        # 4) 送入后续编码层进行特征压缩和抽象
+        output = self.encode_layer1(fused)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()
 

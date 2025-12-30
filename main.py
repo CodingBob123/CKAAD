@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import random
 import os
-from util.test import evaluation
+from util.test import evaluation, evaluation_pixel, visualize
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 import logging
 from argparse import ArgumentParser
@@ -99,6 +99,77 @@ def loss_function(a, b):
         loss += torch.mean(1-cos_loss(a[item].view(b[item].shape[0], -1),
                                       b[item].view(b[item].shape[0], -1)))
     return loss
+
+def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
+    """
+    使用matplotlib进行anomaly map可视化的简化版本
+    不依赖opencv，使用numpy和matplotlib
+    """
+    import matplotlib.pyplot as plt
+    from util.test import cal_anomaly_map
+
+    pfe.eval()
+    ae.eval()
+
+    result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+    os.makedirs(result_path, exist_ok=True)
+
+    with torch.no_grad():
+        cnt = 0
+        for batch_data in dataloader:
+            if len(batch_data) == 3:
+                imgs, gts, labels = batch_data
+            else:
+                imgs, labels = batch_data
+                gts = None
+
+            imgs = imgs.to(device)
+            inputs = pfe(imgs)
+            outputs = ae(inputs)
+
+            # 计算anomaly map
+            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
+
+            # 反归一化图像以便显示
+            imgs_np = imgs.cpu().numpy()
+            mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
+            std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
+            imgs_np = imgs_np * std + mean
+            imgs_np = np.clip(imgs_np, 0, 1)
+
+            for i in range(len(imgs)):
+                fig, axes = plt.subplots(1, 3 if gts is not None else 2, figsize=(12, 4))
+
+                # 原始图像
+                img_display = np.transpose(imgs_np[i], (1, 2, 0))
+                axes[0].imshow(img_display)
+                axes[0].set_title(f'Original Image\nLabel: {"Abnormal" if labels[i] > 0 else "Normal"}')
+                axes[0].axis('off')
+
+                # Anomaly Map
+                anomaly_map = anomaly_maps[i, 0] if len(anomaly_maps.shape) > 2 else anomaly_maps[i]
+                axes[1].imshow(anomaly_map, cmap='jet', vmin=0, vmax=anomaly_maps.max())
+                axes[1].set_title('Anomaly Map')
+                axes[1].axis('off')
+
+                # Ground Truth (如果有的话)
+                if gts is not None:
+                    gt = gts[i].squeeze().cpu().numpy()
+                    axes[2].imshow(gt, cmap='gray')
+                    axes[2].set_title('Ground Truth')
+                    axes[2].axis('off')
+
+                plt.tight_layout()
+                save_path = os.path.join(result_path, f'sample_{cnt:03d}_label_{labels[i].item()}.png')
+                plt.savefig(save_path, dpi=150, bbox_inches='tight')
+                plt.close()
+
+                cnt += 1
+                if cnt >= 10:  # 限制可视化数量
+                    break
+            if cnt >= 10:
+                break
+
 
 def loss_draw(loss_history, save_path=None):
     """
@@ -375,6 +446,62 @@ def train(args):
             logger.warning("Loss history is empty, skipping plot generation")
     except Exception as e:
         logger.error("Failed to generate final loss curve: {}".format(str(e)))
+
+    # 9. 训练结束后进行anomaly map可视化
+    try:
+        logger.info("Starting anomaly map visualization...")
+
+        # 设置数据变换（与训练时相同）
+        if args.dataset in ['mvtec', 'visa', 'btad']:
+            img_transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ])
+            gt_transform = transforms.Compose([transforms.ToTensor()])
+        else:
+            img_transform = transforms.Compose([
+                transforms.Resize(args.img_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ])
+            gt_transform = transforms.Compose([transforms.ToTensor()])
+
+        # 创建测试数据集（只可视化前几个样本以节省时间）
+        if args.dataset == 'mvtec':
+            from dataset.mvtec import MVTecDataset
+            viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
+                                     transform=img_transform, gt_target_transform=gt_transform,
+                                     img_size=args.img_size)
+            # 只可视化前5个样本（包括正常和异常样本）
+            viz_indices = []
+            normal_count = 0
+            abnormal_count = 0
+            for i, target in enumerate(viz_dataset.targets):
+                if target == 0 and normal_count < 3:  # 正常样本
+                    viz_indices.append(i)
+                    normal_count += 1
+                elif target > 0 and abnormal_count < 2:  # 异常样本
+                    viz_indices.append(i)
+                    abnormal_count += 1
+                if len(viz_indices) >= 5:
+                    break
+
+            viz_dataset.data = viz_dataset.data[viz_indices]
+            viz_dataset.targets = viz_dataset.targets[viz_indices]
+            viz_dataset.gt_paths = [viz_dataset.gt_paths[i] for i in viz_indices]
+
+        viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
+
+        # 使用简化的matplotlib可视化（不依赖opencv）
+        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs)
+
+        viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+        logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
+
+    except Exception as e:
+        logger.error("Failed to generate anomaly map visualization: {}".format(str(e)))
+        logger.error("This might be due to missing visualization dependencies")
+        logger.info("You can manually implement visualization using the anomaly_map data from evaluation_pixel()")
 
 def print_args(logger, args):
     logger.info('--------args----------')

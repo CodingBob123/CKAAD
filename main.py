@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import random
 import os
-from util.test import evaluation, evaluation_pixel, visualize
+from util.test import evaluation
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 import logging
 from argparse import ArgumentParser
@@ -49,17 +49,8 @@ def parse_args():
     parser.add_argument('--d_lr', type=float, default=1e-05, help='discriminator learning rate')
     
     parser.add_argument('--adv_conf', type=float, default=0.02, help='adversial loss conf')
-
+    
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
-
-    parser.add_argument('--eval_visualize', action='store_true', help='whether to visualize anomaly maps during evaluation')
-    parser.add_argument('--eval_viz_samples', type=int, default=5, help='number of samples to visualize during evaluation')
-    parser.add_argument('--eval_viz_freq', type=int, default=1, help='frequency of evaluation visualization (every N eval_epochs)')
-
-    parser.add_argument('--recon_loss_type', type=str, default='cosine', choices=['cosine', 'mse', 'perceptual', 'ssim', 'combined'], help='reconstruction loss type')
-    parser.add_argument('--loss_alpha', type=float, default=0.7, help='weight for cosine loss in combined loss')
-    parser.add_argument('--loss_beta', type=float, default=0.2, help='weight for pixel loss in combined loss')
-    parser.add_argument('--loss_gamma', type=float, default=0.1, help='weight for structure loss in combined loss')
     
     return parser.parse_args()
 
@@ -101,338 +92,13 @@ def get_res_str(metrics):
             score_res_str += "{}_{}: {:.6f} ".format(key, item, v) 
     return score_res_str
 
-def loss_function(a, b, loss_type='cosine', alpha=0.7, beta=0.2, gamma=0.1):
-    """
-    结构感知重建损失函数
-
-    Args:
-        a: 原始特征列表
-        b: 重建特征列表
-        loss_type: 损失类型 ('cosine', 'mse', 'perceptual', 'ssim', 'combined')
-        alpha: 余弦相似度损失权重
-        beta: 像素级损失权重
-        gamma: 结构损失权重
-    """
-    if loss_type == 'cosine':
-        # 原始余弦相似度损失
-        cos_loss = torch.nn.CosineSimilarity()
-        loss = 0
-        for item in range(len(a)):
-            loss += torch.mean(1-cos_loss(a[item].view(b[item].shape[0], -1),
-                                          b[item].view(b[item].shape[0], -1)))
-        return loss
-
-    elif loss_type == 'mse':
-        # 均方误差损失 - 像素级重建
-        mse_loss = torch.nn.MSELoss()
-        loss = 0
-        for item in range(len(a)):
-            loss += mse_loss(a[item], b[item])
-        return loss
-
-    elif loss_type == 'perceptual':
-        # 感知损失 - 考虑高层语义特征
-        loss = 0
-        for item in range(len(a)):
-            # L1距离在特征空间
-            loss += torch.mean(torch.abs(a[item] - b[item]))
-        return loss
-
-    elif loss_type == 'ssim':
-        # SSIM结构相似性损失
-        loss = 0
-        for item in range(len(a)):
-            # 简化的SSIM计算（实际应用中建议使用pytorch-msssim库）
-            mu_a = torch.mean(a[item], dim=[2, 3], keepdim=True)
-            mu_b = torch.mean(b[item], dim=[2, 3], keepdim=True)
-            sigma_a = torch.var(a[item], dim=[2, 3], keepdim=True)
-            sigma_b = torch.var(b[item], dim=[2, 3], keepdim=True)
-            sigma_ab = torch.mean((a[item] - mu_a) * (b[item] - mu_b), dim=[2, 3], keepdim=True)
-
-            c1 = 0.01 ** 2
-            c2 = 0.03 ** 2
-
-            numerator = (2 * mu_a * mu_b + c1) * (2 * sigma_ab + c2)
-            denominator = (mu_a ** 2 + mu_b ** 2 + c1) * (sigma_a + sigma_b + c2)
-            ssim = numerator / denominator
-
-            loss += torch.mean(1 - ssim)
-        return loss
-
-    elif loss_type == 'combined':
-        # 组合损失：余弦 + MSE + 结构感知
-        cos_loss = torch.nn.CosineSimilarity()
-        mse_loss = torch.nn.MSELoss()
-
-        total_loss = 0
-        for item in range(len(a)):
-            # 余弦相似度损失（特征级）
-            cosine_loss = torch.mean(1 - cos_loss(a[item].view(b[item].shape[0], -1),
-                                                 b[item].view(b[item].shape[0], -1)))
-
-            # MSE损失（像素级）
-            mse = mse_loss(a[item], b[item])
-
-            # 梯度损失（结构感知）
-            grad_loss = gradient_loss(a[item], b[item])
-
-            # 加权组合
-            combined = alpha * cosine_loss + beta * mse + gamma * grad_loss
-            total_loss += combined
-
-        return total_loss
-
-    else:
-        raise ValueError(f"Unknown loss type: {loss_type}")
-
-
-def gradient_loss(a, b):
-    """
-    梯度损失：感知图像结构变化
-    """
-    def gradient_x(img):
-        return torch.abs(img[:, :, :, :-1] - img[:, :, :, 1:])
-
-    def gradient_y(img):
-        return torch.abs(img[:, :, :-1, :] - img[:, :, 1:, :])
-
-    grad_a_x = gradient_x(a)
-    grad_a_y = gradient_y(a)
-    grad_b_x = gradient_x(b)
-    grad_b_y = gradient_y(b)
-
-    loss_x = torch.nn.functional.mse_loss(grad_a_x, grad_b_x)
-    loss_y = torch.nn.functional.mse_loss(grad_a_y, grad_b_y)
-
-    return (loss_x + loss_y) / 2
-
-
-def visualize_evaluation_anomaly_maps(pfe, ae, dataloader, args, device, epoch, phase="test"):
-    """
-    在评估时可视化anomaly maps，用于监控训练过程中的异常检测效果
-
-    Args:
-        pfe: 预训练特征提取器
-        ae: 自编码器
-        dataloader: 数据加载器
-        args: 参数
-        device: 设备
-        epoch: 当前epoch
-        phase: 阶段名称 ("valid" 或 "test")
-    """
-    import matplotlib.pyplot as plt
-    from util.test import cal_anomaly_map
-
-    pfe.eval()
-    ae.eval()
-
-    # 创建保存目录
-    result_path = f'./eval_results/{args.dataset}_{args.normal}_epoch_{epoch}_{phase}'
-    os.makedirs(result_path, exist_ok=True)
-
-    sample_count = 0
-    normal_count = 0
-    abnormal_count = 0
-
-    with torch.no_grad():
-        for batch_data in dataloader:
-            if len(batch_data) == 3:
-                imgs, gts, labels = batch_data
-            else:
-                imgs, labels = batch_data
-                gts = None
-
-            # 只可视化指定数量的样本，且保持正常/异常样本的平衡
-            batch_normal_count = (labels == 0).sum().item()
-            batch_abnormal_count = (labels > 0).sum().item()
-
-            if normal_count >= args.eval_viz_samples // 2 and batch_normal_count > 0:
-                # 如果正常样本已经够了，跳过包含正常样本的batch
-                continue
-            if abnormal_count >= args.eval_viz_samples // 2 and batch_abnormal_count > 0:
-                # 如果异常样本已经够了，跳过包含异常样本的batch
-                continue
-
-            imgs = imgs.to(device)
-            inputs = pfe(imgs)
-            outputs = ae(inputs)
-
-            # 计算anomaly map
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
-
-            # 反归一化图像以便显示
-            imgs_np = imgs.cpu().numpy()
-            mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
-            std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-            imgs_np = imgs_np * std + mean
-            imgs_np = np.clip(imgs_np, 0, 1)
-
-            for i in range(len(imgs)):
-                current_label = labels[i].item()
-
-                # 检查是否还需要这种类型的样本
-                if current_label == 0 and normal_count >= args.eval_viz_samples // 2:
-                    continue
-                if current_label > 0 and abnormal_count >= args.eval_viz_samples // 2:
-                    continue
-
-                fig, axes = plt.subplots(1, 3 if gts is not None else 2, figsize=(12, 4))
-
-                # 原始图像
-                img_display = np.transpose(imgs_np[i], (1, 2, 0))
-                axes[0].imshow(img_display)
-                axes[0].set_title(f'Original Image\nLabel: {"Abnormal" if current_label > 0 else "Normal"}')
-                axes[0].axis('off')
-
-                # Anomaly Map
-                if len(anomaly_maps.shape) == 4:  # (batch, 1, H, W)
-                    anomaly_map = anomaly_maps[i, 0]  # 取第一个通道
-                elif len(anomaly_maps.shape) == 3:  # (batch, H, W)
-                    anomaly_map = anomaly_maps[i]
-                elif len(anomaly_maps.shape) == 2 and anomaly_maps.shape[0] > 1:  # (batch, features) - 多个样本的特征
-                    # 这种情况通常是(batch, H*W)，需要reshape每个样本
-                    H = int(np.sqrt(anomaly_maps.shape[1]))  # 假设是正方形
-                    if H * H == anomaly_maps.shape[1]:  # 确保是完美正方形
-                        anomaly_map = anomaly_maps[i].reshape(H, H)
-                    else:
-                        # 如果不是完美正方形，保持为一维
-                        anomaly_map = anomaly_maps[i]
-                else:  # 其他情况，包括单一样本的一维数组
-                    anomaly_map = anomaly_maps[i]
-
-                # 确保是二维数组用于imshow
-                if anomaly_map.ndim == 1:
-                    # 如果是一维数组，将其reshape为二维用于可视化
-                    total_size = len(anomaly_map)
-                    # 找到最接近的正方形尺寸
-                    size = int(np.sqrt(total_size))
-                    if size * size > total_size:
-                        size -= 1
-
-                    target_size = size * size
-                    if target_size <= total_size:
-                        # 截断到正方形
-                        anomaly_map = anomaly_map[:target_size].reshape(size, size)
-                    else:
-                        # 不应该发生，但为了安全
-                        anomaly_map = anomaly_map.reshape(-1, 1)  # 保持为一维但作为列向量
-                elif anomaly_map.ndim > 2:
-                    # 如果是三维或更高维，压缩到二维
-                    anomaly_map = anomaly_map.squeeze()
-                    # 如果压缩后还是一维，reshape为二维
-                    if anomaly_map.ndim == 1:
-                        size = int(np.sqrt(len(anomaly_map)))
-                        if size * size <= len(anomaly_map):
-                            anomaly_map = anomaly_map[:size*size].reshape(size, size)
-                        else:
-                            anomaly_map = anomaly_map.reshape(-1, 1)
-
-                im = axes[1].imshow(anomaly_map, cmap='jet', vmin=0, vmax=anomaly_map.max())
-                axes[1].set_title('Anomaly Map')
-                axes[1].axis('off')
-
-                # 添加colorbar
-                plt.colorbar(im, ax=axes[1], shrink=0.8)
-
-                # Ground Truth (如果有的话)
-                if gts is not None:
-                    gt = gts[i].squeeze().cpu().numpy()
-                    axes[2].imshow(gt, cmap='gray')
-                    axes[2].set_title('Ground Truth')
-                    axes[2].axis('off')
-
-                plt.tight_layout()
-                sample_type = "normal" if current_label == 0 else "abnormal"
-                save_path = os.path.join(result_path, f'sample_{sample_count:02d}_{sample_type}_label_{current_label}.png')
-                plt.savefig(save_path, dpi=150, bbox_inches='tight')
-                plt.close()
-
-                sample_count += 1
-                if current_label == 0:
-                    normal_count += 1
-                else:
-                    abnormal_count += 1
-
-                # 检查是否已经收集了足够的样本
-                if sample_count >= args.eval_viz_samples:
-                    break
-
-            if sample_count >= args.eval_viz_samples:
-                break
-
-    print(f"Evaluation visualization saved to: {result_path} ({sample_count} samples)")
-
-
-def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
-    """
-    使用matplotlib进行anomaly map可视化的简化版本
-    不依赖opencv，使用numpy和matplotlib
-    """
-    import matplotlib.pyplot as plt
-    from util.test import cal_anomaly_map
-
-    pfe.eval()
-    ae.eval()
-
-    result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
-    os.makedirs(result_path, exist_ok=True)
-
-    with torch.no_grad():
-        cnt = 0
-        for batch_data in dataloader:
-            if len(batch_data) == 3:
-                imgs, gts, labels = batch_data
-            else:
-                imgs, labels = batch_data
-                gts = None
-
-            imgs = imgs.to(device)
-            inputs = pfe(imgs)
-            outputs = ae(inputs)
-
-            # 计算anomaly map
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
-
-            # 反归一化图像以便显示
-            imgs_np = imgs.cpu().numpy()
-            mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
-            std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
-            imgs_np = imgs_np * std + mean
-            imgs_np = np.clip(imgs_np, 0, 1)
-
-            for i in range(len(imgs)):
-                fig, axes = plt.subplots(1, 3 if gts is not None else 2, figsize=(12, 4))
-
-                # 原始图像
-                img_display = np.transpose(imgs_np[i], (1, 2, 0))
-                axes[0].imshow(img_display)
-                axes[0].set_title(f'Original Image\nLabel: {"Abnormal" if labels[i] > 0 else "Normal"}')
-                axes[0].axis('off')
-
-                # Anomaly Map
-                anomaly_map = anomaly_maps[i, 0] if len(anomaly_maps.shape) > 2 else anomaly_maps[i]
-                axes[1].imshow(anomaly_map, cmap='jet', vmin=0, vmax=anomaly_maps.max())
-                axes[1].set_title('Anomaly Map')
-                axes[1].axis('off')
-
-                # Ground Truth (如果有的话)
-                if gts is not None:
-                    gt = gts[i].squeeze().cpu().numpy()
-                    axes[2].imshow(gt, cmap='gray')
-                    axes[2].set_title('Ground Truth')
-                    axes[2].axis('off')
-
-                plt.tight_layout()
-                save_path = os.path.join(result_path, f'sample_{cnt:03d}_label_{labels[i].item()}.png')
-                plt.savefig(save_path, dpi=150, bbox_inches='tight')
-                plt.close()
-
-                cnt += 1
-                if cnt >= 10:  # 限制可视化数量
-                    break
-            if cnt >= 10:
-                break
-
+def loss_function(a, b):
+    cos_loss = torch.nn.CosineSimilarity()
+    loss = 0
+    for item in range(len(a)):
+        loss += torch.mean(1-cos_loss(a[item].view(b[item].shape[0], -1),
+                                      b[item].view(b[item].shape[0], -1)))
+    return loss
 
 def loss_draw(loss_history, save_path=None):
     """
@@ -649,11 +315,7 @@ def train(args):
             
             # 5.7 计算重建损失和自编码器总损失
             # 重建损失使用余弦相似度，衡量正常样本特征和重建特征的相似程度
-            recon_loss = loss_function(normal_inputs, normal_outputs,
-                                      loss_type=args.recon_loss_type,
-                                      alpha=args.loss_alpha,
-                                      beta=args.loss_beta,
-                                      gamma=args.loss_gamma)
+            recon_loss = loss_function(normal_inputs, normal_outputs)
             
             # 自编码器总损失 = 重建损失 + 对抗损失*权重
             ae_loss = recon_loss + args.adv_conf * adv_loss
@@ -692,17 +354,9 @@ def train(args):
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
-                # 评估时可视化anomaly map
-                if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
-                    visualize_evaluation_anomaly_maps(pfe, ae, valid_dataloader, args, device, epoch, "valid")
-
             metrics = evaluation(pfe, ae, test_dataloader, device, args)
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
-
-            # 评估时可视化anomaly map
-            if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
-                visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test")
 
     # 8. 训练结束后保存最终损失曲线
     try:
@@ -722,62 +376,6 @@ def train(args):
     except Exception as e:
         logger.error("Failed to generate final loss curve: {}".format(str(e)))
 
-    # 9. 训练结束后进行anomaly map可视化
-    try:
-        logger.info("Starting anomaly map visualization...")
-
-        # 设置数据变换（与训练时相同）
-        if args.dataset in ['mvtec', 'visa', 'btad']:
-            img_transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-            ])
-            gt_transform = transforms.Compose([transforms.ToTensor()])
-        else:
-            img_transform = transforms.Compose([
-                transforms.Resize(args.img_size),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
-            ])
-            gt_transform = transforms.Compose([transforms.ToTensor()])
-
-        # 创建测试数据集（只可视化前几个样本以节省时间）
-        if args.dataset == 'mvtec':
-            from dataset.mvtec import MVTecDataset
-            viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
-                                     transform=img_transform, gt_target_transform=gt_transform,
-                                     img_size=args.img_size)
-            # 只可视化前5个样本（包括正常和异常样本）
-            viz_indices = []
-            normal_count = 0
-            abnormal_count = 0
-            for i, target in enumerate(viz_dataset.targets):
-                if target == 0 and normal_count < 3:  # 正常样本
-                    viz_indices.append(i)
-                    normal_count += 1
-                elif target > 0 and abnormal_count < 2:  # 异常样本
-                    viz_indices.append(i)
-                    abnormal_count += 1
-                if len(viz_indices) >= 5:
-                    break
-
-            viz_dataset.data = viz_dataset.data[viz_indices]
-            viz_dataset.targets = viz_dataset.targets[viz_indices]
-            viz_dataset.gt_paths = [viz_dataset.gt_paths[i] for i in viz_indices]
-
-        viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
-
-        # 使用简化的matplotlib可视化（不依赖opencv）
-        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs)
-
-        viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
-        logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
-
-    except Exception as e:
-        logger.error("Failed to generate anomaly map visualization: {}".format(str(e)))
-        logger.error("This might be due to missing visualization dependencies")
-        logger.info("You can manually implement visualization using the anomaly_map data from evaluation_pixel()")
-
 def print_args(logger, args):
     logger.info('--------args----------')
     for k in list(vars(args).keys()):
@@ -790,4 +388,3 @@ if __name__ == '__main__':
     args = parse_args()
     args.seed = setup_seed(args.seed)
     train(args)
-   

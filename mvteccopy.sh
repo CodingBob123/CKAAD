@@ -11,8 +11,8 @@ do
             eval_epoch=1
             ;;
         *)  
-            epochs=2
-            eval_epoch=2
+            epochs=1
+            eval_epoch=1
             ;;
     esac
 
@@ -30,8 +30,5 @@ do
     --labeled_anomaly_class_num ${labeled_anomaly_class_num} \
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
-    --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 \
-    --eval_visualize --eval_viz_samples 5 --eval_viz_freq 1 \
-    --recon_loss_type cosine --loss_alpha 0.7 --loss_beta 0.2 --loss_gamma 0.1
-    # --recon_loss_type cosine --loss_alpha 1.0 --loss_beta 0 --loss_gamma 0
+    --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1
 done

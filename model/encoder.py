@@ -3,10 +3,8 @@ from torch import Tensor
 import torch.nn as nn
 from typing import Type, Callable, Union, Optional, List
 import functools
-from model.SENetv2 import SEAttention
-from model.Efficient_CA_complex import CoordAtt_ECA
-from model.ECANet import ECAAttention
-from model.SEAAttention import Sea_Attention
+from model.ECA_Net import ECAAttention
+from model.SEAattention import Sea_Attention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -158,9 +156,9 @@ class FusionLayer(nn.Module):
         
         # 为每个分支添加坐标注意力模块（在原始预训练特征上先进行CA增强）
         branch_channels = [c * block.expansion for c in input_channels]
-        self.coord_atts = nn.ModuleList([
-            CoordAtt_ECA(inp=ch, oup=ch) for ch in branch_channels
-        ])
+        # self.coord_atts = nn.ModuleList([
+        #     CoordAtt_ECA(inp=ch, oup=ch) for ch in branch_channels
+        # ])
         
         # 拼接后的总通道数：分支数 × 对齐后的通道数（均为 input_channels[-1] * block.expansion）
         ca_aligned_channel = input_channels[-1] * block.expansion

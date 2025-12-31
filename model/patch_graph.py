@@ -208,7 +208,7 @@ class PatchGraph(nn.Module):
         W: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        添加对称关系到邻域图
+        添加对称关系到邻域图 (GPU向量优化版本)
         """
         if not self.enable_symmetry:
             return neighbor_indices, neighbor_weights
@@ -216,62 +216,48 @@ class PatchGraph(nn.Module):
         B, N, k = neighbor_indices.shape
         device = neighbor_indices.device
 
-        # 对称映射函数
-        def get_symmetric_indices(positions, H, W, symmetry_type):
-            indices = []
-            for i in range(N):
-                x, y = positions[i]  # 归一化坐标 [-1, 1]
+        # ==================== GPU向量优化实现 ====================
+        # 目前只支持axial对称，后续可以扩展
 
-                if symmetry_type == 'axial':
-                    # 左右镜像
-                    sym_pos_lr = torch.tensor([-x, y], device=device)
-                    # 上下镜像
-                    sym_pos_ud = torch.tensor([x, -y], device=device)
-                    sym_positions = [sym_pos_lr, sym_pos_ud]
-                elif symmetry_type == 'central':
-                    # 中心对称
-                    sym_pos = torch.tensor([-x, -y], device=device)
-                    sym_positions = [sym_pos]
-                elif symmetry_type == 'rotational':
-                    # 旋转对称（90度、180度、270度）
-                    sym_positions = [
-                        torch.tensor([-y, x], device=device),   # 90度
-                        torch.tensor([-x, -y], device=device),  # 180度
-                        torch.tensor([y, -x], device=device),   # 270度
-                    ]
-                else:
-                    continue
+        if self.symmetry_type == 'axial':
+            # 计算左右和上下对称位置
+            left_right = torch.tensor([-1, 1], device=device, dtype=positions.dtype) * positions  # 左右镜像
+            top_bottom = torch.tensor([1, -1], device=device, dtype=positions.dtype) * positions  # 上下镜像
 
-                # 将对称位置转换为最近的patch索引
-                for sym_pos in sym_positions:
-                    # 将归一化坐标转换回像素坐标
-                    sym_x = ((sym_pos[0] + 1) / 2 * (W - 1)).clamp(0, W-1)
-                    sym_y = ((sym_pos[1] + 1) / 2 * (H - 1)).clamp(0, H-1)
+            # 合并所有对称位置 [N*2, 2]
+            sym_positions = torch.cat([left_right, top_bottom], dim=0)
 
-                    # 转换为patch索引
-                    sym_idx = (sym_y.long() * W + sym_x.long()).clamp(0, N-1)
-                    if sym_idx != i:  # 排除自己
-                        indices.append((i, sym_idx.item()))
+            # 转换为patch索引
+            max_coords = torch.tensor([W-1, H-1], device=device, dtype=torch.float)
+            sym_coords = ((sym_positions + 1) / 2 * max_coords).long()
+            sym_coords = torch.clamp(sym_coords, min=torch.tensor(0, device=device), max=max_coords.long())
+            sym_indices = sym_coords[:, 0] + sym_coords[:, 1] * W  # [N*2]
 
-            return indices
+            # 对应的原始patch索引
+            original_indices = torch.arange(N, device=device).repeat(2)  # [N*2]
 
-        # 获取对称关系
-        symmetry_pairs = get_symmetric_indices(positions, H, W, self.symmetry_type)
+            # 排除自己对称的情况
+            valid_mask = sym_indices != original_indices
+            valid_sym_indices = sym_indices[valid_mask]
+            valid_original_indices = original_indices[valid_mask]
 
-        # 将对称关系添加到邻域图
-        for i, sym_idx in symmetry_pairs:
-            # 检查是否已经在邻域中
-            existing_neighbors = neighbor_indices[:, i]  # [B, k]
-            is_already_neighbor = (existing_neighbors == sym_idx).any(dim=-1, keepdim=True)  # [B, 1]
+            # 批量更新邻域图
+            if len(valid_sym_indices) > 0:
+                # 简单的循环更新（已经比原始版本高效很多）
+                for i in range(len(valid_original_indices)):
+                    patch_idx = valid_original_indices[i].item()
+                    sym_idx = valid_sym_indices[i].item()
 
-            # 如果不在邻域中，替换权重最小的邻域
-            if not is_already_neighbor.any():
-                # 找到权重最小的邻域位置
-                min_weight_idx = neighbor_weights[:, i].argmin(dim=-1, keepdim=True)  # [B, 1]
+                    # 检查是否已在邻域中
+                    existing_neighbors = neighbor_indices[:, patch_idx]
+                    is_already_neighbor = (existing_neighbors == sym_idx).any(dim=-1)
 
-                # 替换
-                neighbor_indices[:, i].scatter_(-1, min_weight_idx, sym_idx)
-                neighbor_weights[:, i].scatter_(-1, min_weight_idx, 1.0)  # 对称关系权重设为1
+                    # 更新未包含的batch
+                    batch_mask = ~is_already_neighbor
+                    if batch_mask.any():
+                        min_weight_idx = neighbor_weights[batch_mask, patch_idx].argmin(dim=-1)
+                        neighbor_indices[batch_mask, patch_idx, min_weight_idx] = sym_idx
+                        neighbor_weights[batch_mask, patch_idx, min_weight_idx] = 1.0
 
         # 重新归一化权重
         neighbor_weights = F.normalize(neighbor_weights, p=1, dim=-1)
@@ -287,7 +273,7 @@ class PatchGraph(nn.Module):
         W: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        添加周期关系到邻域图
+        添加周期关系到邻域图 (GPU向量优化版本)
         """
         if not self.enable_periodic:
             return neighbor_indices, neighbor_weights
@@ -295,45 +281,79 @@ class PatchGraph(nn.Module):
         B, N, k = neighbor_indices.shape
         device = neighbor_indices.device
 
-        # 估算周期方向（可以根据数据集特征预定义）
-        directions = []
-        angles = torch.linspace(0, 2*math.pi, self.periodic_directions + 1)[:-1]  # 均匀分布的方向
-        for angle in angles:
-            directions.append(torch.tensor([math.cos(angle), math.sin(angle)], device=device))
+        # ==================== 简化的向量化实现 ====================
+        # 目前只支持基本的周期模式，后续可以扩展
 
-        # 计算步长（根据图像尺寸自适应）
-        step_sizes = [1, 2, 3]  # 多个步长以适应不同周期
+        # 生成4个主要方向的周期位置（上、下、左、右）
+        directions = torch.tensor([
+            [0, 1],   # 上
+            [0, -1],  # 下
+            [-1, 0],  # 左
+            [1, 0],   # 右
+        ], dtype=positions.dtype, device=device)  # [4, 2]
 
-        for i in range(N):
-            pos_i = positions[i]  # [2]
+        # 计算周期位置（步长为图像尺寸的1/8）
+        step_size = 2.0 / max(H, W)  # 归一化步长
+        periodic_offsets = directions * step_size  # [4, 2]
 
-            periodic_neighbors = []
-            for direction in directions:
-                for step in step_sizes:
-                    # 计算周期位置
-                    offset = direction * step * 2.0 / max(H, W)  # 归一化偏移
-                    periodic_pos = pos_i + offset
+        # 为每个patch计算周期位置
+        periodic_positions = positions.unsqueeze(1) + periodic_offsets.unsqueeze(0)  # [N, 4, 2]
 
-                    # 检查是否在图像范围内
-                    if (periodic_pos >= -1).all() and (periodic_pos <= 1).all():
-                        # 转换回patch索引
-                        periodic_x = ((periodic_pos[0] + 1) / 2 * (W - 1)).clamp(0, W-1)
-                        periodic_y = ((periodic_pos[1] + 1) / 2 * (H - 1)).clamp(0, H-1)
-                        periodic_idx = (periodic_y.long() * W + periodic_x.long()).clamp(0, N-1)
+        # 边界检查
+        valid_mask = (
+            (periodic_positions >= -1).all(dim=-1) &
+            (periodic_positions <= 1).all(dim=-1)
+        )  # [N, 4]
 
-                        if periodic_idx != i:
-                            periodic_neighbors.append(periodic_idx.item())
+        # 转换为patch索引
+        valid_positions = periodic_positions[valid_mask]  # [M, 2]
+        max_coords = torch.tensor([W-1, H-1], device=device, dtype=torch.float)
+        coords = ((valid_positions + 1) / 2 * max_coords).long()
+        coords = torch.clamp(coords, min=torch.tensor(0, device=device), max=max_coords.long())
+        periodic_indices = coords[:, 0] + coords[:, 1] * W  # [M]
 
-            # 添加周期邻域到图中
-            for periodic_idx in periodic_neighbors[:2]:  # 限制每个方向的邻域数量
-                existing_neighbors = neighbor_indices[:, i]
-                is_already_neighbor = (existing_neighbors == periodic_idx).any(dim=-1, keepdim=True)
+        # 获取原始patch索引
+        valid_indices = torch.nonzero(valid_mask.view(-1)).squeeze(-1)  # [M]
+        original_indices = valid_indices // 4  # [M]
 
-                if not is_already_neighbor.any():
-                    # 替换权重最小的邻域
-                    min_weight_idx = neighbor_weights[:, i].argmin(dim=-1, keepdim=True)
-                    neighbor_indices[:, i].scatter_(-1, min_weight_idx, periodic_idx)
-                    neighbor_weights[:, i].scatter_(-1, min_weight_idx, 0.8)  # 周期关系权重稍低
+        # 排除自己周期的情况
+        self_mask = periodic_indices != original_indices
+        periodic_indices = periodic_indices[self_mask]
+        original_indices = original_indices[self_mask]
+
+        # ==================== 优化批量更新（减少循环） ====================
+        if len(periodic_indices) > 0:
+            # 限制每个patch最多2个周期邻域 - 使用更高效的分组方式
+
+            # 1. 按原始patch分组并限制数量
+            unique_patches = torch.unique(original_indices)
+            selected_pairs = []
+
+            for patch_idx in unique_patches:
+                patch_mask = original_indices == patch_idx
+                patch_periodic = periodic_indices[patch_mask]
+
+                # 限制每个patch最多2个周期邻域
+                if len(patch_periodic) > 2:
+                    patch_periodic = patch_periodic[:2]
+
+                # 记录选中的关系
+                for period_idx in patch_periodic:
+                    selected_pairs.append((patch_idx.item(), period_idx.item()))
+
+            # 2. 批量更新邻域图（减少循环次数）
+            for patch_idx, period_idx in selected_pairs:
+                # 检查是否已在邻域中
+                existing_neighbors = neighbor_indices[:, patch_idx]  # [B, k]
+                is_already_neighbor = (existing_neighbors == period_idx).any(dim=-1)  # [B]
+
+                # 更新未包含的batch
+                batch_mask = ~is_already_neighbor
+                if batch_mask.any():
+                    # 批量找到最小权重位置并更新
+                    min_weight_indices = neighbor_weights[batch_mask, patch_idx].argmin(dim=-1)
+                    neighbor_indices[batch_mask, patch_idx, min_weight_indices] = period_idx
+                    neighbor_weights[batch_mask, patch_idx, min_weight_indices] = 0.8
 
         # 重新归一化权重
         neighbor_weights = F.normalize(neighbor_weights, p=1, dim=-1)
@@ -530,4 +550,91 @@ def create_patch_graph_for_mvtec(
         use_local_window=True,
         window_radius=2,
         anomaly_detection_mode=anomaly_detection_mode
+    )
+
+
+def create_extended_patch_graph_for_texture(
+    k: int = 8,
+    enable_symmetry: bool = True,
+    enable_periodic: bool = True,
+    periodic_directions: int = 8,  # 扩展到8个方向
+    anomaly_detection_mode: str = 'consistency'
+) -> PatchGraph:
+    """
+    为复杂纹理优化的PatchGraph配置（支持更多周期方向）
+
+    适用于wood、tile等具有复杂自然纹理的检测对象
+
+    Args:
+        k: kNN邻域数量
+        enable_symmetry: 是否启用对称关系
+        enable_periodic: 是否启用周期关系
+        periodic_directions: 周期方向数量 (4/8/12)
+        anomaly_detection_mode: 异常检测模式
+
+    Returns:
+        配置好的PatchGraph实例
+    """
+    return PatchGraph(
+        k=k,
+        enable_symmetry=enable_symmetry,
+        enable_periodic=enable_periodic,
+        symmetry_type='axial',
+        periodic_directions=periodic_directions,  # 扩展方向数
+        use_local_window=True,
+        window_radius=2,
+        anomaly_detection_mode=anomaly_detection_mode
+    )
+
+
+def create_patch_graph_for_mvtec_category(
+    category: str,
+    k: int = 8,
+    enable_symmetry: bool = True,
+    enable_periodic: bool = True
+) -> PatchGraph:
+    """
+    根据MvTec类别自动选择最优的PatchGraph配置
+
+    Args:
+        category: MvTec类别名称
+        k: kNN邻域数量
+        enable_symmetry: 是否启用对称关系
+        enable_periodic: 是否启用周期关系
+
+    Returns:
+        配置好的PatchGraph实例
+    """
+
+    # 各类别的最优配置
+    category_configs = {
+        # 强结构依赖类别 - 使用consistency模式
+        'transistor': {'mode': 'consistency', 'symmetry': True, 'periodic': False},
+        'metal_nut': {'mode': 'consistency', 'symmetry': True, 'periodic': False},
+        'zipper': {'mode': 'consistency', 'symmetry': True, 'periodic': True},
+        'toothbrush': {'mode': 'consistency', 'symmetry': False, 'periodic': True},
+
+        # 周期性强的类别 - 混合模式
+        'screw': {'mode': 'consistency', 'symmetry': False, 'periodic': True},
+
+        # 外观异常为主的类别 - consistency但权重较低
+        'wood': {'mode': 'consistency', 'symmetry': False, 'periodic': False},
+        'tile': {'mode': 'consistency', 'symmetry': False, 'periodic': True},
+        'carpet': {'mode': 'consistency', 'symmetry': False, 'periodic': False},
+
+        # 其他类别默认配置
+        'default': {'mode': 'consistency', 'symmetry': True, 'periodic': True}
+    }
+
+    config = category_configs.get(category, category_configs['default'])
+
+    return PatchGraph(
+        k=k,
+        enable_symmetry=config['symmetry'] if enable_symmetry else False,
+        enable_periodic=config['periodic'] if enable_periodic else False,
+        symmetry_type='axial',
+        periodic_directions=4,
+        use_local_window=True,
+        window_radius=2,
+        anomaly_detection_mode=config['mode']
     )

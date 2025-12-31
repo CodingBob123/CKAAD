@@ -1,0 +1,32 @@
+[2025-12-31 16:13:26,085][main.py][line:189][INFO] log file: ./log/lan0.05_acn1/mvtec/n_cable_a_0_s_111.txt
+[2025-12-31 16:13:26,085][main.py][line:190][INFO] class: cable
+[2025-12-31 16:13:26,085][main.py][line:420][INFO] --------args----------
+[2025-12-31 16:13:26,085][main.py][line:422][INFO] dataset: mvtec
+[2025-12-31 16:13:26,085][main.py][line:422][INFO] batch_size: 16
+[2025-12-31 16:13:26,085][main.py][line:422][INFO] lr: 0.005
+[2025-12-31 16:13:26,085][main.py][line:422][INFO] epochs: 1
+[2025-12-31 16:13:26,085][main.py][line:422][INFO] img_size: 128
+[2025-12-31 16:13:26,085][main.py][line:422][INFO] normal: cable
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] seed: 111
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] labeled_anomaly_class_num: 1
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] labeled_anomaly_class: 0
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] labeled_anomaly_ratio: 0.05
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] log_dir: ./log
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] model: wide_resnet50_2
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] eval_epoch: 1
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] layer: [1]
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] d_lr: 0.0001
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] adv_conf: 0.02
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] topk: 100
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] enable_patch_graph: True
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] patch_graph_k: 8
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] patch_graph_mode: consistency
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] use_amp: True
+[2025-12-31 16:13:26,086][main.py][line:422][INFO] compile: False
+[2025-12-31 16:13:26,086][main.py][line:423][INFO] --------args----------
+
+[2025-12-31 16:13:26,136][main.py][line:197][INFO] device: cuda
+[2025-12-31 16:13:50,975][main.py][line:243][INFO] AMP enabled (autocast + GradScaler)
+[2025-12-31 16:14:22,077][main.py][line:379][INFO] epoch [1/1], dis_loss: 4.997489, recon_loss:0.364777, adv_loss:0.013914, ae_loss: 0.365056
+[2025-12-31 16:14:59,829][main.py][line:399][INFO] Test: Pixel_AUROC: 0.887850 Pixel_PRO: 0.647054 Image_AUROC: 0.513493 Image_F1: 0.760331 Image_ACC: 0.613333 
+[2025-12-31 16:15:01,055][main.py][line:413][INFO] Final loss curve saved to: ./pic/loss_curve_final_n_cable_a_0_s_111.jpg

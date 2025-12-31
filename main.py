@@ -53,6 +53,12 @@ def parse_args():
 
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
 
+    # PatchGraph相关参数
+    parser.add_argument('--enable_patch_graph', action='store_true', default=True, help='enable PatchGraph structure modeling')
+    parser.add_argument('--patch_graph_k', type=int, default=8, help='kNN neighbors for PatchGraph')
+    parser.add_argument('--patch_graph_mode', type=str, default='consistency', choices=['consistency', 'reconstruction', 'attention'],
+                       help='PatchGraph anomaly detection mode')
+
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
     
@@ -207,7 +213,10 @@ def train(args):
     
     # 3.2 初始化编码器-解码器(自编码器)
     # 输入通道数由预训练模型的输出通道数决定，例如对于ResNet50和layers=[1,2,3]，为[256,512,1024]
-    ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
+    ae = ED(backbone=args.model, input_channels=pfe.output_channels,
+            enable_patch_graph=args.enable_patch_graph,
+            patch_graph_k=args.patch_graph_k,
+            patch_graph_mode=args.patch_graph_mode).to(device)
     
     # 3.3 初始化判别器
     # input_sizes: 各层特征图的空间尺寸，例如[64,32,16]

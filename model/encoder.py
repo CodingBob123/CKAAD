@@ -5,6 +5,7 @@ from typing import Type, Callable, Union, Optional, List
 import functools
 from model.ECA_Net import ECAAttention
 from model.SEAattention import Sea_Attention
+from model.patch_graph import PatchGraph, create_patch_graph_for_mvtec
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -134,6 +135,9 @@ class FusionLayer(nn.Module):
                  input_channels: List[int] = [64, 128, 256],
                  norm_layer: Optional[Callable[..., nn.Module]] = None,
                  width_per_group: int = 64,
+                 enable_patch_graph: bool = True,
+                 patch_graph_k: int = 8,
+                 patch_graph_mode: str = 'consistency',
                  ):
         super(FusionLayer, self).__init__()
         if norm_layer is None:
@@ -142,7 +146,8 @@ class FusionLayer(nn.Module):
         self._norm_layer = norm_layer
         self.dilation = 1
         self.base_width = width_per_group
-        
+        self.enable_patch_graph = enable_patch_graph
+
         conv_layers = []   #  原文一开始使用的是三层预训练特征块，每一块转换通道用的卷积层列表（共三个列表）
         for input_channel in input_channels:
             # 函数会返回卷积层列表，不同层级的输入被映射到统一通道数 input_channels[-1] * block.expansion（ 256×4=1024）。
@@ -180,6 +185,30 @@ class FusionLayer(nn.Module):
         # 输入通道数：拼接后的总通道数 inplanes_after_concat
         # 例如：wide_resnet50_2时为 256*4*3 = 3072
         self.sea_attention = Sea_Attention(dim=inplanes_after_concat, key_dim=64, num_heads=8, attn_ratio=2)
+
+        # ========== 结构感知模块：PatchGraph ==========
+        # PatchGraph用于在特征空间中建模patch间的结构关系，捕捉结构异常
+        # 集成位置：在多尺度特征融合后，SEA注意力前
+        # 优势：
+        # - 补足多尺度特征融合的空间结构感知不足
+        # - 专门针对工业异常的结构关系建模（对称、周期等）
+        # - 与SEA注意力形成互补：SEA是轴向全局建模，PatchGraph是局部关系建模
+        if self.enable_patch_graph:
+            # 为中层特征（32x32）设计PatchGraph
+            self.patch_graph = create_patch_graph_for_mvtec(
+                k=patch_graph_k,
+                enable_symmetry=False,  # 启用对称关系（适用于transistor、metal_nut等）
+                enable_periodic=False,  # 启用周期关系（适用于screw、zipper等）
+                anomaly_detection_mode=patch_graph_mode
+            )
+
+            # 结构异常分数上采样模块（将PatchGraph输出上采样到融合特征尺寸）
+            self.structure_upsampler = nn.Sequential(
+                nn.Conv2d(1, inplanes_after_concat // 4, kernel_size=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(inplanes_after_concat // 4, inplanes_after_concat, kernel_size=1),
+                nn.Sigmoid()  # 输出权重，用于融合
+            )
 
         self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
 
@@ -242,12 +271,27 @@ class FusionLayer(nn.Module):
         
         # 3) 将对齐后的三个分支在通道维度上拼接
         fused = torch.cat(features, dim=1)
-        
-        # 3.5) 对拼接后的特征应用 ECA 通道注意力
+
+        # 3.5) 应用PatchGraph进行结构关系建模（可选）
+        # PatchGraph在拼接后的特征上建模patch间的结构关系
+        # 适用于捕捉结构异常：misplaced, flip, split_teeth, thread_top等
+        if self.enable_patch_graph:
+            # 使用拼接后的特征计算结构异常分数
+            # 注意：这里使用的是已经对齐的特征（32x32尺度）
+            structure_scores = self.patch_graph(fused)  # [B, 1, H, W]
+
+            # 将结构分数上采样为权重，用于特征增强
+            structure_weights = self.structure_upsampler(structure_scores)  # [B, C, H, W]
+
+            # 结构感知特征增强：用结构权重调节特征强度
+            # 正常结构区域权重接近1，异常结构区域权重<1，实现结构感知的特征调节
+            fused = fused * structure_weights
+
+        # 3.6) 对拼接后的特征应用 ECA 通道注意力
         # ECA：通道维度特征选择，选择哪些通道重要
         fused = self.eca_attention(fused)
 
-        # 3.6) 应用SEAttention增强结构感知能力
+        # 3.7) 应用SEAttention增强结构感知能力
         # SEAttention包含：
         # - Squeeze Axial Attention: 建模行/列方向长程依赖
         # - Detail Enhancement Kernel: 通过局部卷积增强边界和细节
@@ -265,26 +309,48 @@ class FusionLayer(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3) -> None:
+    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3,
+                 enable_patch_graph: bool = True, patch_graph_k: int = 8, patch_graph_mode: str = 'consistency') -> None:
         super(Encoder, self).__init__()
         self.expansion = 4
         if backbone == 'resnet18':
-            self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels)
+            self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
             self.expansion = 1
         elif backbone == 'resnet34':
-            self.fusion_layer = FusionLayer(AttnBasicBlock, attn_block_num, input_channels)
+            self.fusion_layer = FusionLayer(AttnBasicBlock, attn_block_num, input_channels,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
             self.expansion = 1
-            
+
         elif backbone == 'resnet50':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
         elif backbone == 'resnet101':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
         elif backbone == 'resnet152':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
         elif backbone == 'wide_resnet50_2':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
         elif backbone == 'wide_resnet101_2':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2,
+                                           enable_patch_graph=enable_patch_graph,
+                                           patch_graph_k=patch_graph_k,
+                                           patch_graph_mode=patch_graph_mode)
             
     def forward(self, x):
         return self.fusion_layer(x)

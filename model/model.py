@@ -90,9 +90,13 @@ class PretrainedFeatureExtractor(nn.Module):
 
 
 class ED(nn.Module):
-    def __init__(self, backbone='resnet18', input_channels=[64, 128, 256]):
+    def __init__(self, backbone='resnet18', input_channels=[64, 128, 256],
+                 enable_patch_graph: bool = True, patch_graph_k: int = 8, patch_graph_mode: str = 'consistency'):
         super(ED, self).__init__()
-        self.encoder = Encoder(backbone=backbone, input_channels=input_channels)
+        self.encoder = Encoder(backbone=backbone, input_channels=input_channels,
+                              enable_patch_graph=enable_patch_graph,
+                              patch_graph_k=patch_graph_k,
+                              patch_graph_mode=patch_graph_mode)
         self.decoder = Decoder(backbone=backbone, output_channels=input_channels)
     
     def forward(self, x):

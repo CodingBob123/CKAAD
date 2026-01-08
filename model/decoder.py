@@ -2,6 +2,7 @@ from torch import Tensor
 import torch.nn as nn
 from typing import Type, Callable, Union, List, Optional
 import functools
+from model.DySample import DySample
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""
@@ -39,7 +40,8 @@ class DeBasicBlock(nn.Module):
         if base_width != 64:
             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
         if stride == 2:
-            self.conv1 = deconv2x2(inplanes, planes, stride)
+            # self.conv1 = deconv2x2(inplanes, planes, stride)  # 原转置卷积
+            self.conv1 = DySample(inplanes, scale=2)  # DySample动态上采样
         else:
             self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
@@ -52,7 +54,7 @@ class DeBasicBlock(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         identity = x  # [N, inplanes, H,   W]
 
-        out = self.conv1(x)  # deconv2x2, s=2 →   [N, planes,   2H,  2W]    conv3x3, stride=1 → [N, planes,   H,   W] 下面保持不变
+        out = self.conv1(x)  # DySample/deconv2x2, s=2 → [N, planes, 2H, 2W]    conv3x3, stride=1 → [N, planes, H, W] 下面保持不变
         out = self.bn1(out)
         out = self.relu(out)
 
@@ -95,7 +97,8 @@ class DeBottleneck(nn.Module):
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
         if stride == 2:
-            self.conv2 = deconv2x2(width, width, stride)
+            # self.conv2 = deconv2x2(width, width, stride)  # 原转置卷积
+            self.conv2 = DySample(width, scale=2)  # DySample动态上采样
         else:
             self.conv2 = conv3x3(width, width, stride)
         self.bn2 = norm_layer(width)
@@ -122,9 +125,9 @@ class DeBottleneck(nn.Module):
         out = self.relu(out) # ReLU激活，形状不变
                         # 形状：[N, width, H, W]
 
-        # 第二个卷积层：根据stride决定是3x3卷积还是2x2转置卷积
+        # 第二个卷积层：根据stride决定是3x3卷积还是DySample上采样
         out = self.conv2(out)  # 如果stride=1：3x3卷积，空间不变
-                          # 如果stride=2：2x2转置卷积，上采样2倍
+                          # 如果stride=2：DySample上采样2倍
                           # 形状：stride=1时 [N, width, H, W]
                           #       stride=2时 [N, width, 2H, 2W]
         
@@ -270,8 +273,17 @@ class DeResNet(nn.Module):
         norm_layer = self._norm_layer
         upsample = None
         if stride != 1 or inplanes != planes * block.expansion:
+            # 原转置卷积上采样 (通道数会改变)
+            # upsample = nn.Sequential(
+            #     deconv2x2(inplanes, planes * block.expansion, stride),
+            #     norm_layer(planes * block.expansion),
+            # )
+
+            # DySample上采样 + 1x1卷积调整通道数
+            # 注意：这里scale=stride是为了与转置卷积行为一致
             upsample = nn.Sequential(
-                deconv2x2(inplanes, planes * block.expansion, stride),
+                DySample(inplanes, scale=stride),
+                conv1x1(inplanes, planes * block.expansion),
                 norm_layer(planes * block.expansion),
             )
         layers = []

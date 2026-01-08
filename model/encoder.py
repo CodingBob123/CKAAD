@@ -7,6 +7,7 @@ from model.SENetv2 import SEAttention
 from model.Efficient_CA_complex import CoordAtt_ECA
 from model.ECANet import ECAAttention
 from model.SEAAttention import Sea_Attention
+from model.deformConv import SAMDeformConv2d
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -98,7 +99,7 @@ class AttnBottleneck(nn.Module):
         
         self.conv1 = conv1x1(inplanes, width)
         self.ln1 = norm_layer(width)
-        self.conv2 = conv3x3(width, width, stride)
+        self.conv2 = SAMDeformConv2d(width, width, stride=stride)
         self.ln2 = norm_layer(width)
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.ln3 = norm_layer(planes * self.expansion)

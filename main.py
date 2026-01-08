@@ -195,6 +195,7 @@ def train(args):
         
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logger.info("device: {}".format(device))
+    logger.info("CUDA available: {}".format(torch.cuda.is_available()))
 
     # 2.加载数据集，获取数据加载器
     dataset = OODDataSet(root='./data', dataset=args.dataset, image_size=args.img_size, category=args.normal,
@@ -234,7 +235,7 @@ def train(args):
     fake_label = 1  # 异常样本的标签
 
     # AMP setup
-    use_cuda_amp = args.use_amp and (device == 'cuda')
+    use_cuda_amp = args.use_amp and torch.cuda.is_available()
     if use_cuda_amp:
         from torch.cuda.amp import autocast, GradScaler
         scaler_ae = GradScaler()

@@ -77,8 +77,7 @@ do
         # ==================== PatchGraph结构感知模块 ====================
         --enable_patch_graph True \
         --patch_graph_k ${patch_graph_k} \
-        --patch_graph_mode ${patch_graph_mode} \
-        --use_amp
+        --patch_graph_mode ${patch_graph_mode}
 
     echo "类别 $normal 训练完成"
     echo ""

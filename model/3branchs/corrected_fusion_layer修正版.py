@@ -10,123 +10,6 @@ import functools
 # from boundary_enhancement import LocalBoundaryEnhancementBlock
 # from global_consistency import GlobalConsistencyBlock
 
-# 导入必要的组件
-from model.encoder_original import AttnBasicBlock, AttnBottleneck
-
-# 导入改进的融合层
-# 使用动态导入来处理中文文件名
-import importlib.util
-
-class AttnBasicBlock(nn.Module):
-    """
-    结构：3×3 → 3×3
-    通道数：保持 planes
-    用于浅层网络（ResNet-18/34）
-
-
-    """
-    expansion: int = 1
-
-    def __init__(
-        self,
-        inplanes: int,
-        planes: int,
-        stride: int = 1,
-        downsample: Optional[nn.Module] = None,
-        norm_layer: Optional[Callable[..., nn.Module]] = None,
-        base_width: int = 64,
-    ) -> None:
-        super(AttnBasicBlock, self).__init__()
-        if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        if base_width != 64:
-            raise ValueError('BasicBlock only supports groups=1 and base_width=64')
-        self.conv1 = conv3x3(inplanes, planes, stride)
-        self.ln1 = norm_layer(planes)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
-        self.ln2 = norm_layer(planes)
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x: Tensor) -> Tensor:
-        identity = x  # x:[N,C,H,W]
-        # 默认 stride 为1，通过卷积核在局部区域滑动，提取纹理、边缘、模式等局部特征；
-        out = self.conv1(x)  # 卷积 out:[N,C,H,W]
-        out = self.ln1(out)  #  BN: [N,C,H,W]
-        out = self.relu(out) #  [N,C,H,W]
-
-        out = self.conv2(out)  # 卷积 out:[N,C,H,W]
-        out = self.ln2(out)    # [N,C,H,W]
-
-        if self.downsample is not None:
-            identity = self.downsample(x)  # [N, planes, H/stride, W/stride] 步长不确定，为1时与原shape一致
-
-        out += identity   # 残差相加: [N, planes, H/stride, W/stride]
-        out = self.relu(out)   # ReLU: [N, planes, H/stride, W/stride]
-
-        return out   # 输出: [N, planes, H/stride, W/stride]
-
-
-class AttnBottleneck(nn.Module):
-    """
-    结构：1×1 → 3×3 → 1×1
-    通道数：扩展为 planes * 4
-    用于深层网络（ResNet-50/101/152）
-
-    这种设计大幅度降低了参数量和计算量，同时保持了模型表达能力。
-    适合构建 更深层的 Encoder，捕获更抽象、更高级的特征。
-    """
-    expansion: int = 4
-
-    def __init__(
-        self,
-        inplanes: int,
-        planes: int,
-        stride: int = 1,
-        downsample: Optional[nn.Module] = None,
-        norm_layer: Optional[Callable[..., nn.Module]] = None,
-        base_width: int = 64,
-    ) -> None:
-        super(AttnBottleneck, self).__init__()
-        if norm_layer is None:
-            norm_layer = nn.BatchNorm2d
-        width = int(planes * (base_width / 64.))
-        
-        self.conv1 = conv1x1(inplanes, width)
-        self.ln1 = norm_layer(width)
-        self.conv2 = SAMDeformConv2d(width, width, stride=stride)
-        self.ln2 = norm_layer(width)
-        self.conv3 = conv1x1(width, planes * self.expansion)
-        self.ln3 = norm_layer(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x: Tensor) -> Tensor:
-        identity = x          # [N, inplanes, H, W]    inplanes=C
-
-        out = self.conv1(x)   # 1x1 卷积降维 → [N, width, H, W]
-        out = self.ln1(out)   # BN → [N, width, H, W]
-        out = self.relu(out)  # ReLU → [N, width, H, W]
-
-        out = self.conv2(out) # 3x3 卷积提取特征 → [N, width, H/stride, W/stride]
-        out = self.ln2(out)   # BN → [N, width, H/stride, W/stride]
-        out = self.relu(out)  # ReLU → [N, width, H/stride, W/stride]
-
-        out = self.conv3(out) # 1x1 卷积升维 → [N, planes*4, H/stride, W/stride]
-        out = self.ln3(out)   # BN → [N, planes*4, H/stride, W/stride]
-
-        if self.downsample is not None:
-            identity = self.downsample(x)   # [N, planes*4, H/stride, W/stride]
-
-        out += identity       # 残差连接 → [N, planes*4, H/stride, W/stride]
-        out = self.relu(out)  # ReLU → [N, planes*4, H/stride, W/stride]
-
-        return out   # 输出: [N, planes*4, H/stride, W/stride]
-
-
-
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""
@@ -354,13 +237,13 @@ class TrulyIntegratedConvLayer(nn.Module):
     真正集成的卷积对齐层 - 完全按照您的想法实现
     在对齐过程的每一步都集成相应的增强功能
     """
-    def __init__(self,
-                 block,
-                 inplanes: int,
-                 out_planes: int,
+    def __init__(self, 
+                 block, 
+                 inplanes: int, 
+                 out_planes: int, 
                  branch_index: int,
                  norm_layer,
-                 enable_enhancements: bool = True):  # 现在这个参数是单个布尔值，表示该分支是否启用增强
+                 enable_enhancements: bool = True):
         super().__init__()
         
         self.branch_index = branch_index
@@ -398,8 +281,6 @@ class CorrectedImprovedFusionLayer(nn.Module):
     """
     修正版的改进融合层 - 按照您的正确想法实现
     真正在特征对齐过程中集成增强功能，而不是先对齐再增强
-
-    支持渐进式实验：可以独立控制每个分支是否启用增强功能
     """
     def __init__(self,
                  block: Type[Union[nn.Module, nn.Module]],  # AttnBasicBlock or AttnBottleneck
@@ -407,27 +288,16 @@ class CorrectedImprovedFusionLayer(nn.Module):
                  input_channels: List[int] = [64, 128, 256],
                  norm_layer: Optional[Callable[..., nn.Module]] = None,
                  width_per_group: int = 64,
-                 enable_enhancements: Union[bool, List[bool]] = True):
+                 enable_enhancements: bool = True):
         super(CorrectedImprovedFusionLayer, self).__init__()
         
         if norm_layer is None:
             norm_layer = functools.partial(nn.InstanceNorm2d, affine=True)
-
+            
         self._norm_layer = norm_layer
         self.dilation = 1
         self.base_width = width_per_group
-
-        # 处理enable_enhancements参数 - 支持布尔值或布尔值列表
-        if isinstance(enable_enhancements, bool):
-            # 如果是单个布尔值，应用到所有分支
-            self.enable_enhancements = [enable_enhancements] * len(input_channels)
-        elif isinstance(enable_enhancements, list):
-            # 如果是列表，直接使用
-            if len(enable_enhancements) != len(input_channels):
-                raise ValueError(f"enable_enhancements列表长度({len(enable_enhancements)})必须等于输入通道数长度({len(input_channels)})")
-            self.enable_enhancements = enable_enhancements
-        else:
-            raise ValueError("enable_enhancements必须是bool类型或bool类型的列表")
+        self.enable_enhancements = enable_enhancements
         
         # ========== 核心修正：真正集成的对齐层 ==========
         # 这里才是按照您想法的正确实现！
@@ -440,7 +310,7 @@ class CorrectedImprovedFusionLayer(nn.Module):
                     out_planes=input_channels[-1],
                     branch_index=i,
                     norm_layer=norm_layer,
-                    enable_enhancements=self.enable_enhancements[i]  # 使用对应的分支启用设置
+                    enable_enhancements=enable_enhancements
                 )
             )
         self.conv_layers = nn.ModuleList(conv_layers)
@@ -515,112 +385,11 @@ class CorrectedImprovedFusionLayer(nn.Module):
         return output.contiguous()
 
 
-def test_progressive_experiments():
-    """
-    渐进式实验测试函数
-    用于测试不同分支增强配置的效果
-    """
-    print("="*70)
-    print("渐进式实验测试")
-    print("="*70)
-
-    # 定义实验配置
-    experiments = [
-        ("基准线（无增强）", [False, False, False]),
-        ("仅分支1（纹理增强）", [True, False, False]),
-        ("仅分支2（边界增强）", [False, True, False]),
-        ("仅分支3（全局增强）", [False, False, True]),
-        ("分支1+2", [True, True, False]),
-        ("分支2+3", [False, True, True]),
-        ("全增强", [True, True, True]),
-    ]
-
-    # 简化的block类型用于测试
-    class SimpleBlock(nn.Module):
-        expansion = 4
-        def __init__(self, inplanes, planes, stride=1, downsample=None, norm_layer=None, base_width=64):
-            super().__init__()
-            self.conv = nn.Conv2d(inplanes, planes * self.expansion, 1)
-        def forward(self, x):
-            return self.conv(x)
-
-    # 模拟输入
-    x1 = torch.randn(2, 64*4, 64, 64)    # Feature1
-    x2 = torch.randn(2, 128*4, 32, 32)   # Feature2
-    x3 = torch.randn(2, 256*4, 16, 16)   # Feature3
-    inputs = [x1, x2, x3]
-
-    results = []
-
-    for exp_name, config in experiments:
-        print(f"\n🔬 测试配置: {exp_name}")
-        print(f"   配置: {config}")
-
-        # 创建模型
-        fusion_layer = CorrectedImprovedFusionLayer(
-            block=SimpleBlock,
-            layers=3,
-            input_channels=[64, 128, 256],
-            enable_enhancements=config
-        )
-
-        # 前向传播
-        with torch.no_grad():
-            output = fusion_layer(inputs)
-
-        # 统计参数量
-        total_params = sum(p.numel() for p in fusion_layer.parameters())
-
-        # 统计计算量
-        try:
-            from thop import profile
-            macs, _ = profile(fusion_layer, inputs=(inputs,), verbose=False)
-            macs_g = macs/1e9
-        except ImportError:
-            macs_g = 0.0
-
-        print(f"        参数量: {total_params/1e6:.2f}M, 计算量: {macs_g:.3f}G")
-        results.append((exp_name, config, total_params, macs_g))
-
-    # 输出对比表格
-    print("\n" + "="*70)
-    print("实验结果对比表")
-    print("="*70)
-    print("<25")
-    print("-" * 70)
-
-    for exp_name, config, params, macs_g in results:
-        config_str = str(config)
-        print("<25")
-
-    return results
-
-
-# ========== 使用示例 - 渐进式实验配置 ==========
-# 现在支持精细化的分支控制，可以独立测试每个分支的增强效果
-#
-# 渐进式实验建议：
-# 阶段1: enable_enhancements=[False, False, False]  # 基准线：无增强
-# 阶段2: enable_enhancements=[True, False, False]   # 测试分支1（纹理增强）
-# 阶段3: enable_enhancements=[False, True, False]   # 测试分支2（边界增强）
-# 阶段4: enable_enhancements=[False, False, True]   # 测试分支3（全局增强）
-# 阶段5: enable_enhancements=[True, True, False]    # 测试分支1+2
-# 阶段6: enable_enhancements=[True, True, True]     # 全增强
-#
-# 也可以使用全局控制：
-# enable_enhancements=True   # 所有分支都启用增强
-# enable_enhancements=False  # 所有分支都不启用增强
+# ========== 使用示例 - 展示真正的集成效果 ==========
 if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) > 1 and sys.argv[1] == "--progressive":
-        # 运行渐进式实验测试
-        test_progressive_experiments()
-    else:
-        # 运行单个配置测试（默认当前配置）
-        print("=" * 60)
-        print("修正版：真正在对齐过程中集成增强的FusionLayer")
-        print("=" * 60)
+    print("=" * 60)
+    print("修正版：真正在对齐过程中集成增强的FusionLayer")
+    print("=" * 60)
     
     # 简化的block类型用于测试
     class SimpleBlock(nn.Module):
@@ -631,14 +400,12 @@ if __name__ == "__main__":
         def forward(self, x):
             return self.conv(x)
     
-    # 创建修正版的融合层 - 渐进式实验示例
-    # enable_enhancements现在支持列表：[分支1, 分支2, 分支3]
-    # 例如：[False, True, False]表示只启用分支2的增强功能
+    # 创建修正版的融合层
     fusion_layer = CorrectedImprovedFusionLayer(
         block=SimpleBlock,
         layers=3,
         input_channels=[64, 128, 256],
-        enable_enhancements=[False, True, False]  # 只启用分支2（边界感知）的增强
+        enable_enhancements=True  # 启用在对齐过程中的增强
     )
     
     # 模拟输入
@@ -660,15 +427,9 @@ if __name__ == "__main__":
     
     # 验证增强是真正集成在对齐过程中的
     print(f"\n验证：真正的集成架构")
-    print("渐进式实验配置：")
-    for i, enabled in enumerate(fusion_layer.enable_enhancements):
-        status = "✅ 已启用" if enabled else "❌ 未启用"
-        print(f"  分支{i+1}增强: {status}")
-
-    print("\n每个分支的对齐层详情：")
+    print("每个分支的对齐层都包含增强功能：")
     for i, conv_layer in enumerate(fusion_layer.conv_layers):
-        enhancement_status = "✅ 启用增强" if fusion_layer.enable_enhancements[i] else "❌ 基础对齐"
-        print(f"  分支{i+1} ({enhancement_status}): {len(conv_layer.alignment_blocks)} 个对齐块")
+        print(f"  分支{i+1}: {len(conv_layer.alignment_blocks)} 个增强对齐块")
         for j, block in enumerate(conv_layer.alignment_blocks):
             print(f"    对齐块{j+1}: 分支类型={block.branch_type}, 增强启用={block.enable_enhancement}")
     
@@ -690,81 +451,3 @@ if __name__ == "__main__":
         print("如需计算量统计，请安装: pip install thop")
 
     print("\n✅ 这个版本才真正符合您的想法：在对齐过程中同时进行增强！")
-
-    # 展示其他渐进式实验配置示例
-    print("\n" + "="*60)
-    print("渐进式实验配置示例：")
-    print("="*60)
-
-    experiments = [
-        ("基准线（无增强）", [False, False, False]),
-        ("仅分支1（纹理增强）", [True, False, False]),
-        ("仅分支2（边界增强）", [False, True, False]),
-        ("仅分支3（全局增强）", [False, False, True]),
-        ("分支1+2", [True, True, False]),
-        ("分支2+3", [False, True, True]),
-        ("全增强", [True, True, True]),
-    ]
-
-    for name, config in experiments:
-        print(f"\n{name}: enable_enhancements={config}")
-
-    print("\n💡 使用提示：")
-    print("   1. 根据实验阶段选择相应的配置")
-    print("   2. 在相同数据集上对比不同配置的性能")
-    print("   3. 记录每个配置的参数量和计算量变化")
-    print("   4. 分析MVTecAD各类别上的性能提升")
-
-
-# ============================================================================
-# 兼容性类定义 - 为保持与现有代码的兼容性
-# ============================================================================
-
-class Encoder(nn.Module):
-    """
-    兼容性Encoder类 - 封装ImprovedFusionLayer以保持与现有代码的兼容性
-
-    这个类是为了与model.py中的导入兼容而创建的包装器，
-    内部使用改进的融合层实现渐进式实验功能
-    """
-    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3, enable_enhancement=[False, False, False]):
-        super(Encoder, self).__init__()
-
-        self.expansion = 4  # 默认bottleneck expansion
-
-        # 根据骨干网络类型配置融合层
-        if backbone == 'resnet18':
-            self.fusion_layer = CorrectedImprovedFusionLayer(AttnBasicBlock, 2, input_channels, enable_enhancements=enable_enhancement)
-            self.expansion = 1
-        elif backbone == 'resnet34':
-            self.fusion_layer = CorrectedImprovedFusionLayer(AttnBasicBlock, attn_block_num, input_channels, enable_enhancements=enable_enhancement)
-            self.expansion = 1
-        elif backbone == 'resnet50':
-            self.fusion_layer = CorrectedImprovedFusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancements=enable_enhancement)
-        elif backbone == 'resnet101':
-            self.fusion_layer = CorrectedImprovedFusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancements=enable_enhancement)
-        elif backbone == 'resnet152':
-            self.fusion_layer = CorrectedImprovedFusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancements=enable_enhancement)
-        elif backbone == 'wide_resnet50_2':
-            # Wide ResNet使用更宽的卷积 (width_per_group=128)
-            self.fusion_layer = CorrectedImprovedFusionLayer(
-                AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancements=enable_enhancement
-            )
-        elif backbone == 'wide_resnet101_2':
-            self.fusion_layer = CorrectedImprovedFusionLayer(
-                AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancements=enable_enhancement
-            )
-        else:
-            raise ValueError(f"Unsupported backbone: {backbone}")
-
-    def forward(self, x):
-        """
-        前向传播
-
-        Args:
-            x: 多分支特征列表 [feat1, feat2, feat3]
-
-        Returns:
-            融合后的特征张量
-        """
-        return self.fusion_layer(x)

@@ -12,8 +12,7 @@ import functools
 # from global_consistency import GlobalConsistencyBlock
 
 # 导入必要的组件
-from model.encoder_original import AttnBasicBlock, AttnBottleneck
-
+import model.CrossAttention as CrossAttention
 # 导入改进的融合层
 # 使用动态导入来处理中文文件名
 import importlib.util
@@ -96,7 +95,7 @@ class AttnBottleneck(nn.Module):
         
         self.conv1 = conv1x1(inplanes, width)
         self.ln1 = norm_layer(width)
-        self.conv2 = SAMDeformConv2d(width, width, stride=stride)
+        self.conv2 = conv3x3(width, width, stride=stride)
         self.ln2 = norm_layer(width)
         self.conv3 = conv1x1(width, planes * self.expansion)
         self.ln3 = norm_layer(planes * self.expansion)
@@ -423,10 +422,18 @@ class CorrectedImprovedFusionLayer(nn.Module):
             # 如果是单个布尔值，应用到所有分支
             self.enable_enhancements = [enable_enhancements] * len(input_channels)
         elif isinstance(enable_enhancements, list):
-            # 如果是列表，直接使用
-            if len(enable_enhancements) != len(input_channels):
-                raise ValueError(f"enable_enhancements列表长度({len(enable_enhancements)})必须等于输入通道数长度({len(input_channels)})")
-            self.enable_enhancements = enable_enhancements
+            # 如果是列表，检查长度并适配
+            if len(enable_enhancements) > len(input_channels):
+                # 如果enable_enhancements更长，只使用前面的元素
+                print(f"Warning: enable_enhancements长度({len(enable_enhancements)})大于输入通道数({len(input_channels)}), 使用前{len(input_channels)}个元素")
+                self.enable_enhancements = enable_enhancements[:len(input_channels)]
+            elif len(enable_enhancements) < len(input_channels):
+                # 如果enable_enhancements更短，用False填充
+                print(f"Warning: enable_enhancements长度({len(enable_enhancements)})小于输入通道数({len(input_channels)}), 用False填充")
+                self.enable_enhancements = enable_enhancements + [False] * (len(input_channels) - len(enable_enhancements))
+            else:
+                # 长度相等，直接使用
+                self.enable_enhancements = enable_enhancements
         else:
             raise ValueError("enable_enhancements必须是bool类型或bool类型的列表")
         
@@ -503,8 +510,19 @@ class CorrectedImprovedFusionLayer(nn.Module):
         features = [self.conv_layers[i](xi) for i, xi in enumerate(x)]
         
         # ========== 后续逻辑保持不变 ==========
-        # 特征拼接
-        fused = torch.cat(features, dim=1)
+        # 根据特征数量选择不同的融合策略
+        if len(features) == 1:
+            # 只有一个特征分支，直接使用
+            fused = features[0]
+            print(f'单分支特征: {fused.shape}')
+        elif len(features) == 3:
+            # 有三个特征分支，使用CrossAttention融合
+            fused = CrossAttention(features[0], features[1], features[2])
+            print(f'三分支融合后特征: {fused.shape}')
+        else:
+            # 其他情况，使用传统拼接
+            fused = torch.cat(features, dim=1)
+            print(f'多分支拼接后特征: {fused.shape}')
         
         # 可选的注意力机制
         # fused = self.eca_attention(fused)  # 如需要

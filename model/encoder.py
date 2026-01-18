@@ -452,22 +452,19 @@ class CorrectedImprovedFusionLayer(nn.Module):
             )
         self.conv_layers = nn.ModuleList(conv_layers)
         
-        # ========== 保持原始的后续逻辑 ==========
-        # 坐标注意力模块 (如果需要)
-        branch_channels = [c * block.expansion for c in input_channels]
-        # self.coord_atts = nn.ModuleList([...])  # 根据需要启用
-        
-        # 拼接后的通道数
-        ca_aligned_channel = input_channels[-1] * block.expansion
-        inplanes_after_concat = ca_aligned_channel * len(input_channels)
-        
-        # ECA和SEA注意力 (根据需要启用)
-        # self.eca_attention = ECAAttention(kernel_size=3)
-        # self.sea_attention = Sea_Attention(...)
-        
-        # 后续编码层
+        # ========== SENet融合后的通道数 ==========
+        # SENet融合后输出单个特征，其通道数等于输入的单个特征通道数
+        senet_fused_channel = input_channels[-1] * block.expansion
+
+        # ========== SENet融合机制 ==========
+        # 三个对齐后的特征都是 input_channels[-1] * block.expansion = 256 * 4 = 1024 通道
+        # SENet会学习每个特征分支的通道注意力权重，实现三个特征的智能融合
+        self.SEAttention = SEAttention(channel=input_channels[-1] * block.expansion, reduction=16)
+
+        # ========== 后续编码层 ==========
+        # 输入是SENet融合后的特征，通道数为 senet_fused_channel (1024)
         self.encode_layer1 = self._make_layer(
-            block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2
+            block, senet_fused_channel, input_channels[-1] * 2, layers, stride=2
         )
         
         # 权重初始化

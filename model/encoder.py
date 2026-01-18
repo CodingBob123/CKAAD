@@ -12,7 +12,7 @@ import functools
 # from global_consistency import GlobalConsistencyBlock
 
 # 导入必要的组件
-import model.CrossAttention as CrossAttention
+from model.SENetv2 import SEAttention
 # 导入改进的融合层
 # 使用动态导入来处理中文文件名
 import importlib.util
@@ -398,7 +398,6 @@ class CorrectedImprovedFusionLayer(nn.Module):
     """
     修正版的改进融合层 - 按照您的正确想法实现
     真正在特征对齐过程中集成增强功能，而不是先对齐再增强
-
     支持渐进式实验：可以独立控制每个分支是否启用增强功能
     """
     def __init__(self,
@@ -517,7 +516,7 @@ class CorrectedImprovedFusionLayer(nn.Module):
             print(f'单分支特征: {fused.shape}')
         elif len(features) == 3:
             # 有三个特征分支，使用CrossAttention融合
-            fused = CrossAttention(features[0], features[1], features[2])
+            fused = self.SEAttention(features[0], features[1], features[2])
             print(f'三分支融合后特征: {fused.shape}')
         else:
             # 其他情况，使用传统拼接

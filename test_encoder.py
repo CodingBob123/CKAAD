@@ -15,10 +15,10 @@ def test_improved_encoder():
     print("=== 测试改进的编码器 ===")
 
     # 动态导入，避免循环依赖
-    from model.encoder import ImprovedEncoder
+    from model.encoder import Encoder
 
     # 创建编码器实例
-    encoder = ImprovedEncoder(backbone='wide_resnet50_2', attn_block_num=3)
+    encoder = Encoder(backbone='wide_resnet50_2', attn_block_num=3, enable_enhancement=[False, False, False])
 
     # 模拟预训练模型输出的三分支特征
     # 这些尺寸对应Wide ResNet-50-2的layer1, layer2, layer3输出

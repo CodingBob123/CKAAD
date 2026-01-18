@@ -30,5 +30,6 @@ do
     --labeled_anomaly_class_num ${labeled_anomaly_class_num} \
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
-    --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3
+    --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
+    --enable_enhancement True True True --use_amp
 done

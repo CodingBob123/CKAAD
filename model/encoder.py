@@ -13,6 +13,7 @@ import functools
 
 # 导入必要的组件
 from model.SENetv2 import SEAttention
+from model.CrossAttention import CrossAttentionFusion
 # 导入改进的融合层
 # 使用动态导入来处理中文文件名
 import importlib.util
@@ -456,10 +457,14 @@ class CorrectedImprovedFusionLayer(nn.Module):
         # SENet融合后输出单个特征，其通道数等于输入的单个特征通道数
         senet_fused_channel = input_channels[-1] * block.expansion
 
-        # ========== SENet融合机制 ==========
+        # ========== 特征融合机制 ==========
         # 三个对齐后的特征都是 input_channels[-1] * block.expansion = 256 * 4 = 1024 通道
+
         # SENet会学习每个特征分支的通道注意力权重，实现三个特征的智能融合
         self.SEAttention = SEAttention(channel=input_channels[-1] * block.expansion, reduction=16)
+
+        # CrossAttention融合（可选）
+        self.cross_attention = CrossAttentionFusion(dim=input_channels[-1] * block.expansion, num_heads=8)
 
         # ========== 后续编码层 ==========
         # 输入是SENet融合后的特征，通道数为 senet_fused_channel (1024)
@@ -512,8 +517,17 @@ class CorrectedImprovedFusionLayer(nn.Module):
             fused = features[0]
             print(f'单分支特征: {fused.shape}')
         elif len(features) == 3:
-            # 有三个特征分支，使用CrossAttention融合
+            # 有三个特征分支，可以选择不同的融合方式
+
+            # 方式1: 使用SEAttention (当前默认)
             fused = self.SEAttention(features[0], features[1], features[2])
+
+            # 方式2: 使用CrossAttention (需要先取消注释上面的初始化)
+            # fused = self.cross_attention(features[0], features[1], features[2])
+
+            # 方式3: 直接拼接 (传统方式)
+            # fused = torch.cat(features, dim=1)
+
             print(f'三分支融合后特征: {fused.shape}')
         else:
             # 其他情况，使用传统拼接

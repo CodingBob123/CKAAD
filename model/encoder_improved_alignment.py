@@ -128,42 +128,69 @@ class AttnBottleneck(nn.Module):
 # 新增组件：混合边界块 (MixedBoundaryBlock)
 # 用于 Feature 2 的优化
 # ==========================================
-class MixedBoundaryBlock(nn.Module):
+class EfficientBoundaryBlock(nn.Module):
     """
-    混合边界感知模块 (Hybrid Boundary Block)
-    结合了：
-    1. 标准 3x3 卷积：捕获圆形、斜向、不规则边界 (解决 Screw, Nut, Pill 掉点)
-    2. 非对称卷积 (1x3 + 3x1)：强化水平/垂直纹理 (保持 Grid, Carpet 优势)
+    高效混合边界块 (Efficient Mixed Boundary Block)
+    
+    优化策略:
+    1. 并行化 (Parallelism): 将串行的非对称卷积改为并行计算，利用GPU并行优势。
+    2. 深度可分离/分组卷积 (Group Conv): 大幅降低参数量和计算量。
+    3. 结构: Bottleneck结构 (1x1降维 -> 并行3x3/1x3/3x1 -> 1x1升维)
     """
-
     def __init__(self, in_channels, out_channels, stride, norm_layer):
         super().__init__()
+        
+        # 内部缩放比例，通常设为0.5或0.25来减少中间计算量
+        # 这里为了保持强特征，我们使用 0.5
         mid_channels = out_channels // 2
-
-        # 1. 降维与下采样
+        
+        # 1. 1x1 卷积降维 (Pointwise Conv) - 负责通道信息融合
         self.conv_in = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, 3, stride=stride, padding=1, bias=False),
+            nn.Conv2d(in_channels, mid_channels, 1, bias=False),
             norm_layer(mid_channels),
             nn.ReLU(inplace=True)
         )
+        
+        # 定义分组数：如果mid_channels较小，则groups=mid_channels(即Depthwise)
+        # 如果较大，限制为16或32，兼顾速度和通道相关性
+        # 这里直接使用 Depthwise Convolution (groups=mid_channels) 以追求极致速度
+        groups = mid_channels 
 
-        # 2. 分支A: 标准 3x3 (全向感知)
-        self.branch_standard = nn.Sequential(
-            nn.Conv2d(mid_channels, mid_channels, 3, padding=1, bias=False),
-            norm_layer(mid_channels),
-            nn.ReLU(inplace=True)
+        # 2. 并行分支 A: 标准 3x3 (负责圆形/斜向/不规则边界)
+        # 使用 Depthwise 卷积，极其高效
+        self.branch_3x3 = nn.Sequential(
+            nn.Conv2d(mid_channels, mid_channels, 3, stride=stride, padding=1, 
+                      groups=groups, bias=False),
+            norm_layer(mid_channels)
         )
+        
+        # 3. 并行分支 B: 水平非对称 1x3
+        # 注意: 如果 stride=2, 这里的 padding 需要精细调整以匹配尺寸，
+        # 为了简化和稳健，通常在 stride=2 时我们只依赖 branch_3x3 进行下采样，
+        # 而非对称分支在 stride=1 时增强特征。
+        # 但为了保持逻辑一致，我们这里假设 stride 主要由 branch_3x3 处理，
+        # 如果 stride=2，非对称分支可以用 avg_pool 下采样后接卷积，或者直接使用 stride卷积。
+        
+        self.stride = stride
+        if stride > 1:
+            # 如果需要下采样，为避免非对称卷积的对齐问题，我们在分支B/C前加一个池化
+            self.downsample = nn.AvgPool2d(kernel_size=stride, stride=stride)
+            eff_stride = 1
+        else:
+            self.downsample = nn.Identity()
+            eff_stride = 1
 
-        # 3. 分支B: 非对称卷积 (极值纹理感知)
-        self.branch_asym = nn.Sequential(
-            nn.Conv2d(mid_channels, mid_channels, (1, 3), padding=(0, 1), bias=False),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, mid_channels, (3, 1), padding=(1, 0), bias=False),
-            norm_layer(mid_channels),
-            nn.ReLU(inplace=True)
-        )
-
-        # 4. 融合输出
+        self.branch_1x3 = nn.Conv2d(mid_channels, mid_channels, kernel_size=(1, 3), 
+                                    stride=eff_stride, padding=(0, 1), groups=groups, bias=False)
+        self.branch_3x1 = nn.Conv2d(mid_channels, mid_channels, kernel_size=(3, 1), 
+                                    stride=eff_stride, padding=(1, 0), groups=groups, bias=False)
+        
+        # 这里的BN放在加和之后，或者每个分支独立BN。
+        # 为了特征强度，建议每个分支独立BN，但为了速度，我们可以共享一个BN或者在Sum后BN
+        self.bn_branches = norm_layer(mid_channels)
+        self.relu = nn.ReLU(inplace=True)
+        
+        # 4. 1x1 卷积升维 (Pointwise Conv) - 输出
         self.conv_out = nn.Sequential(
             nn.Conv2d(mid_channels, out_channels, 1, bias=False),
             norm_layer(out_channels),
@@ -171,11 +198,29 @@ class MixedBoundaryBlock(nn.Module):
         )
 
     def forward(self, x):
-        x = self.conv_in(x)
-        # 特征叠加：同时保留全向轮廓和锐利边缘
-        feat_std = self.branch_standard(x)
-        feat_asym = self.branch_asym(x)
-        return self.conv_out(feat_std + feat_asym)
+        # 降维
+        x_reduced = self.conv_in(x)
+        
+        # 分支 A (3x3)
+        out_3x3 = self.branch_3x3(x_reduced)
+        
+        # 分支 B & C (非对称)
+        # 如果需要下采样，先池化
+        x_asym_in = self.downsample(x_reduced)
+        
+        # 并行计算非对称特征
+        out_1x3 = self.branch_1x3(x_asym_in)
+        out_3x1 = self.branch_3x1(x_asym_in)
+        
+        # 特征叠加：3x3 + 1x3 + 3x1
+        # 这种叠加在数学上等价于使用了一个复杂的、形状特定的单一卷积核
+        out_sum = out_3x3 + out_1x3 + out_3x1
+        
+        # 激活
+        out_fused = self.relu(self.bn_branches(out_sum))
+        
+        # 升维输出
+        return self.conv_out(out_fused)
 
 # ==========================================
 # 新增组件：带门控的残差混合块 (GatedResidualFusion)
@@ -280,7 +325,7 @@ class StaticAlignmentBlock(nn.Module):
           - 3x3分支: 修复 Screw, Nut 的圆形边界感知
           - 非对称分支: 保持 Carpet, Grid, Wood 的纹理感知
         """
-        return MixedBoundaryBlock(in_channels, out_channels, stride, norm_layer)
+        return EfficientBoundaryBlock(in_channels, out_channels, stride, norm_layer)
         # return nn.Sequential(
         #     # 边界感知卷积
         #     nn.Conv2d(in_channels, out_channels//2, 3, stride=stride, padding=1, bias=False),

@@ -451,7 +451,7 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3,
-                 enable_branch_enhancement=False):
+                 enable_enhancement=[False, False, False]):
         super(Encoder, self).__init__()
 
         self.expansion = 4  # 默认bottleneck expansion
@@ -460,40 +460,40 @@ class Encoder(nn.Module):
         if backbone == 'resnet18':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBasicBlock, 2, input_channels,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
             self.expansion = 1
         elif backbone == 'resnet34':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBasicBlock, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
             self.expansion = 1
         elif backbone == 'resnet50':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
         elif backbone == 'resnet101':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
         elif backbone == 'resnet152':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
         elif backbone == 'wide_resnet50_2':
             # Wide ResNet使用更宽的卷积
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
         elif backbone == 'wide_resnet101_2':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2,
-                enable_branch_enhancement=enable_branch_enhancement
+                enable_branch_enhancement=enable_enhancement
             )
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")

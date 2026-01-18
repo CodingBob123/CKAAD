@@ -48,7 +48,7 @@ def test_static_enhanced_encoder():
         encoder = Encoder(
             backbone='wide_resnet50_2',
             attn_block_num=3,
-            enable_branch_enhancement=enhancement_config
+            enable_enhancement=enhancement_config
         )
 
         # 前向传播

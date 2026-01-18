@@ -325,24 +325,24 @@ class StaticAlignmentBlock(nn.Module):
           - 3x3分支: 修复 Screw, Nut 的圆形边界感知
           - 非对称分支: 保持 Carpet, Grid, Wood 的纹理感知
         """
-        return EfficientBoundaryBlock(in_channels, out_channels, stride, norm_layer)
-        # return nn.Sequential(
-        #     # 边界感知卷积
-        #     nn.Conv2d(in_channels, out_channels//2, 3, stride=stride, padding=1, bias=False),
-        #     norm_layer(out_channels//2),
-        #     nn.ReLU(inplace=True),
-        #     # 水平和垂直边界增强
-        #     nn.Conv2d(out_channels//2, out_channels//2, (1, 3), padding=(0, 1), bias=False),
-        #     norm_layer(out_channels//2),
-        #     nn.ReLU(inplace=True),
-        #     nn.Conv2d(out_channels//2, out_channels//2, (3, 1), padding=(1, 0), bias=False),
-        #     norm_layer(out_channels//2),
-        #     nn.ReLU(inplace=True),
-        #     # 最终输出卷积
-        #     nn.Conv2d(out_channels//2, out_channels, 1, bias=False),
-        #     norm_layer(out_channels),
-        #     nn.ReLU(inplace=True)
-        # )
+        # return EfficientBoundaryBlock(in_channels, out_channels, stride, norm_layer)
+        return nn.Sequential(
+            # 边界感知卷积
+            nn.Conv2d(in_channels, out_channels//2, 3, stride=stride, padding=1, bias=False),
+            norm_layer(out_channels//2),
+            nn.ReLU(inplace=True),
+            # 水平和垂直边界增强
+            nn.Conv2d(out_channels//2, out_channels//2, (1, 3), padding=(0, 1), bias=False),
+            norm_layer(out_channels//2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels//2, out_channels//2, (3, 1), padding=(1, 0), bias=False),
+            norm_layer(out_channels//2),
+            nn.ReLU(inplace=True),
+            # 最终输出卷积
+            nn.Conv2d(out_channels//2, out_channels, 1, bias=False),
+            norm_layer(out_channels),
+            nn.ReLU(inplace=True)
+        )
 
     def _build_global_preserving_alignment(self, in_channels, out_channels, stride, norm_layer):
         """Feature3: 全局信息保持 (保持原样，这对所有类别都有效)"""

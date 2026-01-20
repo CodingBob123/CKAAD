@@ -520,6 +520,7 @@ def train(args):
 
             viz_dataset.data = viz_dataset.data[viz_indices]
             viz_dataset.targets = viz_dataset.targets[viz_indices]
+            viz_dataset.gt_targets = viz_dataset.gt_targets[viz_indices]
             viz_dataset.gt_paths = [viz_dataset.gt_paths[i] for i in viz_indices]
 
         viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)

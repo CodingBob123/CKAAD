@@ -309,60 +309,24 @@ class StaticAlignmentBlock(nn.Module):
 
     def _build_global_preserving_alignment(self, in_channels, out_channels, stride, norm_layer):
         """全局信息保持的对齐 - 适用于Feature3"""
-        # 重新设计：真正的全局信息保持策略
-
-        # 通道数计算
-        mid_channels = out_channels // 2
-        global_channels = out_channels // 4
-
-        # 创建一个自定义模块而不是简单的Sequential
-        class GlobalPreservingAlign(nn.Module):
-            def __init__(self, in_channels, out_channels, stride, norm_layer, mid_channels, global_channels):
-                super().__init__()
-                self.stride = stride
-
-                # 局部特征分支：下采样获得局部特征
-                self.local_branch = nn.Sequential(
-                    nn.Conv2d(in_channels, mid_channels, 3, stride=stride, padding=1, bias=False),
-                    norm_layer(mid_channels),
-                    nn.ReLU(inplace=True)
-                )
-
-                # 全局上下文分支：从原始输入中提取全局信息
-                self.global_branch = nn.Sequential(
-                    nn.AdaptiveAvgPool2d(1),  # 全局池化： [B, in_channels, 1, 1]
-                    nn.Conv2d(in_channels, global_channels, 1, bias=False),
-                    nn.ReLU(inplace=True),
-                    nn.Conv2d(global_channels, mid_channels, 1, bias=False),
-                    norm_layer(mid_channels),
-                    nn.ReLU(inplace=True)
-                )
-
-                # 融合层
-                self.fusion = nn.Sequential(
-                    nn.Conv2d(mid_channels * 2, out_channels, 1, bias=False),
-                    norm_layer(out_channels),
-                    nn.ReLU(inplace=True)
-                )
-
-            def forward(self, x):
-                # 局部分支：下采样
-                local_feat = self.local_branch(x)  # [B, mid_channels, H/stride, W/stride]
-
-                # 全局分支：提取全局上下文并广播到与local_feat相同的空间尺寸
-                global_context = self.global_branch(x)  # [B, mid_channels, 1, 1]
-                # 将全局上下文广播到与local_feat相同的空间尺寸
-                global_feat = global_context.expand(-1, -1, local_feat.size(2), local_feat.size(3))
-
-                # 拼接局部特征和全局上下文
-                combined = torch.cat([local_feat, global_feat], dim=1)  # [B, mid_channels*2, H/stride, W/stride]
-
-                # 融合
-                output = self.fusion(combined)  # [B, out_channels, H/stride, W/stride]
-
-                return output
-
-        return GlobalPreservingAlign(in_channels, out_channels, stride, norm_layer, mid_channels, global_channels)
+        return nn.Sequential(
+            # 局部特征卷积
+            nn.Conv2d(in_channels, out_channels//2, 3, stride=stride, padding=1, bias=False),
+            norm_layer(out_channels//2),
+            nn.ReLU(inplace=True),
+            # 全局上下文增强
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(out_channels//2, out_channels//4, 1, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels//4, out_channels//2, 1, bias=False),
+            norm_layer(out_channels//2),
+            nn.ReLU(inplace=True),
+            # 上采样回原始空间尺寸并与局部特征融合
+            nn.Upsample(scale_factor=stride, mode='bilinear', align_corners=False),
+            nn.Conv2d(out_channels//2, out_channels, 1, bias=False),
+            norm_layer(out_channels),
+            nn.ReLU(inplace=True)
+        )
 
     def _build_default_alignment(self, in_channels, out_channels, stride, norm_layer):
         """默认对齐方式 - 原始CKAAD的方法"""

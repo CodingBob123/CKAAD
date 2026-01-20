@@ -1,7 +1,7 @@
 from torchvision import models
 import torch
 import torch.nn as nn
-from model.encoder_improved_alignment import Encoder
+from model.encoder_alignment_4b import Encoder
 from model.decoder import Decoder
 import numpy as np
 import math

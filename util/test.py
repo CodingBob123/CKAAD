@@ -1,3 +1,4 @@
+# utils/test.py
 import torch
 import numpy as np
 from dataset.mvtec import MVTecDataset
@@ -13,6 +14,7 @@ from statistics import mean
 import os
 from torchvision import transforms
 from torchvision.utils import save_image
+import matplotlib.pyplot as plt
 
 def transform_invert(img_, transform_train):
     """
@@ -260,3 +262,102 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
 
     pro_auc = auc(df["fpr"], df["pro"])
     return pro_auc
+
+
+def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
+    """
+    使用matplotlib进行异常检测热力图可视化（不依赖OpenCV）
+    """
+    pfe.eval()
+    ae.eval()
+
+    with torch.no_grad():
+        cnt = 0
+        for data in dataloader:
+            if cnt >= 5:  # 只可视化前5个样本
+                break
+
+            imgs = data[0].to(device)
+            inputs = pfe(imgs)
+            outputs = ae(inputs)
+            labels = data[-1]
+
+            # 计算异常图
+            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
+
+            # 反变换图像
+            img_transform = transforms.Compose([
+                transforms.Normalize(mean=(-0.485/0.229, -0.456/0.224, -0.406/0.225),
+                                   std=(1/0.229, 1/0.224, 1/0.225))
+            ])
+            imgs_denorm = img_transform(imgs)
+
+            # 创建结果目录
+            result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+            if not os.path.exists(result_path):
+                os.makedirs(result_path, exist_ok=True)
+
+            for i, (img, anomaly_map, label) in enumerate(zip(imgs_denorm, anomaly_maps, labels)):
+                if cnt >= 5:  # 只可视化前5个样本
+                    break
+
+                # 转换为numpy数组
+                img_np = img.permute(1, 2, 0).cpu().numpy()
+                img_np = np.clip(img_np, 0, 1)  # 确保值在[0,1]范围内
+
+                anomaly_map = anomaly_map.squeeze()
+
+                # 如果有ground truth
+                if len(data) >= 3:
+                    gt = data[1][i].squeeze(0).cpu().numpy()
+                else:
+                    gt = None
+
+                # 创建子图布局
+                if gt is not None:
+                    # 有ground truth：原始图 | 异常热力图 | Ground Truth | 叠加效果
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+                    axes = axes.flatten()
+                else:
+                    # 无ground truth：原始图 | 异常热力图 | 叠加效果
+                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                    axes = axes.flatten()
+
+                # 1. 显示原始图像
+                axes[0].imshow(img_np)
+                axes[0].set_title(f'Original Image\nLabel: {label.item()}')
+                axes[0].axis('off')
+
+                # 2. 显示异常热力图
+                im = axes[1].imshow(anomaly_map, cmap='jet')
+                axes[1].set_title('Anomaly Map')
+                axes[1].axis('off')
+                plt.colorbar(im, ax=axes[1], shrink=0.8)
+
+                # 3. 显示ground truth（如果有的话）
+                if gt is not None:
+                    axes[2].imshow(gt, cmap='gray')
+                    axes[2].set_title('Ground Truth')
+                    axes[2].axis('off')
+
+                    # 4. 显示叠加效果（原始图像 + 异常热力图）
+                    axes[3].imshow(img_np)
+                    axes[3].imshow(anomaly_map, cmap='jet', alpha=0.6)
+                    axes[3].set_title('Overlay (Original + Anomaly)')
+                    axes[3].axis('off')
+                else:
+                    # 3. 显示叠加效果（原始图像 + 异常热力图）
+                    axes[2].imshow(img_np)
+                    axes[2].imshow(anomaly_map, cmap='jet', alpha=0.6)
+                    axes[2].set_title('Overlay (Original + Anomaly)')
+                    axes[2].axis('off')
+
+                plt.tight_layout()
+
+                # 保存图像
+                filename = f'{cnt:03d}_label_{label.item()}.png'
+                save_path = os.path.join(result_path, filename)
+                plt.savefig(save_path, dpi=150, bbox_inches='tight')
+                plt.close()
+
+                cnt += 1

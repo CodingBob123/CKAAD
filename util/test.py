@@ -13,6 +13,7 @@ from statistics import mean
 import os
 from torchvision import transforms
 from torchvision.utils import save_image
+import matplotlib.pyplot as plt
 
 def transform_invert(img_, transform_train):
     """
@@ -311,34 +312,44 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                 else:
                     gt = None
 
-                # 创建子图
+                # 创建子图布局
                 if gt is not None:
-                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                    # 有ground truth：原始图 | 异常热力图 | Ground Truth | 叠加效果
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
                     axes = axes.flatten()
                 else:
-                    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                    # 无ground truth：原始图 | 异常热力图 | 叠加效果
+                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
                     axes = axes.flatten()
 
-                # 显示原始图像
+                # 1. 显示原始图像
                 axes[0].imshow(img_np)
                 axes[0].set_title(f'Original Image\nLabel: {label.item()}')
                 axes[0].axis('off')
 
-                # 显示异常热力图
-                im = axes[1].imshow(anomaly_map, cmap='jet', alpha=0.7)
+                # 2. 显示异常热力图
+                im = axes[1].imshow(anomaly_map, cmap='jet')
                 axes[1].set_title('Anomaly Map')
                 axes[1].axis('off')
                 plt.colorbar(im, ax=axes[1], shrink=0.8)
 
-                # 显示ground truth（如果有的话）
+                # 3. 显示ground truth（如果有的话）
                 if gt is not None:
                     axes[2].imshow(gt, cmap='gray')
                     axes[2].set_title('Ground Truth')
                     axes[2].axis('off')
 
-                # 显示叠加图
-                axes[0].imshow(anomaly_map, cmap='jet', alpha=0.5)
-                axes[0].set_title(f'Overlay\nLabel: {label.item()}')
+                    # 4. 显示叠加效果（原始图像 + 异常热力图）
+                    axes[3].imshow(img_np)
+                    axes[3].imshow(anomaly_map, cmap='jet', alpha=0.6)
+                    axes[3].set_title('Overlay (Original + Anomaly)')
+                    axes[3].axis('off')
+                else:
+                    # 3. 显示叠加效果（原始图像 + 异常热力图）
+                    axes[2].imshow(img_np)
+                    axes[2].imshow(anomaly_map, cmap='jet', alpha=0.6)
+                    axes[2].set_title('Overlay (Original + Anomaly)')
+                    axes[2].axis('off')
 
                 plt.tight_layout()
 

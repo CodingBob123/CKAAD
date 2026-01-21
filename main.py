@@ -3,7 +3,7 @@ from contextlib import nullcontext
 import numpy as np
 import random
 import os
-from util.test import evaluation
+from util.test import evaluation, visualize_anomaly_maps_simple
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 import logging
 from argparse import ArgumentParser
@@ -457,6 +457,9 @@ def train(args):
             viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
                                      transform=img_transform, gt_target_transform=gt_transform,
                                      img_size=args.img_size)
+            # 加载实际的数据到内存中
+            viz_dataset.load_data()
+
             # 只可视化前5个样本（包括正常和异常样本）
             viz_indices = []
             normal_count = 0
@@ -471,9 +474,10 @@ def train(args):
                 if len(viz_indices) >= 5:
                     break
 
+            # 筛选数据
             viz_dataset.data = viz_dataset.data[viz_indices]
             viz_dataset.targets = viz_dataset.targets[viz_indices]
-            viz_dataset.gt_paths = [viz_dataset.gt_paths[i] for i in viz_indices]
+            viz_dataset.gt_targets = viz_dataset.gt_targets[viz_indices]
 
         viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
 

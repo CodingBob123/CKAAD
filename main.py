@@ -3,7 +3,7 @@ from contextlib import nullcontext
 import numpy as np
 import random
 import os
-from util.test import evaluation
+from util.test import evaluation, evaluation_pixel, visualize
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 import logging
 from argparse import ArgumentParser
@@ -13,6 +13,7 @@ import tqdm
 import matplotlib
 matplotlib.use('Agg')  # 设置非GUI后端，避免WSL图形界面问题
 import matplotlib.pyplot as plt
+from torchvision import transforms
 
 
 def parse_args():
@@ -55,11 +56,6 @@ def parse_args():
 
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
-
-    # 新增：渐进式实验配置参数
-    parser.add_argument('--enable_enhancement', nargs='*', type=lambda x: str(x).lower() in ('true', '1', 'yes', 't', 'y'),
-                       default=[False, False, False],
-                       help='enable enhancement for each branch [branch1, branch2, branch3]. Use --enable_enhancement True False True format')
 
     return parser.parse_args()
 
@@ -108,6 +104,77 @@ def loss_function(a, b):
         loss += torch.mean(1-cos_loss(a[item].view(b[item].shape[0], -1),
                                       b[item].view(b[item].shape[0], -1)))
     return loss
+
+def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
+    """
+    使用matplotlib进行anomaly map可视化的简化版本
+    不依赖opencv，使用numpy和matplotlib
+    """
+    import matplotlib.pyplot as plt
+    from util.test import cal_anomaly_map
+
+    pfe.eval()
+    ae.eval()
+
+    result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+    os.makedirs(result_path, exist_ok=True)
+
+    with torch.no_grad():
+        cnt = 0
+        for batch_data in dataloader:
+            if len(batch_data) == 3:
+                imgs, gts, labels = batch_data
+            else:
+                imgs, labels = batch_data
+                gts = None
+
+            imgs = imgs.to(device)
+            inputs = pfe(imgs)
+            outputs = ae(inputs)
+
+            # 计算anomaly map
+            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
+
+            # 反归一化图像以便显示
+            imgs_np = imgs.cpu().numpy()
+            mean = np.array([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
+            std = np.array([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
+            imgs_np = imgs_np * std + mean
+            imgs_np = np.clip(imgs_np, 0, 1)
+
+            for i in range(len(imgs)):
+                fig, axes = plt.subplots(1, 3 if gts is not None else 2, figsize=(12, 4))
+
+                # 原始图像
+                img_display = np.transpose(imgs_np[i], (1, 2, 0))
+                axes[0].imshow(img_display)
+                axes[0].set_title(f'Original Image\nLabel: {"Abnormal" if labels[i] > 0 else "Normal"}')
+                axes[0].axis('off')
+
+                # Anomaly Map
+                anomaly_map = anomaly_maps[i, 0] if len(anomaly_maps.shape) > 2 else anomaly_maps[i]
+                axes[1].imshow(anomaly_map, cmap='jet', vmin=0, vmax=anomaly_maps.max())
+                axes[1].set_title('Anomaly Map')
+                axes[1].axis('off')
+
+                # Ground Truth (如果有的话)
+                if gts is not None:
+                    gt = gts[i].squeeze().cpu().numpy()
+                    axes[2].imshow(gt, cmap='gray')
+                    axes[2].set_title('Ground Truth')
+                    axes[2].axis('off')
+
+                plt.tight_layout()
+                save_path = os.path.join(result_path, f'sample_{cnt:03d}_label_{labels[i].item()}.png')
+                plt.savefig(save_path, dpi=150, bbox_inches='tight')
+                plt.close()
+
+                cnt += 1
+                if cnt >= 10:  # 限制可视化数量
+                    break
+            if cnt >= 10:
+                break
+
 
 def loss_draw(loss_history, save_path=None):
     """
@@ -212,8 +279,7 @@ def train(args):
     
     # 3.2 初始化编码器-解码器(自编码器)
     # 输入通道数由预训练模型的输出通道数决定，例如对于ResNet50和layers=[1,2,3]，为[256,512,1024]
-    # 传递渐进式实验配置参数
-    ae = ED(backbone=args.model, input_channels=pfe.output_channels, enable_enhancement=args.enable_enhancement).to(device)
+    ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
     
     # 3.3 初始化判别器
     # input_sizes: 各层特征图的空间尺寸，例如[64,32,16]
@@ -295,10 +361,10 @@ def train(args):
                 with amp_ctx():
                     anomaly_inputs = pfe(anomaly_img)  # 列表，形状与normal_inputs相同
                     anomaly_outputs = ae(anomaly_inputs)  # 列表，形状与normal_outputs相同
-                
+
                 # 将正常样本重建特征和异常样本重建特征在批次维度上拼接
                 # 对每个层级的特征分别拼接
-                outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]  
+                outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
                 # outputs是列表，每个元素形状为: [batch_size*2, C, H, W]
             else:
                 outputs = normal_outputs  # 如果没有异常样本，直接使用正常样本重建特征
@@ -340,12 +406,12 @@ def train(args):
                     dis_loss.backward()
                     torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1.0)  # 梯度裁剪，防止梯度爆炸
                     discriminator_optimizer.step()
-                    
+
                 # 5.6 计算对抗损失
                 # 希望重建特征能够欺骗判别器，被判为真(标签0)
                 with amp_ctx():
                     adv_loss = discriminator.calculate_loss(outputs, true_label)
-
+            
             # 5.7 计算重建损失和自编码器总损失
             # 重建损失使用余弦相似度，衡量正常样本特征和重建特征的相似程度
             with amp_ctx():
@@ -413,6 +479,63 @@ def train(args):
     except Exception as e:
         logger.error("Failed to generate final loss curve: {}".format(str(e)))
 
+    # 9. 训练结束后进行anomaly map可视化
+    try:
+        logger.info("Starting anomaly map visualization...")
+
+        # 设置数据变换（与训练时相同）
+        if args.dataset in ['mvtec', 'visa', 'btad']:
+            img_transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ])
+            gt_transform = transforms.Compose([transforms.ToTensor()])
+        else:
+            img_transform = transforms.Compose([
+                transforms.Resize(args.img_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ])
+            gt_transform = transforms.Compose([transforms.ToTensor()])
+
+        # 创建测试数据集（只可视化前几个样本以节省时间）
+        if args.dataset == 'mvtec':
+            from dataset.mvtec import MVTecDataset
+            viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
+                                     transform=img_transform, gt_target_transform=gt_transform,
+                                     img_size=args.img_size)
+            # 只可视化前5个样本（包括正常和异常样本）
+            viz_indices = []
+            normal_count = 0
+            abnormal_count = 0
+            for i, target in enumerate(viz_dataset.targets):
+                if target == 0 and normal_count < 3:  # 正常样本
+                    viz_indices.append(i)
+                    normal_count += 1
+                elif target > 0 and abnormal_count < 2:  # 异常样本
+                    viz_indices.append(i)
+                    abnormal_count += 1
+                if len(viz_indices) >= 5:
+                    break
+
+            viz_dataset.data = viz_dataset.data[viz_indices]
+            viz_dataset.targets = viz_dataset.targets[viz_indices]
+            viz_dataset.gt_targets = viz_dataset.gt_targets[viz_indices]
+            viz_dataset.gt_paths = [viz_dataset.gt_paths[i] for i in viz_indices]
+
+        viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
+
+        # 使用简化的matplotlib可视化（不依赖opencv）
+        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs)
+
+        viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+        logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
+
+    except Exception as e:
+        logger.error("Failed to generate anomaly map visualization: {}".format(str(e)))
+        logger.error("This might be due to missing visualization dependencies")
+        logger.info("You can manually implement visualization using the anomaly_map data from evaluation_pixel()")
+
 def print_args(logger, args):
     logger.info('--------args----------')
     for k in list(vars(args).keys()):
@@ -425,3 +548,4 @@ if __name__ == '__main__':
     args = parse_args()
     args.seed = setup_seed(args.seed)
     train(args)
+   

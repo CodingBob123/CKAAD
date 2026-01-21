@@ -7,9 +7,9 @@ from typing import Type, Callable, Union, Optional, List
 import functools
 
 # 导入必要的组件
-# from model.Efficient_CA_complex import CoordAtt_ECA
+from model.Efficient_CA_complex import CoordAtt_ECA
 # from model.ECANet import ECAAttention
-# from model.SEAAttention import Sea_Attention
+from model.SEAAttention import Sea_Attention
 from model.SENetv2 import SEAttention
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -270,8 +270,10 @@ class StaticAlignmentBlock(nn.Module):
             self.alignment = self._build_default_alignment(in_channels, out_channels, stride, norm_layer)
 
     def _build_texture_aware_alignment(self, in_channels, out_channels, stride, norm_layer):
-        """纹理感知的对齐 - 适用于Feature1"""
+        """纹理感知的对齐 - 适用于Feature1，加入坐标注意力开头"""
         return nn.Sequential(
+            # 在开头添加坐标注意力模块
+            CoordAtt_ECA(inp=in_channels, oup=in_channels),
             # 多尺度纹理感知卷积
             nn.Conv2d(in_channels, out_channels//2, 3, stride=stride, padding=1, bias=False),
             norm_layer(out_channels//2),
@@ -321,6 +323,9 @@ class StaticAlignmentBlock(nn.Module):
                 super().__init__()
                 self.stride = stride
 
+                # 在开头添加坐标注意力模块
+                self.coord_attention = CoordAtt_ECA(inp=in_channels, oup=in_channels)
+
                 # 局部特征分支：下采样获得局部特征
                 self.local_branch = nn.Sequential(
                     nn.Conv2d(in_channels, mid_channels, 3, stride=stride, padding=1, bias=False),
@@ -346,6 +351,9 @@ class StaticAlignmentBlock(nn.Module):
                 )
 
             def forward(self, x):
+                # 首先应用坐标注意力
+                x = self.coord_attention(x)
+
                 # 局部分支：下采样
                 local_feat = self.local_branch(x)  # [B, mid_channels, H/stride, W/stride]
 
@@ -365,8 +373,10 @@ class StaticAlignmentBlock(nn.Module):
         return GlobalPreservingAlign(in_channels, out_channels, stride, norm_layer, mid_channels, global_channels)
 
     def _build_default_alignment(self, in_channels, out_channels, stride, norm_layer):
-        """默认对齐方式 - 原始CKAAD的方法"""
+        """默认对齐方式 - 原始CKAAD的方法，加入坐标注意力开头"""
         return nn.Sequential(
+            # 在开头添加坐标注意力模块
+            CoordAtt_ECA(inp=in_channels, oup=in_channels),
             nn.Conv2d(in_channels, out_channels, 3, stride=stride, padding=1, bias=False),
             norm_layer(out_channels),
             nn.ReLU(inplace=True)
@@ -505,6 +515,15 @@ class StaticEnhancedFusionLayer(nn.Module):
         # SENet会学习每个特征分支的通道注意力权重，实现三个特征的智能融合
         self.senet = SEAttention(channel=input_channels[-1] * block.expansion, reduction=16)
 
+        # SEA注意力：输入通道数等于SENet融合后的通道数
+        # input_channels[-1] * block.expansion = 256 * 4 = 1024
+        self.axileAttention = Sea_Attention(
+            dim=senet_fused_channel,  # 1024
+            key_dim=64,               # 每个头的维度
+            num_heads=8,              # 注意力头数：1024/64/8=2，符合attn_ratio=2
+            attn_ratio=2
+        )
+
         # ========== 后续编码层 ==========
         # 输入是SENet融合后的特征，通道数为 senet_fused_channel
         self.encode_layer1 = self._make_layer(
@@ -599,7 +618,10 @@ class StaticEnhancedFusionLayer(nn.Module):
         # SENet会学习每个特征分支的通道注意力权重，并进行加权融合
         fused = self.senet(aligned_features[0], aligned_features[1], aligned_features[2])
 
-        # 3) 送入后续编码层进行特征压缩和抽象
+        # 3) 使用SEA_attention 对整个特征拼接后的整体进行结构感知
+        fused = self.axileAttention(fused)
+
+        # 4) 送入后续编码层进行特征压缩和抽象
         output = self.encode_layer1(fused)
 
         return output.contiguous()

@@ -3,7 +3,7 @@ from contextlib import nullcontext
 import numpy as np
 import random
 import os
-from util.test import evaluation
+from util.test import evaluation, visualize_anomaly_maps_simple
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 import logging
 from argparse import ArgumentParser
@@ -13,6 +13,7 @@ import tqdm
 import matplotlib
 matplotlib.use('Agg')  # 设置非GUI后端，避免WSL图形界面问题
 import matplotlib.pyplot as plt
+from torchvision import transforms
 
 
 def parse_args():
@@ -55,6 +56,10 @@ def parse_args():
 
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
+
+    # 可视化相关参数
+    parser.add_argument('--enable_epoch_viz', action='store_true', help='enable anomaly map visualization during training (every 8 epochs)')
+    parser.add_argument('--viz_interval', type=int, default=8, help='interval for anomaly map visualization during training')
 
     # 新增：渐进式实验配置参数
     parser.add_argument('--enable_enhancement', nargs='*', type=lambda x: str(x).lower() in ('true', '1', 'yes', 't', 'y'),
@@ -395,6 +400,20 @@ def train(args):
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
 
+            # 可选：在定期评估时绘制异常热力图
+            if args.enable_epoch_viz and epoch % args.viz_interval == 0:
+                try:
+                    logger.info("Generating anomaly maps at epoch {}...".format(epoch))
+
+                    # 使用简化的matplotlib可视化
+                    visualize_anomaly_maps_simple(pfe, ae, test_dataloader, args, device, epoch)
+
+                    viz_result_path = './results/{}_{}_epoch_{}'.format(args.dataset, args.normal, epoch)
+                    logger.info("Anomaly maps saved to: {}".format(viz_result_path))
+
+                except Exception as e:
+                    logger.error("Failed to generate anomaly maps at epoch {}: {}".format(epoch, str(e)))
+
     # 8. 训练结束后保存最终损失曲线
     try:
         pic_dir = "./pic/"
@@ -412,6 +431,66 @@ def train(args):
             logger.warning("Loss history is empty, skipping plot generation")
     except Exception as e:
         logger.error("Failed to generate final loss curve: {}".format(str(e)))
+
+    # 9. 训练结束后进行anomaly map可视化
+    try:
+        logger.info("Starting anomaly map visualization...")
+
+        # 设置数据变换（与训练时相同）
+        if args.dataset in ['mvtec', 'visa', 'btad']:
+            img_transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ])
+            gt_transform = transforms.Compose([transforms.ToTensor()])
+        else:
+            img_transform = transforms.Compose([
+                transforms.Resize(args.img_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+            ])
+            gt_transform = transforms.Compose([transforms.ToTensor()])
+
+        # 创建测试数据集（只可视化前几个样本以节省时间）
+        if args.dataset == 'mvtec':
+            from dataset.mvtec import MVTecDataset
+            viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
+                                     transform=img_transform, gt_target_transform=gt_transform,
+                                     img_size=args.img_size)
+            # 加载实际的数据到内存中
+            viz_dataset.load_data()
+
+            # 只可视化前5个样本（包括正常和异常样本）
+            viz_indices = []
+            normal_count = 0
+            abnormal_count = 0
+            for i, target in enumerate(viz_dataset.targets):
+                if target == 0 and normal_count < 3:  # 正常样本
+                    viz_indices.append(i)
+                    normal_count += 1
+                elif target > 0 and abnormal_count < 2:  # 异常样本
+                    viz_indices.append(i)
+                    abnormal_count += 1
+                if len(viz_indices) >= 5:
+                    break
+
+            # 筛选数据
+            viz_dataset.data = viz_dataset.data[viz_indices]
+            viz_dataset.targets = viz_dataset.targets[viz_indices]
+            viz_dataset.gt_targets = viz_dataset.gt_targets[viz_indices]
+
+        viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
+
+        # 使用简化的matplotlib可视化（不依赖opencv）
+        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs)
+
+        viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+        logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
+
+    except Exception as e:
+        logger.error("Failed to generate anomaly map visualization: {}".format(str(e)))
+        logger.error("This might be due to missing visualization dependencies")
+        logger.info("You can manually implement visualization using the anomaly_map data from evaluation_pixel()")
 
 def print_args(logger, args):
     logger.info('--------args----------')

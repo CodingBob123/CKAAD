@@ -1,0 +1,257 @@
+[2026-01-20 11:42:15,698][main.py][line:188][INFO] log file: ./log/lan0.05_acn1/mvtec/n_pill_a_0_s_111.txt
+[2026-01-20 11:42:15,699][main.py][line:189][INFO] class: pill
+[2026-01-20 11:42:15,699][main.py][line:474][INFO] --------args----------
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] dataset: mvtec
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] batch_size: 16
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] lr: 0.005
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] epochs: 200
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] img_size: 256
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] normal: pill
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] seed: 111
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] labeled_anomaly_class_num: 1
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] labeled_anomaly_class: 0
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] labeled_anomaly_ratio: 0.05
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] log_dir: ./log
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] model: wide_resnet50_2
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] eval_epoch: 8
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] layer: [1, 2, 3]
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] d_lr: 0.0001
+[2026-01-20 11:42:15,699][main.py][line:476][INFO] adv_conf: 0.02
+[2026-01-20 11:42:15,700][main.py][line:476][INFO] topk: 100
+[2026-01-20 11:42:15,700][main.py][line:476][INFO] use_amp: True
+[2026-01-20 11:42:15,700][main.py][line:476][INFO] compile: False
+[2026-01-20 11:42:15,700][main.py][line:476][INFO] enable_enhancement: [False, True, False]
+[2026-01-20 11:42:15,700][main.py][line:477][INFO] --------args----------
+
+[2026-01-20 11:42:15,882][main.py][line:196][INFO] device: cuda
+[2026-01-20 11:42:32,728][main.py][line:240][INFO] AMP enabled (autocast + GradScaler)
+[2026-01-20 11:43:06,574][main.py][line:376][INFO] epoch [1/200], dis_loss: 14.937500, recon_loss:1.312331, adv_loss:0.147263, ae_loss: 1.315276
+[2026-01-20 11:43:37,450][main.py][line:376][INFO] epoch [2/200], dis_loss: 14.394043, recon_loss:0.658891, adv_loss:1.047195, ae_loss: 0.679834
+[2026-01-20 11:44:08,691][main.py][line:376][INFO] epoch [3/200], dis_loss: 13.488770, recon_loss:0.494892, adv_loss:2.154785, ae_loss: 0.537989
+[2026-01-20 11:44:39,451][main.py][line:376][INFO] epoch [4/200], dis_loss: 13.164551, recon_loss:0.410948, adv_loss:1.795959, ae_loss: 0.446867
+[2026-01-20 11:45:10,774][main.py][line:376][INFO] epoch [5/200], dis_loss: 12.723633, recon_loss:0.356221, adv_loss:1.268311, ae_loss: 0.381588
+[2026-01-20 11:45:42,619][main.py][line:376][INFO] epoch [6/200], dis_loss: 12.491699, recon_loss:0.332026, adv_loss:1.176788, ae_loss: 0.355563
+[2026-01-20 11:46:14,732][main.py][line:376][INFO] epoch [7/200], dis_loss: 12.397949, recon_loss:0.331565, adv_loss:1.096741, ae_loss: 0.353498
+[2026-01-20 11:46:45,461][main.py][line:376][INFO] epoch [8/200], dis_loss: 12.268066, recon_loss:0.308694, adv_loss:0.985840, ae_loss: 0.328412
+[2026-01-20 11:47:58,641][main.py][line:396][INFO] Test: Pixel_AUROC: 0.939346 Pixel_PRO: 0.896934 Image_AUROC: 0.797327 Image_F1: 0.924092 Image_ACC: 0.862275 
+[2026-01-20 11:48:30,552][main.py][line:376][INFO] epoch [9/200], dis_loss: 12.020020, recon_loss:0.300458, adv_loss:0.964478, ae_loss: 0.319747
+[2026-01-20 11:49:02,161][main.py][line:376][INFO] epoch [10/200], dis_loss: 11.766113, recon_loss:0.293071, adv_loss:0.989532, ae_loss: 0.312862
+[2026-01-20 11:49:33,229][main.py][line:376][INFO] epoch [11/200], dis_loss: 11.595703, recon_loss:0.285244, adv_loss:1.032776, ae_loss: 0.305897
+[2026-01-20 11:50:04,066][main.py][line:376][INFO] epoch [12/200], dis_loss: 11.471680, recon_loss:0.276782, adv_loss:1.098846, ae_loss: 0.298760
+[2026-01-20 11:50:35,288][main.py][line:376][INFO] epoch [13/200], dis_loss: 11.413086, recon_loss:0.269117, adv_loss:1.099976, ae_loss: 0.291117
+[2026-01-20 11:51:07,357][main.py][line:376][INFO] epoch [14/200], dis_loss: 11.348633, recon_loss:0.263995, adv_loss:1.169617, ae_loss: 0.287388
+[2026-01-20 11:51:39,329][main.py][line:376][INFO] epoch [15/200], dis_loss: 11.343750, recon_loss:0.259191, adv_loss:1.132568, ae_loss: 0.281840
+[2026-01-20 11:52:10,953][main.py][line:376][INFO] epoch [16/200], dis_loss: 11.301270, recon_loss:0.252982, adv_loss:1.187927, ae_loss: 0.276742
+[2026-01-20 11:53:19,224][main.py][line:396][INFO] Test: Pixel_AUROC: 0.956304 Pixel_PRO: 0.929083 Image_AUROC: 0.880797 Image_F1: 0.947368 Image_ACC: 0.910180 
+[2026-01-20 11:53:50,435][main.py][line:376][INFO] epoch [17/200], dis_loss: 11.282715, recon_loss:0.249149, adv_loss:1.160950, ae_loss: 0.272367
+[2026-01-20 11:54:21,611][main.py][line:376][INFO] epoch [18/200], dis_loss: 11.261719, recon_loss:0.246899, adv_loss:1.187073, ae_loss: 0.270641
+[2026-01-20 11:54:53,061][main.py][line:376][INFO] epoch [19/200], dis_loss: 11.232910, recon_loss:0.240859, adv_loss:1.175293, ae_loss: 0.264365
+[2026-01-20 11:55:24,335][main.py][line:376][INFO] epoch [20/200], dis_loss: 11.148438, recon_loss:0.294848, adv_loss:1.300140, ae_loss: 0.320851
+[2026-01-20 11:55:56,962][main.py][line:376][INFO] epoch [21/200], dis_loss: 10.886719, recon_loss:0.402514, adv_loss:2.114807, ae_loss: 0.444812
+[2026-01-20 11:56:31,362][main.py][line:376][INFO] epoch [22/200], dis_loss: 11.074219, recon_loss:0.266482, adv_loss:1.680908, ae_loss: 0.300101
+[2026-01-20 11:57:04,451][main.py][line:376][INFO] epoch [23/200], dis_loss: 11.092773, recon_loss:0.248024, adv_loss:1.497742, ae_loss: 0.277978
+[2026-01-20 11:57:39,636][main.py][line:376][INFO] epoch [24/200], dis_loss: 11.053711, recon_loss:0.239661, adv_loss:1.473572, ae_loss: 0.269131
+[2026-01-20 11:58:51,898][main.py][line:396][INFO] Test: Pixel_AUROC: 0.961512 Pixel_PRO: 0.942071 Image_AUROC: 0.902619 Image_F1: 0.946237 Image_ACC: 0.910180 
+[2026-01-20 11:59:25,931][main.py][line:376][INFO] epoch [25/200], dis_loss: 11.064941, recon_loss:0.233199, adv_loss:1.529846, ae_loss: 0.263798
+[2026-01-20 11:59:59,156][main.py][line:376][INFO] epoch [26/200], dis_loss: 11.052246, recon_loss:0.228417, adv_loss:1.586670, ae_loss: 0.260147
+[2026-01-20 12:00:33,140][main.py][line:376][INFO] epoch [27/200], dis_loss: 11.004395, recon_loss:0.224775, adv_loss:1.656128, ae_loss: 0.257896
+[2026-01-20 12:01:05,862][main.py][line:376][INFO] epoch [28/200], dis_loss: 10.982910, recon_loss:0.221535, adv_loss:1.632507, ae_loss: 0.254185
+[2026-01-20 12:01:39,864][main.py][line:376][INFO] epoch [29/200], dis_loss: 10.971680, recon_loss:0.218378, adv_loss:1.578247, ae_loss: 0.249944
+[2026-01-20 12:02:12,355][main.py][line:376][INFO] epoch [30/200], dis_loss: 10.953125, recon_loss:0.216014, adv_loss:1.461609, ae_loss: 0.245248
+[2026-01-20 12:02:46,454][main.py][line:376][INFO] epoch [31/200], dis_loss: 10.924316, recon_loss:0.213047, adv_loss:1.430969, ae_loss: 0.241665
+[2026-01-20 12:03:19,975][main.py][line:376][INFO] epoch [32/200], dis_loss: 10.889648, recon_loss:0.210875, adv_loss:1.445129, ae_loss: 0.239779
+[2026-01-20 12:04:40,110][main.py][line:396][INFO] Test: Pixel_AUROC: 0.968860 Pixel_PRO: 0.950449 Image_AUROC: 0.929351 Image_F1: 0.956835 Image_ACC: 0.928144 
+[2026-01-20 12:05:12,564][main.py][line:376][INFO] epoch [33/200], dis_loss: 10.869141, recon_loss:0.208175, adv_loss:1.246887, ae_loss: 0.233113
+[2026-01-20 12:05:45,575][main.py][line:376][INFO] epoch [34/200], dis_loss: 10.828125, recon_loss:0.204890, adv_loss:1.254974, ae_loss: 0.229988
+[2026-01-20 12:06:19,770][main.py][line:376][INFO] epoch [35/200], dis_loss: 10.809082, recon_loss:0.203604, adv_loss:1.124390, ae_loss: 0.226092
+[2026-01-20 12:06:52,660][main.py][line:376][INFO] epoch [36/200], dis_loss: 10.772461, recon_loss:0.201223, adv_loss:1.163422, ae_loss: 0.224490
+[2026-01-20 12:07:25,134][main.py][line:376][INFO] epoch [37/200], dis_loss: 10.755371, recon_loss:0.199610, adv_loss:1.187683, ae_loss: 0.223365
+[2026-01-20 12:07:58,176][main.py][line:376][INFO] epoch [38/200], dis_loss: 10.734863, recon_loss:0.197299, adv_loss:1.169983, ae_loss: 0.220700
+[2026-01-20 12:08:32,645][main.py][line:376][INFO] epoch [39/200], dis_loss: 10.753906, recon_loss:0.196652, adv_loss:1.092072, ae_loss: 0.218496
+[2026-01-20 12:09:05,782][main.py][line:376][INFO] epoch [40/200], dis_loss: 10.707031, recon_loss:0.194261, adv_loss:1.077209, ae_loss: 0.215805
+[2026-01-20 12:10:25,537][main.py][line:396][INFO] Test: Pixel_AUROC: 0.971795 Pixel_PRO: 0.957270 Image_AUROC: 0.954719 Image_F1: 0.959707 Image_ACC: 0.934132 
+[2026-01-20 12:10:59,278][main.py][line:376][INFO] epoch [41/200], dis_loss: 10.685547, recon_loss:0.192312, adv_loss:0.943878, ae_loss: 0.211189
+[2026-01-20 12:11:33,045][main.py][line:376][INFO] epoch [42/200], dis_loss: 10.704590, recon_loss:0.189211, adv_loss:0.829559, ae_loss: 0.205803
+[2026-01-20 12:12:05,770][main.py][line:376][INFO] epoch [43/200], dis_loss: 10.636230, recon_loss:0.186671, adv_loss:0.835785, ae_loss: 0.203387
+[2026-01-20 12:12:38,952][main.py][line:376][INFO] epoch [44/200], dis_loss: 10.615234, recon_loss:0.186302, adv_loss:0.752472, ae_loss: 0.201352
+[2026-01-20 12:13:11,741][main.py][line:376][INFO] epoch [45/200], dis_loss: 10.599121, recon_loss:0.182258, adv_loss:0.760040, ae_loss: 0.197460
+[2026-01-20 12:13:44,639][main.py][line:376][INFO] epoch [46/200], dis_loss: 10.574707, recon_loss:0.181229, adv_loss:0.698608, ae_loss: 0.195202
+[2026-01-20 12:14:17,279][main.py][line:376][INFO] epoch [47/200], dis_loss: 10.535156, recon_loss:0.179927, adv_loss:0.768005, ae_loss: 0.195287
+[2026-01-20 12:14:50,760][main.py][line:376][INFO] epoch [48/200], dis_loss: 10.538574, recon_loss:0.179328, adv_loss:0.719757, ae_loss: 0.193723
+[2026-01-20 12:16:12,548][main.py][line:396][INFO] Test: Pixel_AUROC: 0.972944 Pixel_PRO: 0.956216 Image_AUROC: 0.951446 Image_F1: 0.960573 Image_ACC: 0.934132 
+[2026-01-20 12:16:46,756][main.py][line:376][INFO] epoch [49/200], dis_loss: 10.519531, recon_loss:0.177112, adv_loss:0.691833, ae_loss: 0.190948
+[2026-01-20 12:17:20,159][main.py][line:376][INFO] epoch [50/200], dis_loss: 10.503418, recon_loss:0.174888, adv_loss:0.615082, ae_loss: 0.187189
+[2026-01-20 12:17:53,037][main.py][line:376][INFO] epoch [51/200], dis_loss: 10.464355, recon_loss:0.176062, adv_loss:0.640320, ae_loss: 0.188869
+[2026-01-20 12:18:25,946][main.py][line:376][INFO] epoch [52/200], dis_loss: 10.437500, recon_loss:0.256042, adv_loss:0.783508, ae_loss: 0.271713
+[2026-01-20 12:18:59,264][main.py][line:376][INFO] epoch [53/200], dis_loss: 10.466797, recon_loss:0.193642, adv_loss:0.682098, ae_loss: 0.207285
+[2026-01-20 12:19:33,484][main.py][line:376][INFO] epoch [54/200], dis_loss: 10.432617, recon_loss:0.179309, adv_loss:0.628479, ae_loss: 0.191878
+[2026-01-20 12:20:09,144][main.py][line:376][INFO] epoch [55/200], dis_loss: 10.415039, recon_loss:0.176049, adv_loss:0.612579, ae_loss: 0.188300
+[2026-01-20 12:20:42,540][main.py][line:376][INFO] epoch [56/200], dis_loss: 10.403320, recon_loss:0.173311, adv_loss:0.653030, ae_loss: 0.186372
+[2026-01-20 12:22:01,933][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975461 Pixel_PRO: 0.958732 Image_AUROC: 0.959083 Image_F1: 0.960000 Image_ACC: 0.934132 
+[2026-01-20 12:22:35,750][main.py][line:376][INFO] epoch [57/200], dis_loss: 10.405273, recon_loss:0.171182, adv_loss:0.616837, ae_loss: 0.183519
+[2026-01-20 12:23:08,875][main.py][line:376][INFO] epoch [58/200], dis_loss: 10.357910, recon_loss:0.168826, adv_loss:0.604950, ae_loss: 0.180925
+[2026-01-20 12:23:43,468][main.py][line:376][INFO] epoch [59/200], dis_loss: 10.361816, recon_loss:0.169104, adv_loss:0.588409, ae_loss: 0.180871
+[2026-01-20 12:24:16,123][main.py][line:376][INFO] epoch [60/200], dis_loss: 10.334473, recon_loss:0.167286, adv_loss:0.587006, ae_loss: 0.179026
+[2026-01-20 12:24:49,090][main.py][line:376][INFO] epoch [61/200], dis_loss: 10.340332, recon_loss:0.165523, adv_loss:0.596252, ae_loss: 0.177450
+[2026-01-20 12:25:20,475][main.py][line:376][INFO] epoch [62/200], dis_loss: 10.303711, recon_loss:0.165614, adv_loss:0.565369, ae_loss: 0.176921
+[2026-01-20 12:25:51,574][main.py][line:376][INFO] epoch [63/200], dis_loss: 10.291016, recon_loss:0.162919, adv_loss:0.552399, ae_loss: 0.173967
+[2026-01-20 12:26:23,725][main.py][line:376][INFO] epoch [64/200], dis_loss: 10.275879, recon_loss:0.163656, adv_loss:0.528748, ae_loss: 0.174231
+[2026-01-20 12:27:43,740][main.py][line:396][INFO] Test: Pixel_AUROC: 0.974849 Pixel_PRO: 0.959383 Image_AUROC: 0.965903 Image_F1: 0.963768 Image_ACC: 0.940120 
+[2026-01-20 12:28:14,473][main.py][line:376][INFO] epoch [65/200], dis_loss: 10.263184, recon_loss:0.161585, adv_loss:0.549576, ae_loss: 0.172575
+[2026-01-20 12:28:44,965][main.py][line:376][INFO] epoch [66/200], dis_loss: 10.251465, recon_loss:0.160645, adv_loss:0.541626, ae_loss: 0.171477
+[2026-01-20 12:29:15,965][main.py][line:376][INFO] epoch [67/200], dis_loss: 10.239258, recon_loss:0.159194, adv_loss:0.547806, ae_loss: 0.170150
+[2026-01-20 12:29:46,753][main.py][line:376][INFO] epoch [68/200], dis_loss: 10.235840, recon_loss:0.159832, adv_loss:0.578186, ae_loss: 0.171396
+[2026-01-20 12:30:17,461][main.py][line:376][INFO] epoch [69/200], dis_loss: 10.188477, recon_loss:0.158981, adv_loss:0.533310, ae_loss: 0.169647
+[2026-01-20 12:30:48,457][main.py][line:376][INFO] epoch [70/200], dis_loss: 10.192383, recon_loss:0.157178, adv_loss:0.485474, ae_loss: 0.166887
+[2026-01-20 12:31:19,157][main.py][line:376][INFO] epoch [71/200], dis_loss: 10.169922, recon_loss:0.155016, adv_loss:0.497086, ae_loss: 0.164957
+[2026-01-20 12:31:50,049][main.py][line:376][INFO] epoch [72/200], dis_loss: 10.176270, recon_loss:0.156168, adv_loss:0.544128, ae_loss: 0.167050
+[2026-01-20 12:33:10,130][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975236 Pixel_PRO: 0.961261 Image_AUROC: 0.972177 Image_F1: 0.971223 Image_ACC: 0.952096 
+[2026-01-20 12:33:41,873][main.py][line:376][INFO] epoch [73/200], dis_loss: 10.149414, recon_loss:0.154278, adv_loss:0.495560, ae_loss: 0.164189
+[2026-01-20 12:34:13,143][main.py][line:376][INFO] epoch [74/200], dis_loss: 10.148926, recon_loss:0.153832, adv_loss:0.492264, ae_loss: 0.163677
+[2026-01-20 12:34:43,147][main.py][line:376][INFO] epoch [75/200], dis_loss: 10.134277, recon_loss:0.152076, adv_loss:0.484161, ae_loss: 0.161759
+[2026-01-20 12:35:14,433][main.py][line:376][INFO] epoch [76/200], dis_loss: 10.137695, recon_loss:0.153052, adv_loss:0.509384, ae_loss: 0.163239
+[2026-01-20 12:35:47,068][main.py][line:376][INFO] epoch [77/200], dis_loss: 10.109375, recon_loss:0.151824, adv_loss:0.479767, ae_loss: 0.161418
+[2026-01-20 12:36:19,243][main.py][line:376][INFO] epoch [78/200], dis_loss: 10.102539, recon_loss:0.149721, adv_loss:0.517227, ae_loss: 0.160064
+[2026-01-20 12:36:51,470][main.py][line:376][INFO] epoch [79/200], dis_loss: 10.081055, recon_loss:0.148182, adv_loss:0.456177, ae_loss: 0.157305
+[2026-01-20 12:37:24,428][main.py][line:376][INFO] epoch [80/200], dis_loss: 10.076172, recon_loss:0.150006, adv_loss:0.505997, ae_loss: 0.160125
+[2026-01-20 12:38:44,105][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975635 Pixel_PRO: 0.959759 Image_AUROC: 0.964539 Image_F1: 0.957447 Image_ACC: 0.928144 
+[2026-01-20 12:39:16,798][main.py][line:376][INFO] epoch [81/200], dis_loss: 10.069336, recon_loss:0.147870, adv_loss:0.483002, ae_loss: 0.157531
+[2026-01-20 12:39:49,065][main.py][line:376][INFO] epoch [82/200], dis_loss: 10.052246, recon_loss:0.147415, adv_loss:0.471176, ae_loss: 0.156839
+[2026-01-20 12:40:20,885][main.py][line:376][INFO] epoch [83/200], dis_loss: 10.044434, recon_loss:0.145823, adv_loss:0.476166, ae_loss: 0.155347
+[2026-01-20 12:40:53,926][main.py][line:376][INFO] epoch [84/200], dis_loss: 10.039062, recon_loss:0.146538, adv_loss:0.501923, ae_loss: 0.156575
+[2026-01-20 12:41:27,473][main.py][line:376][INFO] epoch [85/200], dis_loss: 10.013184, recon_loss:0.142482, adv_loss:0.464294, ae_loss: 0.151767
+[2026-01-20 12:41:59,687][main.py][line:376][INFO] epoch [86/200], dis_loss: 10.000000, recon_loss:0.143192, adv_loss:0.420547, ae_loss: 0.151603
+[2026-01-20 12:42:31,446][main.py][line:376][INFO] epoch [87/200], dis_loss: 9.989746, recon_loss:0.143016, adv_loss:0.451767, ae_loss: 0.152051
+[2026-01-20 12:43:04,517][main.py][line:376][INFO] epoch [88/200], dis_loss: 9.981445, recon_loss:0.142989, adv_loss:0.446045, ae_loss: 0.151910
+[2026-01-20 12:44:17,796][main.py][line:396][INFO] Test: Pixel_AUROC: 0.976311 Pixel_PRO: 0.960769 Image_AUROC: 0.974905 Image_F1: 0.967972 Image_ACC: 0.946108 
+[2026-01-20 12:44:49,217][main.py][line:376][INFO] epoch [89/200], dis_loss: 9.976074, recon_loss:0.141724, adv_loss:0.467163, ae_loss: 0.151067
+[2026-01-20 12:45:21,028][main.py][line:376][INFO] epoch [90/200], dis_loss: 9.972656, recon_loss:0.141571, adv_loss:0.480820, ae_loss: 0.151188
+[2026-01-20 12:45:53,018][main.py][line:376][INFO] epoch [91/200], dis_loss: 9.959473, recon_loss:0.140997, adv_loss:0.436996, ae_loss: 0.149737
+[2026-01-20 12:46:24,087][main.py][line:376][INFO] epoch [92/200], dis_loss: 9.941406, recon_loss:0.138678, adv_loss:0.461838, ae_loss: 0.147915
+[2026-01-20 12:46:57,226][main.py][line:376][INFO] epoch [93/200], dis_loss: 9.936523, recon_loss:0.138298, adv_loss:0.434616, ae_loss: 0.146991
+[2026-01-20 12:47:29,472][main.py][line:376][INFO] epoch [94/200], dis_loss: 9.944336, recon_loss:0.138415, adv_loss:0.515503, ae_loss: 0.148725
+[2026-01-20 12:48:02,338][main.py][line:376][INFO] epoch [95/200], dis_loss: 9.943848, recon_loss:0.137799, adv_loss:0.471207, ae_loss: 0.147224
+[2026-01-20 12:48:34,962][main.py][line:376][INFO] epoch [96/200], dis_loss: 9.919922, recon_loss:0.136528, adv_loss:0.440170, ae_loss: 0.145331
+[2026-01-20 12:49:48,704][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975135 Pixel_PRO: 0.958444 Image_AUROC: 0.973541 Image_F1: 0.967273 Image_ACC: 0.946108 
+[2026-01-20 12:50:20,461][main.py][line:376][INFO] epoch [97/200], dis_loss: 9.899414, recon_loss:0.136351, adv_loss:0.413010, ae_loss: 0.144611
+[2026-01-20 12:50:52,244][main.py][line:376][INFO] epoch [98/200], dis_loss: 9.909668, recon_loss:0.136516, adv_loss:0.475632, ae_loss: 0.146029
+[2026-01-20 12:51:26,016][main.py][line:376][INFO] epoch [99/200], dis_loss: 9.892578, recon_loss:0.132986, adv_loss:0.399948, ae_loss: 0.140985
+[2026-01-20 12:51:58,809][main.py][line:376][INFO] epoch [100/200], dis_loss: 9.881348, recon_loss:0.132916, adv_loss:0.383133, ae_loss: 0.140579
+[2026-01-20 12:52:30,472][main.py][line:376][INFO] epoch [101/200], dis_loss: 9.852539, recon_loss:0.132509, adv_loss:0.404861, ae_loss: 0.140606
+[2026-01-20 12:53:01,971][main.py][line:376][INFO] epoch [102/200], dis_loss: 9.869141, recon_loss:0.133169, adv_loss:0.459274, ae_loss: 0.142356
+[2026-01-20 12:53:34,377][main.py][line:376][INFO] epoch [103/200], dis_loss: 9.865723, recon_loss:0.131989, adv_loss:0.473221, ae_loss: 0.141454
+[2026-01-20 12:54:06,155][main.py][line:376][INFO] epoch [104/200], dis_loss: 9.857910, recon_loss:0.131982, adv_loss:0.477844, ae_loss: 0.141539
+[2026-01-20 12:55:18,622][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975629 Pixel_PRO: 0.959063 Image_AUROC: 0.959083 Image_F1: 0.967509 Image_ACC: 0.946108 
+[2026-01-20 12:55:50,565][main.py][line:376][INFO] epoch [105/200], dis_loss: 9.850098, recon_loss:0.130205, adv_loss:0.409134, ae_loss: 0.138388
+[2026-01-20 12:56:21,935][main.py][line:376][INFO] epoch [106/200], dis_loss: 9.833496, recon_loss:0.129576, adv_loss:0.403580, ae_loss: 0.137647
+[2026-01-20 12:56:52,515][main.py][line:376][INFO] epoch [107/200], dis_loss: 9.833984, recon_loss:0.130013, adv_loss:0.443161, ae_loss: 0.138877
+[2026-01-20 12:57:23,570][main.py][line:376][INFO] epoch [108/200], dis_loss: 9.821289, recon_loss:0.128543, adv_loss:0.447205, ae_loss: 0.137487
+[2026-01-20 12:57:55,166][main.py][line:376][INFO] epoch [109/200], dis_loss: 9.822266, recon_loss:0.127569, adv_loss:0.411011, ae_loss: 0.135790
+[2026-01-20 12:58:26,748][main.py][line:376][INFO] epoch [110/200], dis_loss: 9.805664, recon_loss:0.128837, adv_loss:0.407898, ae_loss: 0.136995
+[2026-01-20 12:58:58,983][main.py][line:376][INFO] epoch [111/200], dis_loss: 9.800293, recon_loss:0.126259, adv_loss:0.432404, ae_loss: 0.134908
+[2026-01-20 12:59:32,910][main.py][line:376][INFO] epoch [112/200], dis_loss: 9.805664, recon_loss:0.127892, adv_loss:0.443558, ae_loss: 0.136763
+[2026-01-20 13:00:44,706][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975050 Pixel_PRO: 0.958193 Image_AUROC: 0.957720 Image_F1: 0.964029 Image_ACC: 0.940120 
+[2026-01-20 13:01:17,243][main.py][line:376][INFO] epoch [113/200], dis_loss: 9.800293, recon_loss:0.126839, adv_loss:0.455750, ae_loss: 0.135955
+[2026-01-20 13:01:50,462][main.py][line:376][INFO] epoch [114/200], dis_loss: 9.782715, recon_loss:0.124916, adv_loss:0.452255, ae_loss: 0.133962
+[2026-01-20 13:02:24,439][main.py][line:376][INFO] epoch [115/200], dis_loss: 9.775879, recon_loss:0.125851, adv_loss:0.408020, ae_loss: 0.134012
+[2026-01-20 13:02:55,763][main.py][line:376][INFO] epoch [116/200], dis_loss: 9.786621, recon_loss:0.124296, adv_loss:0.440063, ae_loss: 0.133097
+[2026-01-20 13:03:30,234][main.py][line:376][INFO] epoch [117/200], dis_loss: 9.765137, recon_loss:0.124865, adv_loss:0.396851, ae_loss: 0.132802
+[2026-01-20 13:04:02,605][main.py][line:376][INFO] epoch [118/200], dis_loss: 9.750000, recon_loss:0.123876, adv_loss:0.420502, ae_loss: 0.132286
+[2026-01-20 13:04:33,270][main.py][line:376][INFO] epoch [119/200], dis_loss: 9.760254, recon_loss:0.121018, adv_loss:0.458054, ae_loss: 0.130180
+[2026-01-20 13:05:04,133][main.py][line:376][INFO] epoch [120/200], dis_loss: 9.734863, recon_loss:0.123279, adv_loss:0.352707, ae_loss: 0.130333
+[2026-01-20 13:06:12,691][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975586 Pixel_PRO: 0.958431 Image_AUROC: 0.970813 Image_F1: 0.960000 Image_ACC: 0.934132 
+[2026-01-20 13:06:43,546][main.py][line:376][INFO] epoch [121/200], dis_loss: 9.741211, recon_loss:0.121753, adv_loss:0.397217, ae_loss: 0.129697
+[2026-01-20 13:07:13,908][main.py][line:376][INFO] epoch [122/200], dis_loss: 9.732910, recon_loss:0.120324, adv_loss:0.438614, ae_loss: 0.129096
+[2026-01-20 13:07:44,277][main.py][line:376][INFO] epoch [123/200], dis_loss: 9.718750, recon_loss:0.122472, adv_loss:0.419022, ae_loss: 0.130852
+[2026-01-20 13:08:12,965][main.py][line:376][INFO] epoch [124/200], dis_loss: 9.740723, recon_loss:0.121453, adv_loss:0.410080, ae_loss: 0.129655
+[2026-01-20 13:08:43,166][main.py][line:376][INFO] epoch [125/200], dis_loss: 9.709961, recon_loss:0.118893, adv_loss:0.401810, ae_loss: 0.126929
+[2026-01-20 13:09:14,248][main.py][line:376][INFO] epoch [126/200], dis_loss: 9.713867, recon_loss:0.120154, adv_loss:0.422897, ae_loss: 0.128611
+[2026-01-20 13:09:45,321][main.py][line:376][INFO] epoch [127/200], dis_loss: 9.689453, recon_loss:0.119413, adv_loss:0.431320, ae_loss: 0.128040
+[2026-01-20 13:10:16,352][main.py][line:376][INFO] epoch [128/200], dis_loss: 9.697266, recon_loss:0.117738, adv_loss:0.370255, ae_loss: 0.125142
+[2026-01-20 13:11:25,336][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975183 Pixel_PRO: 0.959720 Image_AUROC: 0.958811 Image_F1: 0.957143 Image_ACC: 0.928144 
+[2026-01-20 13:11:57,045][main.py][line:376][INFO] epoch [129/200], dis_loss: 9.685059, recon_loss:0.116941, adv_loss:0.399780, ae_loss: 0.124936
+[2026-01-20 13:12:28,841][main.py][line:376][INFO] epoch [130/200], dis_loss: 9.683594, recon_loss:0.115586, adv_loss:0.399796, ae_loss: 0.123582
+[2026-01-20 13:13:00,352][main.py][line:376][INFO] epoch [131/200], dis_loss: 9.674805, recon_loss:0.117314, adv_loss:0.388763, ae_loss: 0.125089
+[2026-01-20 13:13:34,627][main.py][line:376][INFO] epoch [132/200], dis_loss: 9.652344, recon_loss:0.115794, adv_loss:0.338760, ae_loss: 0.122570
+[2026-01-20 13:14:09,690][main.py][line:376][INFO] epoch [133/200], dis_loss: 9.679688, recon_loss:0.116059, adv_loss:0.411484, ae_loss: 0.124289
+[2026-01-20 13:14:43,171][main.py][line:376][INFO] epoch [134/200], dis_loss: 9.661621, recon_loss:0.116887, adv_loss:0.316086, ae_loss: 0.123209
+[2026-01-20 13:15:15,619][main.py][line:376][INFO] epoch [135/200], dis_loss: 9.655273, recon_loss:0.114778, adv_loss:0.383308, ae_loss: 0.122444
+[2026-01-20 13:15:48,017][main.py][line:376][INFO] epoch [136/200], dis_loss: 9.644531, recon_loss:0.112893, adv_loss:0.367798, ae_loss: 0.120248
+[2026-01-20 13:17:03,833][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975294 Pixel_PRO: 0.958781 Image_AUROC: 0.960175 Image_F1: 0.964286 Image_ACC: 0.940120 
+[2026-01-20 13:17:36,930][main.py][line:376][INFO] epoch [137/200], dis_loss: 9.648438, recon_loss:0.114412, adv_loss:0.392380, ae_loss: 0.122259
+[2026-01-20 13:18:09,976][main.py][line:376][INFO] epoch [138/200], dis_loss: 9.657715, recon_loss:0.112925, adv_loss:0.408440, ae_loss: 0.121094
+[2026-01-20 13:18:42,222][main.py][line:376][INFO] epoch [139/200], dis_loss: 9.617188, recon_loss:0.113478, adv_loss:0.385361, ae_loss: 0.121186
+[2026-01-20 13:19:14,788][main.py][line:376][INFO] epoch [140/200], dis_loss: 9.633301, recon_loss:0.113109, adv_loss:0.407089, ae_loss: 0.121250
+[2026-01-20 13:19:46,123][main.py][line:376][INFO] epoch [141/200], dis_loss: 9.619141, recon_loss:0.112759, adv_loss:0.364258, ae_loss: 0.120044
+[2026-01-20 13:20:17,545][main.py][line:376][INFO] epoch [142/200], dis_loss: 9.619141, recon_loss:0.112067, adv_loss:0.365837, ae_loss: 0.119383
+[2026-01-20 13:20:50,170][main.py][line:376][INFO] epoch [143/200], dis_loss: 9.611328, recon_loss:0.109916, adv_loss:0.334053, ae_loss: 0.116597
+[2026-01-20 13:21:21,589][main.py][line:376][INFO] epoch [144/200], dis_loss: 9.592773, recon_loss:0.110787, adv_loss:0.334290, ae_loss: 0.117473
+[2026-01-20 13:22:34,806][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975940 Pixel_PRO: 0.957352 Image_AUROC: 0.951446 Image_F1: 0.954064 Image_ACC: 0.922156 
+[2026-01-20 13:23:06,019][main.py][line:376][INFO] epoch [145/200], dis_loss: 9.596191, recon_loss:0.111079, adv_loss:0.334167, ae_loss: 0.117762
+[2026-01-20 13:23:37,010][main.py][line:376][INFO] epoch [146/200], dis_loss: 9.594238, recon_loss:0.109986, adv_loss:0.353828, ae_loss: 0.117062
+[2026-01-20 13:24:09,034][main.py][line:376][INFO] epoch [147/200], dis_loss: 9.595703, recon_loss:0.110107, adv_loss:0.393860, ae_loss: 0.117984
+[2026-01-20 13:24:41,227][main.py][line:376][INFO] epoch [148/200], dis_loss: 9.572754, recon_loss:0.108309, adv_loss:0.337891, ae_loss: 0.115066
+[2026-01-20 13:25:11,958][main.py][line:376][INFO] epoch [149/200], dis_loss: 9.583008, recon_loss:0.108762, adv_loss:0.389786, ae_loss: 0.116558
+[2026-01-20 13:25:43,959][main.py][line:376][INFO] epoch [150/200], dis_loss: 9.571777, recon_loss:0.108185, adv_loss:0.321823, ae_loss: 0.114621
+[2026-01-20 13:26:16,320][main.py][line:376][INFO] epoch [151/200], dis_loss: 9.561523, recon_loss:0.108295, adv_loss:0.343735, ae_loss: 0.115170
+[2026-01-20 13:26:48,112][main.py][line:376][INFO] epoch [152/200], dis_loss: 9.564453, recon_loss:0.107593, adv_loss:0.347832, ae_loss: 0.114549
+[2026-01-20 13:28:00,914][main.py][line:396][INFO] Test: Pixel_AUROC: 0.976032 Pixel_PRO: 0.961474 Image_AUROC: 0.958265 Image_F1: 0.958042 Image_ACC: 0.928144 
+[2026-01-20 13:28:32,782][main.py][line:376][INFO] epoch [153/200], dis_loss: 9.554199, recon_loss:0.107085, adv_loss:0.375961, ae_loss: 0.114604
+[2026-01-20 13:29:03,674][main.py][line:376][INFO] epoch [154/200], dis_loss: 9.543457, recon_loss:0.107945, adv_loss:0.330086, ae_loss: 0.114547
+[2026-01-20 13:29:35,046][main.py][line:376][INFO] epoch [155/200], dis_loss: 9.537109, recon_loss:0.106561, adv_loss:0.314850, ae_loss: 0.112858
+[2026-01-20 13:30:06,437][main.py][line:376][INFO] epoch [156/200], dis_loss: 9.537109, recon_loss:0.105879, adv_loss:0.351151, ae_loss: 0.112902
+[2026-01-20 13:30:38,105][main.py][line:376][INFO] epoch [157/200], dis_loss: 9.537598, recon_loss:0.106577, adv_loss:0.330788, ae_loss: 0.113193
+[2026-01-20 13:31:09,216][main.py][line:376][INFO] epoch [158/200], dis_loss: 9.528809, recon_loss:0.104706, adv_loss:0.332855, ae_loss: 0.111362
+[2026-01-20 13:31:39,957][main.py][line:376][INFO] epoch [159/200], dis_loss: 9.532227, recon_loss:0.105479, adv_loss:0.356514, ae_loss: 0.112609
+[2026-01-20 13:32:12,158][main.py][line:376][INFO] epoch [160/200], dis_loss: 9.522949, recon_loss:0.103718, adv_loss:0.347878, ae_loss: 0.110675
+[2026-01-20 13:33:27,787][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975065 Pixel_PRO: 0.958992 Image_AUROC: 0.962902 Image_F1: 0.961131 Image_ACC: 0.934132 
+[2026-01-20 13:33:59,359][main.py][line:376][INFO] epoch [161/200], dis_loss: 9.537109, recon_loss:0.104593, adv_loss:0.331360, ae_loss: 0.111220
+[2026-01-20 13:34:31,893][main.py][line:376][INFO] epoch [162/200], dis_loss: 9.513184, recon_loss:0.103299, adv_loss:0.353470, ae_loss: 0.110368
+[2026-01-20 13:35:04,426][main.py][line:376][INFO] epoch [163/200], dis_loss: 9.518555, recon_loss:0.104742, adv_loss:0.357529, ae_loss: 0.111892
+[2026-01-20 13:35:37,878][main.py][line:376][INFO] epoch [164/200], dis_loss: 9.496094, recon_loss:0.101153, adv_loss:0.323174, ae_loss: 0.107617
+[2026-01-20 13:36:11,632][main.py][line:376][INFO] epoch [165/200], dis_loss: 9.491699, recon_loss:0.103758, adv_loss:0.314095, ae_loss: 0.110040
+[2026-01-20 13:36:43,275][main.py][line:376][INFO] epoch [166/200], dis_loss: 9.494629, recon_loss:0.106335, adv_loss:0.340378, ae_loss: 0.113142
+[2026-01-20 13:37:14,658][main.py][line:376][INFO] epoch [167/200], dis_loss: 9.504395, recon_loss:0.101630, adv_loss:0.324455, ae_loss: 0.108119
+[2026-01-20 13:37:46,685][main.py][line:376][INFO] epoch [168/200], dis_loss: 9.485352, recon_loss:0.175350, adv_loss:0.356979, ae_loss: 0.182489
+[2026-01-20 13:38:59,926][main.py][line:396][INFO] Test: Pixel_AUROC: 0.980402 Pixel_PRO: 0.965984 Image_AUROC: 0.962084 Image_F1: 0.952381 Image_ACC: 0.922156 
+[2026-01-20 13:39:31,659][main.py][line:376][INFO] epoch [169/200], dis_loss: 9.469238, recon_loss:0.145642, adv_loss:0.369751, ae_loss: 0.153036
+[2026-01-20 13:40:03,912][main.py][line:376][INFO] epoch [170/200], dis_loss: 9.465820, recon_loss:0.116544, adv_loss:0.299301, ae_loss: 0.122530
+[2026-01-20 13:40:35,233][main.py][line:376][INFO] epoch [171/200], dis_loss: 9.502441, recon_loss:0.109601, adv_loss:0.362556, ae_loss: 0.116853
+[2026-01-20 13:41:06,735][main.py][line:376][INFO] epoch [172/200], dis_loss: 9.458496, recon_loss:0.104998, adv_loss:0.311043, ae_loss: 0.111218
+[2026-01-20 13:41:37,712][main.py][line:376][INFO] epoch [173/200], dis_loss: 9.463379, recon_loss:0.103599, adv_loss:0.393967, ae_loss: 0.111479
+[2026-01-20 13:42:08,406][main.py][line:376][INFO] epoch [174/200], dis_loss: 9.478516, recon_loss:0.100579, adv_loss:0.338287, ae_loss: 0.107345
+[2026-01-20 13:42:40,329][main.py][line:376][INFO] epoch [175/200], dis_loss: 9.448730, recon_loss:0.101066, adv_loss:0.309837, ae_loss: 0.107263
+[2026-01-20 13:43:12,747][main.py][line:376][INFO] epoch [176/200], dis_loss: 9.448242, recon_loss:0.100474, adv_loss:0.320282, ae_loss: 0.106880
+[2026-01-20 13:44:22,803][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975280 Pixel_PRO: 0.958138 Image_AUROC: 0.963175 Image_F1: 0.961938 Image_ACC: 0.934132 
+[2026-01-20 13:44:54,344][main.py][line:376][INFO] epoch [177/200], dis_loss: 9.432617, recon_loss:0.100153, adv_loss:0.315704, ae_loss: 0.106468
+[2026-01-20 13:45:24,934][main.py][line:376][INFO] epoch [178/200], dis_loss: 9.424805, recon_loss:0.099240, adv_loss:0.342384, ae_loss: 0.106087
+[2026-01-20 13:45:56,825][main.py][line:376][INFO] epoch [179/200], dis_loss: 9.432129, recon_loss:0.099659, adv_loss:0.353745, ae_loss: 0.106734
+[2026-01-20 13:46:28,675][main.py][line:376][INFO] epoch [180/200], dis_loss: 9.428223, recon_loss:0.100976, adv_loss:0.340424, ae_loss: 0.107784
+[2026-01-20 13:47:00,570][main.py][line:376][INFO] epoch [181/200], dis_loss: 9.435059, recon_loss:0.098491, adv_loss:0.343292, ae_loss: 0.105357
+[2026-01-20 13:47:32,658][main.py][line:376][INFO] epoch [182/200], dis_loss: 9.418457, recon_loss:0.098213, adv_loss:0.301437, ae_loss: 0.104243
+[2026-01-20 13:48:04,015][main.py][line:376][INFO] epoch [183/200], dis_loss: 9.412109, recon_loss:0.097237, adv_loss:0.300407, ae_loss: 0.103246
+[2026-01-20 13:48:35,391][main.py][line:376][INFO] epoch [184/200], dis_loss: 9.414062, recon_loss:0.096290, adv_loss:0.336235, ae_loss: 0.103014
+[2026-01-20 13:49:54,616][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975313 Pixel_PRO: 0.959307 Image_AUROC: 0.957720 Image_F1: 0.968641 Image_ACC: 0.946108 
+[2026-01-20 13:50:25,933][main.py][line:376][INFO] epoch [185/200], dis_loss: 9.424805, recon_loss:0.098370, adv_loss:0.301147, ae_loss: 0.104392
+[2026-01-20 13:50:57,033][main.py][line:376][INFO] epoch [186/200], dis_loss: 9.400391, recon_loss:0.096455, adv_loss:0.296165, ae_loss: 0.102379
+[2026-01-20 13:51:28,525][main.py][line:376][INFO] epoch [187/200], dis_loss: 9.410156, recon_loss:0.096057, adv_loss:0.262909, ae_loss: 0.101315
+[2026-01-20 13:52:00,619][main.py][line:376][INFO] epoch [188/200], dis_loss: 9.400391, recon_loss:0.096789, adv_loss:0.296883, ae_loss: 0.102727
+[2026-01-20 13:52:32,441][main.py][line:376][INFO] epoch [189/200], dis_loss: 9.405273, recon_loss:0.095639, adv_loss:0.337723, ae_loss: 0.102393
+[2026-01-20 13:53:03,223][main.py][line:376][INFO] epoch [190/200], dis_loss: 9.394531, recon_loss:0.095124, adv_loss:0.324409, ae_loss: 0.101612
+[2026-01-20 13:53:35,064][main.py][line:376][INFO] epoch [191/200], dis_loss: 9.388672, recon_loss:0.096431, adv_loss:0.351357, ae_loss: 0.103458
+[2026-01-20 13:54:06,755][main.py][line:376][INFO] epoch [192/200], dis_loss: 9.362793, recon_loss:0.096172, adv_loss:0.321617, ae_loss: 0.102605
+[2026-01-20 13:55:18,984][main.py][line:396][INFO] Test: Pixel_AUROC: 0.974918 Pixel_PRO: 0.957549 Image_AUROC: 0.965085 Image_F1: 0.964789 Image_ACC: 0.940120 
+[2026-01-20 13:55:51,133][main.py][line:376][INFO] epoch [193/200], dis_loss: 9.395020, recon_loss:0.094927, adv_loss:0.281868, ae_loss: 0.100564
+[2026-01-20 13:56:22,762][main.py][line:376][INFO] epoch [194/200], dis_loss: 9.382812, recon_loss:0.094211, adv_loss:0.288071, ae_loss: 0.099972
+[2026-01-20 13:56:54,619][main.py][line:376][INFO] epoch [195/200], dis_loss: 9.362305, recon_loss:0.095106, adv_loss:0.310936, ae_loss: 0.101325
+[2026-01-20 13:57:26,275][main.py][line:376][INFO] epoch [196/200], dis_loss: 9.372559, recon_loss:0.095997, adv_loss:0.299362, ae_loss: 0.101985
+[2026-01-20 13:57:58,161][main.py][line:376][INFO] epoch [197/200], dis_loss: 9.369629, recon_loss:0.094910, adv_loss:0.267838, ae_loss: 0.100267
+[2026-01-20 13:58:29,881][main.py][line:376][INFO] epoch [198/200], dis_loss: 9.345703, recon_loss:0.093324, adv_loss:0.323685, ae_loss: 0.099798
+[2026-01-20 13:59:01,447][main.py][line:376][INFO] epoch [199/200], dis_loss: 9.375000, recon_loss:0.093381, adv_loss:0.347206, ae_loss: 0.100325
+[2026-01-20 13:59:32,765][main.py][line:376][INFO] epoch [200/200], dis_loss: 9.347168, recon_loss:0.093794, adv_loss:0.308624, ae_loss: 0.099966
+[2026-01-20 14:00:48,838][main.py][line:396][INFO] Test: Pixel_AUROC: 0.975154 Pixel_PRO: 0.958696 Image_AUROC: 0.963175 Image_F1: 0.964539 Image_ACC: 0.940120 
+[2026-01-20 14:00:49,893][main.py][line:410][INFO] Final loss curve saved to: ./pic/loss_curve_final_n_pill_a_0_s_111.jpg
+[2026-01-20 14:00:49,893][main.py][line:418][INFO] Starting anomaly map visualization...
+[2026-01-20 14:00:49,893][main.py][line:469][ERROR] Failed to generate anomaly map visualization: name 'transforms' is not defined
+[2026-01-20 14:00:49,893][main.py][line:470][ERROR] This might be due to missing visualization dependencies
+[2026-01-20 14:00:49,893][main.py][line:471][INFO] You can manually implement visualization using the anomaly_map data from evaluation_pixel()

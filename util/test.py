@@ -267,6 +267,7 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
 def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
     """
     使用matplotlib进行异常检测热力图可视化（不依赖OpenCV）
+    支持类型平衡采样，每个异常类型选择固定数量的样本
     """
     pfe.eval()
     ae.eval()
@@ -274,9 +275,7 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
     with torch.no_grad():
         cnt = 0
         for data in dataloader:
-            if cnt >= 5:  # 只可视化前5个样本
-                break
-
+            # 不再限制样本数量，让类型平衡采样决定
             imgs = data[0].to(device)
             inputs = pfe(imgs)
             outputs = ae(inputs)
@@ -285,7 +284,7 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
             # 计算异常图
             anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
 
-            # 反变换图像
+            # 反变换图像 - 确保与原始图像尺寸一致
             img_transform = transforms.Compose([
                 transforms.Normalize(mean=(-0.485/0.229, -0.456/0.224, -0.406/0.225),
                                    std=(1/0.229, 1/0.224, 1/0.225))
@@ -298,9 +297,6 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                 os.makedirs(result_path, exist_ok=True)
 
             for i, (img, anomaly_map, label) in enumerate(zip(imgs_denorm, anomaly_maps, labels)):
-                if cnt >= 5:  # 只可视化前5个样本
-                    break
-
                 # 转换为numpy数组
                 img_np = img.permute(1, 2, 0).cpu().numpy()
                 img_np = np.clip(img_np, 0, 1)  # 确保值在[0,1]范围内
@@ -313,49 +309,70 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                 else:
                     gt = None
 
-                # 创建子图布局
+                # 获取图像的异常类型名称（如果可用）
+                if hasattr(dataloader.dataset, 'types_set'):
+                    type_name = dataloader.dataset.types_set[label.item()]
+                else:
+                    type_name = f"label_{label.item()}"
+
+                # 创建统一的子图布局 - 所有图像使用相同的尺寸和布局
                 if gt is not None:
-                    # 有ground truth：原始图 | 异常热力图 | Ground Truth | 叠加效果
-                    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+                    # 有ground truth：2x2网格布局
+                    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
                     axes = axes.flatten()
                 else:
-                    # 无ground truth：原始图 | 异常热力图 | 叠加效果
-                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                    # 无ground truth：1x3布局
+                    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
                     axes = axes.flatten()
 
-                # 1. 显示原始图像
-                axes[0].imshow(img_np)
-                axes[0].set_title(f'Original Image\nLabel: {label.item()}')
-                axes[0].axis('off')
+                # 设置统一的图像显示参数
+                img_height, img_width = img_np.shape[:2]
 
-                # 2. 显示异常热力图
-                im = axes[1].imshow(anomaly_map, cmap='jet')
-                axes[1].set_title('Anomaly Map')
+                # 1. 显示原始图像 - 确保尺寸正确
+                axes[0].imshow(img_np, aspect='equal')
+                axes[0].set_title(f'Original Image\nType: {type_name}', fontsize=12, fontweight='bold')
+                axes[0].axis('off')
+                # 设置坐标轴范围确保图像不变形
+                axes[0].set_xlim(0, img_width)
+                axes[0].set_ylim(img_height, 0)
+
+                # 2. 显示异常热力图 - 与原始图像尺寸完全匹配
+                im = axes[1].imshow(anomaly_map, cmap='jet', aspect='equal',
+                                   extent=[0, img_width, img_height, 0])
+                axes[1].set_title('Anomaly Map', fontsize=12, fontweight='bold')
                 axes[1].axis('off')
-                plt.colorbar(im, ax=axes[1], shrink=0.8)
+                # 添加颜色条
+                cbar = plt.colorbar(im, ax=axes[1], shrink=0.8, aspect=20)
+                cbar.ax.tick_params(labelsize=10)
 
                 # 3. 显示ground truth（如果有的话）
                 if gt is not None:
-                    axes[2].imshow(gt, cmap='gray')
-                    axes[2].set_title('Ground Truth')
+                    axes[2].imshow(gt, cmap='gray', aspect='equal',
+                                  extent=[0, img_width, img_height, 0])
+                    axes[2].set_title('Ground Truth', fontsize=12, fontweight='bold')
                     axes[2].axis('off')
 
-                    # 4. 显示叠加效果（原始图像 + 异常热力图）
-                    axes[3].imshow(img_np)
-                    axes[3].imshow(anomaly_map, cmap='jet', alpha=0.6)
-                    axes[3].set_title('Overlay (Original + Anomaly)')
+                    # 4. 显示叠加效果（原始图像 + 异常热力图）- 确保完全重合
+                    axes[3].imshow(img_np, aspect='equal',
+                                  extent=[0, img_width, img_height, 0])
+                    axes[3].imshow(anomaly_map, cmap='jet', alpha=0.6, aspect='equal',
+                                  extent=[0, img_width, img_height, 0])
+                    axes[3].set_title('Overlay (Original + Anomaly)', fontsize=12, fontweight='bold')
                     axes[3].axis('off')
                 else:
-                    # 3. 显示叠加效果（原始图像 + 异常热力图）
-                    axes[2].imshow(img_np)
-                    axes[2].imshow(anomaly_map, cmap='jet', alpha=0.6)
-                    axes[2].set_title('Overlay (Original + Anomaly)')
+                    # 3. 显示叠加效果（原始图像 + 异常热力图）- 确保完全重合
+                    axes[2].imshow(img_np, aspect='equal',
+                                  extent=[0, img_width, img_height, 0])
+                    axes[2].imshow(anomaly_map, cmap='jet', alpha=0.6, aspect='equal',
+                                  extent=[0, img_width, img_height, 0])
+                    axes[2].set_title('Overlay (Original + Anomaly)', fontsize=12, fontweight='bold')
                     axes[2].axis('off')
 
-                plt.tight_layout()
+                # 调整布局，确保所有子图大小一致
+                plt.tight_layout(pad=2.0, h_pad=1.0, w_pad=1.0)
 
-                # 保存图像
-                filename = f'{cnt:03d}_label_{label.item()}.png'
+                # 保存图像 - 使用更具描述性的文件名
+                filename = f'{cnt:03d}_{type_name}.png'
                 save_path = os.path.join(result_path, filename)
                 plt.savefig(save_path, dpi=150, bbox_inches='tight')
                 plt.close()

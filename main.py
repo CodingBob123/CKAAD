@@ -61,6 +61,7 @@ def parse_args():
     # 可视化相关参数
     parser.add_argument('--enable_epoch_viz', action='store_true', help='enable anomaly map visualization during training (every 8 epochs)')
     parser.add_argument('--viz_interval', type=int, default=8, help='interval for anomaly map visualization during training')
+    parser.add_argument('--viz_samples_per_type', type=int, default=3, help='number of samples to visualize per anomaly type (including normal)')
 
     # 新增：渐进式实验配置参数
     parser.add_argument('--enable_enhancement', nargs='*', type=lambda x: str(x).lower() in ('true', '1', 'yes', 't', 'y'),
@@ -467,19 +468,27 @@ def train(args):
             # 加载实际的数据到内存中
             viz_dataset.load_data()
 
-            # 只可视化前5个样本（包括正常和异常样本）
-            viz_indices = []
-            normal_count = 0
-            abnormal_count = 0
+            # 方案A：类型平衡采样 - 为每个异常类型选择固定数量的样本
+            samples_per_type = args.viz_samples_per_type  # 从命令行参数获取
+            type_to_indices = {}
+
+            # 按异常类型分组样本索引
             for i, target in enumerate(viz_dataset.targets):
-                if target == 0 and normal_count < 3:  # 正常样本
-                    viz_indices.append(i)
-                    normal_count += 1
-                elif target > 0 and abnormal_count < 2:  # 异常样本
-                    viz_indices.append(i)
-                    abnormal_count += 1
-                if len(viz_indices) >= 5:
-                    break
+                type_name = viz_dataset.types_set[target]
+                if type_name not in type_to_indices:
+                    type_to_indices[type_name] = []
+                type_to_indices[type_name].append(i)
+
+            # 为每个类型选择指定数量的样本
+            viz_indices = []
+            for type_name, indices in type_to_indices.items():
+                # 选择前samples_per_type个样本，如果不够则选择全部
+                selected_count = min(len(indices), samples_per_type)
+                viz_indices.extend(indices[:selected_count])
+
+                logger.info(f"Selected {selected_count} samples for type '{type_name}'")
+
+            logger.info(f"Total selected {len(viz_indices)} samples for visualization")
 
             # 筛选数据
             viz_dataset.data = viz_dataset.data[viz_indices]

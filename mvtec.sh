@@ -7,7 +7,7 @@ do
     echo $normal
 
     case $normal in 'carpet')
-            epochs=10
+            epochs=20
             eval_epoch=1
             ;;
         *)  
@@ -16,7 +16,11 @@ do
             ;;
     esac
 
-    case $normal in 'transistor')
+    case $normal in 'bottle'|'cable'|'capsule')
+            lr=15e-04
+            d_lr=5e-04
+            ;;
+        'transistor')
             lr=1e-03
             ;;
         *)
@@ -24,21 +28,15 @@ do
             ;;
     esac
 
-    # 设置Feature2融合权重：zipper和tile使用保守策略，其他使用动态融合
-    case $normal in 'zipper'|'tile'|'metal_nut')
-            feature2_fusion_weight=0.0  # 完全保守路径，适合结构化类别
-            ;;
-        *)
-            feature2_fusion_weight=0.5  # 动态ECASBF融合，默认设置
-            ;;
-    esac
 
     CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
-     --lr ${lr} --d_lr 1e-04 --adv_conf 0.02 --epochs ${epochs} \
+    --lr ${lr} --d_lr 1e-04 --adv_conf 0.02 --epochs ${epochs} \
     --normal $normal --seed 111 --img_size 256 \
     --labeled_anomaly_class_num ${labeled_anomaly_class_num} \
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
     --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
-    --enable_enhancement False True False --feature2_fusion_weight ${feature2_fusion_weight} --use_amp
+    # --enable_enhancement False True False --feature2_fusion_weight ${feature2_fusion_weight} --use_amp
+    --enable_enhancement True --use_amp
+    # --enable_enhancement False --use_amp
 done

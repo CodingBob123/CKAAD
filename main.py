@@ -69,11 +69,6 @@ def parse_args():
                        default=[False, False, False],
                        help='enable enhancement for each branch [branch1, branch2, branch3]. Use --enable_enhancement True False True format')
 
-    # 新增：Feature2边界增强融合权重控制
-    parser.add_argument('--feature2_fusion_weight', type=float, default=0.5,
-                       help='fusion weight for feature2 boundary enhancement (0.0=conservative only, 0.5=adaptive fusion, 1.0=aggressive only). '
-                            'Recommended: 0.0 for zipper/tile, 0.5 for others')
-    
     # 渐进式的结构感知损失配置（轻量级 SSIM）
     parser.add_argument('--struct_loss_alpha', type=float, default=0.005,
                        help='target weight for structural (SSIM) loss; small values recommended (e.g. 0.01-0.05)')
@@ -276,8 +271,7 @@ def train(args):
     # 3.2 初始化编码器-解码器(自编码器)
     # 输入通道数由预训练模型的输出通道数决定，例如对于ResNet50和layers=[1,2,3]，为[256,512,1024]
     # 传递渐进式实验配置参数
-    ae = ED(backbone=args.model, input_channels=pfe.output_channels, enable_enhancement=args.enable_enhancement,
-            feature2_fusion_weight=args.feature2_fusion_weight).to(device)
+    ae = ED(backbone=args.model, input_channels=pfe.output_channels, enable_enhancement=args.enable_enhancement).to(device)
     
     # 3.3 初始化判别器
     # input_sizes: 各层特征图的空间尺寸，例如[64,32,16]

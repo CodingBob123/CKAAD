@@ -19,8 +19,17 @@ do
     case $normal in 'transistor')
             lr=1e-03
             ;;
-        *)  
+        *)
             lr=5e-03
+            ;;
+    esac
+
+    # 设置Feature2融合权重：zipper和tile使用保守策略，其他使用动态融合
+    case $normal in 'zipper'|'tile'|'metal_nut')
+            feature2_fusion_weight=0.0  # 完全保守路径，适合结构化类别
+            ;;
+        *)
+            feature2_fusion_weight=0.5  # 动态ECASBF融合，默认设置
             ;;
     esac
 
@@ -31,5 +40,5 @@ do
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
     --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
-    --enable_enhancement False False False --use_amp
+    --enable_enhancement False True False --feature2_fusion_weight ${feature2_fusion_weight} --use_amp
 done

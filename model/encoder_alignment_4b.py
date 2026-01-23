@@ -185,9 +185,15 @@ class ECASBF(nn.Module):
 # 作用: 同时运行"保守卷积"和"混合增强卷积"，利用 ECASBF 择优输出
 # =========================================================================
 class DualPathBoundaryBlock(nn.Module):
-    def __init__(self, in_planes, out_planes, stride, norm_layer):
+    def __init__(self, in_planes, out_planes, stride, norm_layer, fusion_weight=0.5):
         super(DualPathBoundaryBlock, self).__init__()
-        
+
+        # 融合权重控制参数
+        # fusion_weight=0.0: 完全使用保守路径 (适合zipper, tile等结构化类别)
+        # fusion_weight=1.0: 完全使用激进路径 (适合复杂拓扑类别)
+        # fusion_weight=0.5: 动态融合 (原始ECASBF行为)
+        self.fusion_weight = fusion_weight
+
         # --- Path A: 保守型旧模块 (Standard 3x3) ---
         # 负责 Metal_nut, Tile 等简单纹理/刚性结构
         self.path_conservative = nn.Sequential(
@@ -195,7 +201,7 @@ class DualPathBoundaryBlock(nn.Module):
             norm_layer(out_planes),
             nn.ReLU(inplace=True)
         )
-        
+
         # --- Path B: 激进型新模块 (Mixed Asymmetric) ---
         # 负责 Cable, Transistor 等复杂拓扑/线条结构
         # (完全复刻您原文件中 feature2 的逻辑)
@@ -227,32 +233,46 @@ class DualPathBoundaryBlock(nn.Module):
             norm_layer(out_planes),
             nn.ReLU(inplace=True)
         )
-        
+
         # --- Arbiter: 内部仲裁者 ---
-        self.arbiter = ECASBF(channels=out_planes, num_branches=2, kernel_size=3)
+        # 只有在fusion_weight=0.5时才使用动态仲裁
+        if fusion_weight == 0.5:
+            self.arbiter = ECASBF(channels=out_planes, num_branches=2, kernel_size=3)
+        else:
+            self.arbiter = None
 
     def forward(self, x):
-        # 1. 计算 Path A
+        # 1. 计算 Path A (保守路径)
         feat_cons = self.path_conservative(x)
-        
-        # 2. 计算 Path B (三个子分支拼接 + 融合)
+
+        # 2. 计算 Path B (激进路径 - 三个子分支拼接 + 融合)
         h = self.path_aggressive_branches['horizontal'](x)
         v = self.path_aggressive_branches['vertical'](x)
         d = self.path_aggressive_branches['diagonal'](x)
         feat_agg_raw = torch.cat([h, v, d], dim=1)
         feat_agg = self.path_aggressive_fusion(feat_agg_raw)
-        
-        # 3. 动态融合 (二选一或软加权)
-        # 输入: [Feature_Old, Feature_New]
-        out = self.arbiter([feat_cons, feat_agg])
-        
+
+        # 3. 根据fusion_weight进行可控融合
+        if self.fusion_weight == 0.0:
+            # 完全使用保守路径 - 适合zipper, tile等结构化类别
+            out = feat_cons
+        elif self.fusion_weight == 1.0:
+            # 完全使用激进路径 - 适合复杂拓扑类别
+            out = feat_agg
+        elif self.fusion_weight == 0.5:
+            # 动态融合 (原始ECASBF行为)
+            out = self.arbiter([feat_cons, feat_agg])
+        else:
+            # 线性插值融合 - 在0-1之间平滑过渡
+            out = (1 - self.fusion_weight) * feat_cons + self.fusion_weight * feat_agg
+
         return out
 
 
 class StaticAlignmentBlock(nn.Module):
     """静态对齐块 - 根据分支类型使用不同的对齐策略"""
 
-    def __init__(self, in_channels, out_channels, stride=2, branch_type='feature1', norm_layer=nn.InstanceNorm2d):
+    def __init__(self, in_channels, out_channels, stride=2, branch_type='feature1', norm_layer=nn.InstanceNorm2d, fusion_weight=0.5):
         super().__init__()
         self.branch_type = branch_type
 
@@ -260,8 +280,8 @@ class StaticAlignmentBlock(nn.Module):
             # Feature1: 纹理感知的对齐
             self.alignment = self._build_texture_aware_alignment(in_channels, out_channels, stride, norm_layer)
         elif branch_type == 'feature2':
-            # Feature2: 边界保持的对齐
-            self.alignment = DualPathBoundaryBlock(in_channels, out_channels, stride, norm_layer)
+            # Feature2: 边界保持的对齐 - 支持融合权重控制
+            self.alignment = DualPathBoundaryBlock(in_channels, out_channels, stride, norm_layer, fusion_weight=fusion_weight)
         elif branch_type == 'feature3':
             # Feature3: 全局信息保持的对齐
             self.alignment = self._build_global_preserving_alignment(in_channels, out_channels, stride, norm_layer)
@@ -389,7 +409,7 @@ class StaticAlignmentBlock(nn.Module):
 class StaticAlignmentLayer(nn.Module):
     """静态对齐层 - 针对特定分支的完整对齐"""
 
-    def __init__(self, inplanes, target_planes, branch_type, norm_layer=nn.InstanceNorm2d):
+    def __init__(self, inplanes, target_planes, branch_type, norm_layer=nn.InstanceNorm2d, fusion_weight=0.5):
         super().__init__()
         self.branch_type = branch_type
 
@@ -404,7 +424,8 @@ class StaticAlignmentLayer(nn.Module):
                     out_channels=current_planes * 2,
                     stride=2,
                     branch_type=branch_type,
-                    norm_layer=norm_layer
+                    norm_layer=norm_layer,
+                    fusion_weight=fusion_weight
                 )
             )
             current_planes *= 2
@@ -427,7 +448,8 @@ class StaticEnhancedFusionLayer(nn.Module):
                  input_channels: List[int] = [64, 128, 256],
                  norm_layer: Optional[Callable[..., nn.Module]] = None,
                  width_per_group: int = 64,
-                 enable_branch_enhancement: Union[bool, List[bool]] = False):
+                 enable_branch_enhancement: Union[bool, List[bool]] = False,
+                 feature2_fusion_weight: float = 0.5):
         super(StaticEnhancedFusionLayer, self).__init__()
 
         if norm_layer is None:
@@ -491,12 +513,15 @@ class StaticEnhancedFusionLayer(nn.Module):
             # 根据是否启用增强选择对齐策略
             if self.enable_branch_enhancement[i]:
                 branch_type = ['feature1', 'feature2', 'feature3'][i]
+                # 为feature2分支设置特殊的融合权重
+                fusion_weight = feature2_fusion_weight if branch_type == 'feature2' else 0.5
                 alignment_layers.append(
                     StaticAlignmentLayer(
                         inplanes=current_planes,
                         target_planes=target_planes,
                         branch_type=branch_type,
-                        norm_layer=norm_layer
+                        norm_layer=norm_layer,
+                        fusion_weight=fusion_weight
                     )
                 )
             else:
@@ -634,7 +659,7 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3,
-                 enable_enhancement=[False, False, False]):
+                 enable_enhancement=[False, False, False], feature2_fusion_weight=0.5):
         super(Encoder, self).__init__()
 
         self.expansion = 4  # 默认bottleneck expansion
@@ -643,40 +668,47 @@ class Encoder(nn.Module):
         if backbone == 'resnet18':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBasicBlock, 2, input_channels,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
             self.expansion = 1
         elif backbone == 'resnet34':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBasicBlock, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
             self.expansion = 1
         elif backbone == 'resnet50':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
         elif backbone == 'resnet101':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
         elif backbone == 'resnet152':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
         elif backbone == 'wide_resnet50_2':
             # Wide ResNet使用更宽的卷积
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
         elif backbone == 'wide_resnet101_2':
             self.fusion_layer = StaticEnhancedFusionLayer(
                 AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2,
-                enable_branch_enhancement=enable_enhancement
+                enable_branch_enhancement=enable_enhancement,
+                feature2_fusion_weight=feature2_fusion_weight
             )
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
@@ -697,19 +729,33 @@ class Encoder(nn.Module):
 # ========== 测试函数 ==========
 def test_static_enhanced_encoder():
     """
-    测试静态增强编码器的功能
+    测试静态增强编码器的功能 - 包含Feature2融合权重控制
+
+    测试配置说明:
+    - fusion_weight=0.0: 完全使用保守路径 (适合zipper/tile结构化类别，避免误检)
+    - fusion_weight=0.5: 动态ECASBF融合 (原始行为，默认设置)
+    - fusion_weight=1.0: 完全使用激进路径 (适合复杂拓扑类别)
+    - fusion_weight=0.2: 80%保守 + 20%激进 (轻度边界增强)
+
+    使用方法:
+    1. 命令行参数: --feature2_fusion_weight 0.0
+    2. 代码调用: Encoder(feature2_fusion_weight=0.0)
+    3. 脚本配置: 在mvtec.sh中为不同类别设置不同值
     """
     print("="*80)
     print("测试静态增强编码器 - 静态对齐 + 原始CKAAD策略")
     print("="*80)
 
-    # 测试配置
+    # 测试配置 - 包含fusion_weight测试
     test_configs = [
-        ("基准线（无分支增强）", False),
-        ("仅分支1增强", [True, False, False]),
-        ("仅分支2增强", [False, True, False]),
-        ("仅分支3增强", [False, False, True]),
-        ("全部分支增强", [True, True, True]),
+        ("基准线（无分支增强）", False, 0.5),
+        ("仅分支1增强", [True, False, False], 0.5),
+        ("分支2增强-保守融合(适合zipper/tile)", [False, True, False], 0.0),  # 完全保守路径
+        ("分支2增强-激进融合", [False, True, False], 1.0),  # 完全激进路径
+        ("分支2增强-平衡融合", [False, True, False], 0.5),  # 动态融合
+        ("分支2增强-轻度保守", [False, True, False], 0.2),  # 80%保守+20%激进
+        ("仅分支3增强", [False, False, True], 0.5),
+        ("全部分支增强", [True, True, True], 0.5),
     ]
 
     # 简化的输入特征（模拟Wide ResNet-50-2的输出）
@@ -724,15 +770,17 @@ def test_static_enhanced_encoder():
 
     results = []
 
-    for config_name, enhancement_config in test_configs:
+    for config_name, enhancement_config, fusion_weight in test_configs:
         print(f"\n🧪 测试配置: {config_name}")
-        print(f"   配置: {enhancement_config}")
+        print(f"   分支增强: {enhancement_config}")
+        print(f"   Feature2融合权重: {fusion_weight}")
 
         # 创建编码器
         encoder = Encoder(
             backbone='wide_resnet50_2',
             attn_block_num=3,
-            enable_branch_enhancement=enhancement_config
+            enable_branch_enhancement=enhancement_config,
+            feature2_fusion_weight=fusion_weight
         )
 
         # 前向传播
@@ -753,18 +801,18 @@ def test_static_enhanced_encoder():
         print(f"   输出尺寸: {output.shape}")
         print(f"   参数量: {total_params/1e6:.2f}M, 计算量: {macs_g:.3f}G")
 
-        results.append((config_name, enhancement_config, total_params, macs_g, output.shape))
+        results.append((config_name, enhancement_config, fusion_weight, total_params, macs_g, output.shape))
 
     # 输出对比表格
     print(f"\n{'='*80}")
     print("实验结果对比表")
     print(f"{'='*80}")
-    print("<30")
-    print("-" * 80)
+    print("<25")
+    print("-" * 100)
 
-    for config_name, config, params, macs_g, out_shape in results:
+    for config_name, config, fusion_w, params, macs_g, out_shape in results:
         config_str = str(config)
-        print("<30")
+        print("<25")
 
     print(f"\n✅ 静态增强编码器测试完成！")
     print(f"   实现了静态设置的三分支特征对齐")

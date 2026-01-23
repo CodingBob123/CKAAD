@@ -75,11 +75,11 @@ def parse_args():
                             'Recommended: 0.0 for zipper/tile, 0.5 for others')
     
     # 渐进式的结构感知损失配置（轻量级 SSIM）
-    parser.add_argument('--struct_loss_alpha', type=float, default=0.02,
+    parser.add_argument('--struct_loss_alpha', type=float, default=0.005,
                        help='target weight for structural (SSIM) loss; small values recommended (e.g. 0.01-0.05)')
-    parser.add_argument('--struct_warmup_epochs', type=int, default=5,
+    parser.add_argument('--struct_warmup_epochs', type=int, default=10,
                        help='number of warmup epochs with zero structural loss weight')
-    parser.add_argument('--struct_ramp_epochs', type=int, default=20,
+    parser.add_argument('--struct_ramp_epochs', type=int, default=30,
                        help='number of epochs to linearly ramp structural loss weight from 0 to target')
 
     return parser.parse_args()

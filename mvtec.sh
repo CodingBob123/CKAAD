@@ -36,8 +36,8 @@ do
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
     --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
-    --struct_loss_alpha 0.02 --struct_warmup_epochs 5 --struct_ramp_epochs 20 \
-    --enable_enhancement False --use_amp
+    --struct_loss_alpha 0.005 --struct_warmup_epochs 10 --struct_ramp_epochs 30 \
     # --enable_enhancement False True False --feature2_fusion_weight ${feature2_fusion_weight} --use_amp
+    --enable_enhancement True --enable_epoch_viz --viz_interval 10 --viz_samples_per_type 3 --use_amp
     # --enable_enhancement False --use_amp
 done

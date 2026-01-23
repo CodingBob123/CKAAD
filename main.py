@@ -1,5 +1,6 @@
 # main.py
 import torch
+import torch.nn.functional as F
 from contextlib import nullcontext
 import numpy as np
 import random
@@ -72,6 +73,14 @@ def parse_args():
     parser.add_argument('--feature2_fusion_weight', type=float, default=0.5,
                        help='fusion weight for feature2 boundary enhancement (0.0=conservative only, 0.5=adaptive fusion, 1.0=aggressive only). '
                             'Recommended: 0.0 for zipper/tile, 0.5 for others')
+    
+    # 渐进式的结构感知损失配置（轻量级 SSIM）
+    parser.add_argument('--struct_loss_alpha', type=float, default=0.02,
+                       help='target weight for structural (SSIM) loss; small values recommended (e.g. 0.01-0.05)')
+    parser.add_argument('--struct_warmup_epochs', type=int, default=5,
+                       help='number of warmup epochs with zero structural loss weight')
+    parser.add_argument('--struct_ramp_epochs', type=int, default=20,
+                       help='number of epochs to linearly ramp structural loss weight from 0 to target')
 
     return parser.parse_args()
 
@@ -121,6 +130,51 @@ def loss_function(a, b):
                                       b[item].view(b[item].shape[0], -1)))
     return loss
 
+
+def ssim_loss_list(a_list, b_list, max_kernel=7, c1=0.01**2, c2=0.03**2):
+    """
+    Lightweight SSIM loss computed on a list of feature maps.
+    a_list, b_list: lists of tensors with shapes [B, C, H, W]
+    Returns scalar loss = 1 - mean(SSIM) across provided maps.
+    Uses box filter (avg_pool2d) as an efficient approximation.
+    """
+    total_ssim = 0.0
+    count = 0
+    for a, b in zip(a_list, b_list):
+        # ensure float
+        a_f = a.float()
+        b_f = b.float()
+        _, _, H, W = a_f.shape
+        ks = min(max_kernel, H, W)
+        if ks < 1:
+            continue
+        pad = ks // 2
+        # local means
+        mu1 = F.avg_pool2d(a_f, kernel_size=ks, stride=1, padding=pad)
+        mu2 = F.avg_pool2d(b_f, kernel_size=ks, stride=1, padding=pad)
+        mu1_sq = mu1 * mu1
+        mu2_sq = mu2 * mu2
+        mu1_mu2 = mu1 * mu2
+        # variances and covariance
+        sigma1_sq = F.avg_pool2d(a_f * a_f, kernel_size=ks, stride=1, padding=pad) - mu1_sq
+        sigma2_sq = F.avg_pool2d(b_f * b_f, kernel_size=ks, stride=1, padding=pad) - mu2_sq
+        sigma12 = F.avg_pool2d(a_f * b_f, kernel_size=ks, stride=1, padding=pad) - mu1_mu2
+
+        # SSIM map
+        num = (2 * mu1_mu2 + c1) * (2 * sigma12 + c2)
+        den = (mu1_sq + mu2_sq + c1) * (sigma1_sq + sigma2_sq + c2)
+        ssim_map = num / (den + 1e-12)
+        # clamp for stability and average
+        ssim_mean = torch.clamp(ssim_map, -1.0, 1.0).mean()
+        total_ssim += ssim_mean
+        count += 1
+
+    if count == 0:
+        # fallback zero loss
+        return torch.tensor(0.0, device=a_list[0].device)
+    mean_ssim = total_ssim / count
+    return 1.0 - mean_ssim
+
 def loss_draw(loss_history, save_path=None):
     """
     绘制损失曲线。
@@ -135,9 +189,6 @@ def loss_draw(loss_history, save_path=None):
 
     try:
         items = list(loss_history.items())
-        if len(items) != 4:
-            print(f"Warning: Expected 4 loss items, got {len(items)}")
-            return
 
         # 创建2x2子图布局
         fig, axes = plt.subplots(2, 2, figsize=(16, 12))  # 更大的画布尺寸
@@ -262,6 +313,7 @@ def train(args):
         "recon_loss": [],
         "adv_loss": [],
         "ae_loss": [],
+        "struct_loss": [],
     }
     
     # 4.开始训练循环
@@ -272,6 +324,7 @@ def train(args):
         recon_loss_list = []
         adv_loss_list = []
         ae_loss_list = []
+        struct_loss_list = []
         
         # 使用zip和cycle将正常数据和异常数据配对
         # cycle确保异常数据可以循环使用，即使异常数据少于正常数据
@@ -359,11 +412,24 @@ def train(args):
                 with amp_ctx():
                     adv_loss = discriminator.calculate_loss(outputs, true_label)
 
-            # 5.7 计算重建损失和自编码器总损失
+            # 5.7 计算重建损失、结构感知损失和自编码器总损失
             # 重建损失使用余弦相似度，衡量正常样本特征和重建特征的相似程度
             with amp_ctx():
                 recon_loss = loss_function(normal_inputs, normal_outputs)
-                ae_loss = recon_loss + args.adv_conf * adv_loss
+                # 结构感知损失（SSIM），作用在特征图上，使用小权重并做权重退火
+                struct_loss = ssim_loss_list(normal_inputs, normal_outputs)
+                # 计算当前结构损失权重（线性热启 + 线性上升）
+                target_alpha = getattr(args, "struct_loss_alpha", 0.0)
+                warmup = getattr(args, "struct_warmup_epochs", 0)
+                ramp = getattr(args, "struct_ramp_epochs", 0)
+                if epoch <= warmup or ramp <= 0:
+                    struct_w = 0.0
+                else:
+                    # linear ramp from epoch (warmup+1) ... (warmup + ramp)
+                    progress = max(0, min(epoch - warmup, ramp)) / float(ramp)
+                    struct_w = float(target_alpha) * float(progress)
+
+                ae_loss = recon_loss + args.adv_conf * adv_loss + struct_w * struct_loss
             ae_optimizer.zero_grad()
             if use_cuda_amp:
                 scaler_ae.scale(ae_loss).backward()
@@ -378,12 +444,15 @@ def train(args):
             ae_loss_list.append(ae_loss.item())
             recon_loss_list.append(recon_loss.item())
             adv_loss_list.append(adv_loss.item())
+            # 仅在 epoch 内记录结构损失值（struct_w 可能为0）
+            struct_loss_list.append(struct_loss.item() if 'struct_loss' in locals() else 0.0)
 
         # 6. 打印当前epoch的训练损失并记录到历史
         epoch_dis = np.mean(dis_loss_list)
         epoch_recon = np.mean(recon_loss_list)
         epoch_adv = np.mean(adv_loss_list)
         epoch_ae = np.mean(ae_loss_list)
+        epoch_struct = np.mean(struct_loss_list) if len(struct_loss_list) > 0 else 0.0
 
         logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, epoch_dis,
                                                                                                                                  epoch_recon, epoch_adv, epoch_ae,
@@ -394,6 +463,7 @@ def train(args):
         loss_history["recon_loss"].append(epoch_recon)
         loss_history["adv_loss"].append(epoch_adv)
         loss_history["ae_loss"].append(epoch_ae)
+        loss_history["struct_loss"].append(epoch_struct)
 
         # 7. 定期评估模型性能
         if (epoch) % args.eval_epoch == 0:

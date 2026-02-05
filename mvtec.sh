@@ -28,6 +28,14 @@ do
             ;;
     esac
 
+    # 根据类别设置enable_enhancement
+    case $normal in 'toothbrush'|'transistor'|'wood')
+            enable_enhancement=True
+            ;;
+        *)
+            enable_enhancement=False
+            ;;
+    esac
 
     CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
     --lr ${lr} --d_lr 1e-04 --adv_conf 0.02 --epochs ${epochs} \
@@ -36,7 +44,6 @@ do
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
     --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
+    --enable_enhancement ${enable_enhancement} --use_amp
     # --enable_enhancement False True False --feature2_fusion_weight ${feature2_fusion_weight} --use_amp
-    --enable_enhancement True --use_amp
-    # --enable_enhancement False --use_amp
 done

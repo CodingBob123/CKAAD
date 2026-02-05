@@ -285,6 +285,7 @@ class FusionLayer(nn.Module):
                  norm_layer: Optional[Callable[..., nn.Module]] = None,
                  width_per_group: int = 64,
                  enable_enhancement: bool = False,
+                 feature2_fusion_weight: float = 0.5,
                  ):
         super(FusionLayer, self).__init__()
         if norm_layer is None:
@@ -293,6 +294,7 @@ class FusionLayer(nn.Module):
         self._norm_layer = norm_layer
         self.dilation = 1
         self.base_width = width_per_group
+        self.fusion_weight = feature2_fusion_weight  # 保存融合权重
         
         conv_layers = []   #  原文一开始使用的是三层预训练特征块，每一块转换通道用的卷积层列表（共三个列表）
         for i, input_channel in enumerate(input_channels):
@@ -379,7 +381,7 @@ class FusionLayer(nn.Module):
                     out_planes=min(out_planes, current_planes * 2),
                     stride=stride,
                     norm_layer=norm_layer,
-                    fusion_weight=0.5  # 使用动态融合
+                    fusion_weight=self.fusion_weight  # 使用传入的融合权重
                 )
             )
             current_planes = min(out_planes, current_planes * 2)
@@ -447,25 +449,40 @@ class FusionLayer(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3, enable_enhancement=False) -> None:
+    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3,
+                 enable_enhancement=False, feature2_fusion_weight=0.5) -> None:
         super(Encoder, self).__init__()
         self.expansion = 4
         if backbone == 'resnet18':
-            self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels,
+                                           enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
             self.expansion = 1
         elif backbone == 'resnet34':
-            self.fusion_layer = FusionLayer(AttnBasicBlock, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBasicBlock, attn_block_num, input_channels,
+                                           enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
             self.expansion = 1
         elif backbone == 'resnet50':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
         elif backbone == 'resnet101':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
         elif backbone == 'resnet152':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
         elif backbone == 'wide_resnet50_2':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           width_per_group=64 * 2, enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
         elif backbone == 'wide_resnet101_2':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels,
+                                           width_per_group=64 * 2, enable_enhancement=enable_enhancement,
+                                           feature2_fusion_weight=feature2_fusion_weight)
             
     def forward(self, x):
         return self.fusion_layer(x)

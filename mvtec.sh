@@ -44,6 +44,8 @@ do
     --labeled_anomaly_class 0 \
     --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
     --log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
-    --enable_enhancement ${enable_enhancement} --use_amp
+    --enable_enhancement ${enable_enhancement} \
+    --gate_k 10.0 --gate_te 0.5 --gate_sigma 0.0 \
+    --enable_recon_energy_viz --enable_multi_scale_viz --use_amp
     # --enable_enhancement False True False --feature2_fusion_weight ${feature2_fusion_weight} --use_amp
 done

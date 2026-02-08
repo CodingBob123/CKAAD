@@ -315,6 +315,18 @@ class Discriminator(nn.Module):
         # 存储层和位置嵌入
         self.layers = nn.ModuleList(layers)
         self.positional_embeds = nn.ParameterList(positional_embeds)
+        
+        # 保存输入尺寸，用于后续计算
+        self.input_sizes = input_sizes
+
+    def get_spatial_sizes(self):
+        """
+        获取判别器的空间尺寸列表
+
+        返回:
+            list: 空间尺寸列表，与特征图一一对应
+        """
+        return self.input_sizes
     
     def forward(self, x):
         """

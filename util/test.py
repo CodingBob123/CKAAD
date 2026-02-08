@@ -15,6 +15,7 @@ import os
 from torchvision import transforms
 from torchvision.utils import save_image
 import matplotlib.pyplot as plt
+from model.model import Discriminator
 
 def transform_invert(img_, transform_train):
     """
@@ -63,6 +64,48 @@ def cal_anomaly_map(fs_list, ft_list, out_size=224, amap_mode='mul'):
     return anomaly_map
 
 
+def cal_energy_map(discriminator, feat_list, out_size):
+    """
+    生成判别器的能量图（与异常图对应）
+
+    参数:
+        discriminator: 训练好的判别器模型
+        feat_list: 特征图列表 [x1, x2, x3]，例如 inputs 或 outputs
+        out_size: 输出图的尺寸（通常为原始图像尺寸）
+
+    返回:
+        energy_maps: 能量图列表 [[N,1,H,W], [N,1,H,W], [N,1,H,W]]
+                     每个元素对应一个尺度的能量图，已经上采样到 out_size
+    """
+    scores_list = discriminator(feat_list)  # list: [N, Hi*Wi] x 3
+
+    # 从判别器获取实际的空间尺寸
+    if hasattr(discriminator, 'get_spatial_sizes'):
+        spatial_sizes = discriminator.get_spatial_sizes()
+    else:
+        # 兼容旧版本：使用默认尺寸
+        spatial_sizes = [64, 32, 16]
+
+    energy_maps = []
+
+    for i, score in enumerate(scores_list):
+        # 1) 取绝对值，与训练时的计算一致
+        s = score.abs()  # [N, Hi*Wi]
+
+        # 2) 获取批次大小和空间尺寸
+        N = s.shape[0]
+        Hi = Wi = spatial_sizes[i]
+
+        # 3) reshape 回空间图 [N, 1, Hi, Wi]
+        s = s.view(N, 1, Hi, Wi)
+
+        # 4) 上采样到原图大小
+        s = F.interpolate(s, size=out_size, mode="bilinear", align_corners=True)
+
+        energy_maps.append(s)
+
+    return energy_maps  # 返回列表，每个元素是 [N, 1, H, W]
+
 def show_cam_on_image(img, anomaly_map):
     cam = np.float32(anomaly_map)/255 + np.float32(img)/255
     cam = cam / np.max(cam)
@@ -72,6 +115,92 @@ def show_cam_on_image(img, anomaly_map):
 def min_max_norm(image):
     a_min, a_max = image.min(), image.max()
     return (image - a_min) / (a_max - a_min)
+
+
+def minmax_norm_per_sample(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+    """
+    x: [N, 1, H, W] or [N, H, W]
+    对每张图单独做min-max归一化，避免不同batch/不同类尺度差异太大
+    """
+    if x.ndim == 4:
+        x_ = x[:, 0]  # [N,H,W]
+    else:
+        x_ = x
+    N = x_.shape[0]
+    out = np.zeros_like(x_, dtype=np.float32)
+    for i in range(N):
+        a_min = x_[i].min()
+        a_max = x_[i].max()
+        out[i] = (x_[i] - a_min) / (a_max - a_min + eps)
+    return out  # [N,H,W]
+
+
+def sigmoid_np(z: np.ndarray) -> np.ndarray:
+    return 1.0 / (1.0 + np.exp(-z))
+
+
+def soft_gate_fuse(recon_map: np.ndarray,
+                   energy_maps_t: list,
+                   k: float = 10.0,
+                   Te: float = 0.5,
+                   smooth_sigma: float = 0.0) -> np.ndarray:
+    """
+    软门控融合机制：将重建误差图与多尺度能量图融合
+
+    融合公式: final = recon_map * sigmoid(k * (energy_norm - Te))
+
+    参数:
+        recon_map: np.ndarray [N,H,W] 重建误差图（cal_anomaly_map输出）
+        energy_maps_t: list of torch.Tensor [[N,1,H,W], [N,1,H,W], [N,1,H,W]]
+                       多尺度能量图列表（cal_energy_map输出）
+        k: float = 10.0 门控曲线的陡峭程度
+        Te: float = 0.5 能量图的阈值（建议做per-sample minmax归一化后使用）
+        smooth_sigma: float = 0.0 高斯平滑的sigma值，0表示不平滑
+
+    返回:
+        final_map: np.ndarray [N,H,W] 融合后的异常图
+    """
+    # 1) 将所有能量图转换并拼接
+    energy_maps_np = []
+    for energy_map_t in energy_maps_t:
+        energy_map = energy_map_t.detach().cpu().numpy()  # [N,1,H,W]
+        energy_maps_np.append(energy_map)
+
+    # 2) 堆叠成 [N, 3, H, W] 然后 squeeze 成 [N, H, W]
+    energy_stacked = np.stack([em.squeeze(1) for em in energy_maps_np], axis=1)  # [N, 3, H, W]
+    energy_stacked = energy_stacked.transpose(0, 2, 3, 1)  # [N, H, W, 3] for per-sample processing
+
+    # 3) 对每个样本、每个尺度的能量图进行 per-sample minmax 归一化
+    energy_norm = np.zeros_like(energy_stacked)  # [N, H, W, 3]
+    for n in range(energy_stacked.shape[0]):
+        for c in range(energy_stacked.shape[3]):
+            em = energy_stacked[n, :, :, c]
+            em_min, em_max = em.min(), em.max()
+            if em_max - em_min > 1e-12:
+                energy_norm[n, :, :, c] = (em - em_min) / (em_max - em_min)
+            else:
+                energy_norm[n, :, :, c] = em
+
+    energy_norm = energy_norm.transpose(0, 3, 1, 2)  # [N, 3, H, W]
+
+    # 4) 可选：在门控之前对能量图进行高斯平滑
+    if smooth_sigma and smooth_sigma > 0:
+        for c in range(energy_norm.shape[1]):
+            energy_norm[:, c] = np.stack([
+                gaussian_filter(energy_norm[n, c], sigma=smooth_sigma)
+                for n in range(energy_norm.shape[0])
+            ], axis=0)
+
+    # 5) 对多尺度能量图进行平均融合
+    energy_avg = energy_norm.mean(axis=1)  # [N, H, W]
+
+    # 6) 计算门控权重 g in (0,1)
+    gate = sigmoid_np(k * (energy_avg - Te))  # [N,H,W]
+
+    # 7) 融合：final = recon * gate
+    final = recon_map.astype(np.float32) * gate.astype(np.float32)
+
+    return final
 
 
 def cvt2heatmap(gray):
@@ -103,10 +232,25 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
-def evaluation(encoder, ed, dataloader, device, args):
+def evaluation(encoder, ed, discriminator, dataloader, device, args):
+    """
+    统一评估接口
+
+    参数:
+        encoder: 预训练特征提取器
+        ed: 编码器-解码器模型
+        discriminator: 训练好的判别器模型（用于软门控融合）
+        dataloader: 数据加载器
+        device: 计算设备
+        args: 命令行参数
+
+    返回:
+        metrics: 评估指标字典
+    """
     if args.dataset in ['mvtec', 'visa', 'btad']:
-        return evaluation_pixel(encoder, ed, dataloader, device, args)
+        return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args)
     else:
+        # semantic 模式不使用判别器
         return evaluation_semantic(encoder, ed, dataloader, device, args)
 
 def evaluation_semantic(encoder, ed, dataloader, device, args):
@@ -133,9 +277,24 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
         metric_dict['Image'] = calculate_metrics(sample_score_list, gt_list)
     return metric_dict
 
-def evaluation_pixel(encoder, ed, dataloader, device, args):
+def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
+    """
+    像素级异常检测评估
+
+    参数:
+        encoder: 预训练特征提取器
+        ed: 编码器-解码器模型
+        discriminator: 训练好的判别器模型
+        dataloader: 数据加载器
+        device: 计算设备
+        args: 命令行参数
+    """
     encoder.eval()
     ed.eval()
+
+    # 如果传入了判别器，设置其为评估模式
+    if discriminator is not None:
+        discriminator.eval()
     pixel_gt_list = []
     pixel_score_list = []
     sample_gt_list = []
@@ -150,7 +309,17 @@ def evaluation_pixel(encoder, ed, dataloader, device, args):
             inputs = encoder(img)
             outputs = ed(inputs)
             gt = gt.squeeze(1)
-            anomaly_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+            # 软门控机制的加入
+            recon_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+            energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
+            final_map = soft_gate_fuse(
+                recon_map=recon_map,
+                energy_maps_t=energy_maps,
+                k=args.gate_k,
+                Te=args.gate_te,
+                smooth_sigma=args.gate_sigma
+            )
+            anomaly_map = final_map
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
             all_gts.append(gt.cpu().numpy())

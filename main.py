@@ -11,6 +11,11 @@ from util.visualize_comparison import (
     compare_recon_energy_statistics
 )
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
+from util.checkpoint import (
+    build_checkpoint_dir, get_checkpoint_path, save_checkpoint,
+    load_checkpoint, load_weights_only, check_config_compatibility,
+    list_checkpoints
+)
 import logging
 from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
@@ -62,6 +67,21 @@ def parse_args():
 
     parser.add_argument('--use_amp', action='store_true', help='enable mixed precision (AMP)')
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
+
+    # Checkpoint 相关参数
+    parser.add_argument('--checkpoint_interval', type=int, default=10,
+                       help='save checkpoint every N epochs (0 means only save final and best)')
+    parser.add_argument('--checkpoint_mode', type=str, default='best',
+                       choices=['best', 'latest', 'final'],
+                       help='checkpoint selection mode when loading: best/most recent metric, latest file, or final')
+    parser.add_argument('--resume', action='store_true',
+                       help='resume training from checkpoint (loads weights and optimizer state)')
+    parser.add_argument('--checkpoint_path', type=str, default=None,
+                       help='explicit checkpoint path to load; if None, auto-searches by category config')
+    parser.add_argument('--skip_training', action='store_true',
+                       help='load checkpoint and skip training (for inference/evaluation only)')
+    parser.add_argument('--list_checkpoints', action='store_true',
+                       help='list available checkpoints for the current category config and exit')
 
     # 可视化相关参数
     parser.add_argument('--enable_epoch_viz', action='store_true', help='enable anomaly map visualization during training (every 8 epochs)')
@@ -226,6 +246,33 @@ def train(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logger.info("device: {}".format(device))
 
+    # 2.0 自动构建 checkpoint 目录并处理特殊模式
+    ckpt_dir = build_checkpoint_dir(args)
+
+    # 2.0.1 列出已有 checkpoint 并退出
+    if args.list_checkpoints:
+        ckpts = list_checkpoints(ckpt_dir)
+        if not ckpts:
+            logger.info(f"No checkpoints found in: {ckpt_dir}")
+        else:
+            logger.info(f"Found {len(ckpts)} checkpoint(s) in: {ckpt_dir}")
+            for ck in ckpts:
+                logger.info(
+                    f"  {ck['filename']}  |  epoch={ck['epoch']}  |  "
+                    f"best_epoch={ck['best_epoch']}  |  best_{ck['metric_name']}={ck['best_metric']}  |  "
+                    f"{ck['filesize_mb']:.1f} MB"
+                )
+        return  # 直接退出
+
+    # 2.0.2 自动查找 checkpoint 路径（如果未显式指定）
+    if args.checkpoint_path is None:
+        found_path = get_checkpoint_path(ckpt_dir, mode=args.checkpoint_mode)
+        if found_path is not None:
+            logger.info(f"Auto-detected checkpoint: {found_path}")
+        else:
+            logger.info(f"No checkpoint found in: {ckpt_dir}  (will train from scratch)")
+        args.checkpoint_path = found_path
+
     # 2.加载数据集，获取数据加载器
     dataset = OODDataSet(root='./data', dataset=args.dataset, image_size=args.img_size, category=args.normal,
                          labeled_anomaly_ratio=args.labeled_anomaly_ratio,
@@ -252,7 +299,27 @@ def train(args):
     # input_channels: 各层特征图的通道数，例如[64,128,256]
     # expansion: 通道扩展系数，ResNet18/34为1，ResNet50/101等为4
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
-    
+
+    # 3.2.5 checkpoint 加载（优先级：显式路径 > 自动搜索 > 不加载）
+    start_epoch = 1
+    if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
+        ckpt_meta = load_checkpoint(
+            ae, discriminator,
+            ae_optimizer=None,
+            discriminator_optimizer=None,
+            checkpoint_path=args.checkpoint_path,
+            device=device,
+            strict=False,
+        )
+        saved_cfg = ckpt_meta.get("config", {})
+        if not check_config_compatibility(saved_cfg, args, verbose=True):
+            logger.warning("Model config mismatch — checkpoint weights may not align correctly.")
+        start_epoch = ckpt_meta.get("epoch", 0) + 1
+        logger.info(f"Loaded checkpoint from epoch {ckpt_meta.get('epoch', '?')}, training will resume from epoch {start_epoch}")
+    elif args.skip_training:
+        logger.error("--skip_training requires a valid --checkpoint_path. No checkpoint loaded.")
+        return
+
     # 3.4 初始化优化器
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
@@ -261,6 +328,17 @@ def train(args):
     gamma = 0.5  # 控制重建特征损失的权重
     true_label = 0  # 正常样本的标签
     fake_label = 1  # 异常样本的标签
+
+    # 如果设置了 --skip_training，跳过训练直接评估
+    if args.skip_training:
+        logger.info("--skip_training: running evaluation only without training.")
+        ae.eval()
+        discriminator.eval()
+        with amp_ctx():
+            metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args)
+        infostr = get_res_str(metrics)
+        logger.info("Test (from checkpoint): {}".format(infostr))
+        return
 
     # AMP setup
     use_cuda_amp = args.use_amp and (device == 'cuda')
@@ -282,9 +360,13 @@ def train(args):
         "adv_loss": [],
         "ae_loss": [],
     }
-    
+
+    # 最佳指标跟踪（用于决定是否保存 best checkpoint）
+    best_metric = -float("inf")
+    best_epoch = start_epoch
+
     # 4.开始训练循环
-    for epoch in range(1, epochs+1):
+    for epoch in range(start_epoch, epochs+1):
         ae.train()
         discriminator.train()
         dis_loss_list = []
@@ -470,8 +552,56 @@ def train(args):
                 except Exception as e:
                     logger.error("Failed to generate multi-scale energy visualization at epoch {}: {}".format(epoch, str(e)))
 
-    # 8. 训练结束后保存最终损失曲线
+            # 7.1 checkpoint 保存
+            # 保存 best checkpoint（基于 Image AUROC）
+            current_metric = metrics.get("Image", {}).get("AUROC", 0.0)
+            save_best = current_metric > best_metric
+            if save_best:
+                best_metric = current_metric
+                best_epoch = epoch
+
+            # 按间隔保存 regular checkpoint（每个 epoch_XXXX.pth）
+            is_interval_save = (args.checkpoint_interval > 0 and epoch % args.checkpoint_interval == 0)
+
+            if save_best or is_interval_save:
+                save_metrics = {
+                    "best_epoch": best_epoch,
+                    "best_metric": best_metric,
+                    "metric_name": "image_auc",
+                }
+                save_checkpoint(
+                    ae=ae,
+                    discriminator=discriminator,
+                    ae_optimizer=ae_optimizer,
+                    discriminator_optimizer=discriminator_optimizer,
+                    epoch=epoch,
+                    metrics=save_metrics,
+                    args=args,
+                    ckpt_dir=ckpt_dir,
+                    save_best=save_best,
+                )
+
+    # 8. 训练结束后保存最终 checkpoint 和损失曲线
     try:
+        # 保存 final checkpoint
+        save_metrics = {
+            "best_epoch": best_epoch,
+            "best_metric": best_metric,
+            "metric_name": "image_auc",
+        }
+        save_checkpoint(
+            ae=ae,
+            discriminator=discriminator,
+            ae_optimizer=ae_optimizer,
+            discriminator_optimizer=discriminator_optimizer,
+            epoch=epochs,
+            metrics=save_metrics,
+            args=args,
+            ckpt_dir=ckpt_dir,
+            is_final=True,
+            save_best=(epochs == best_epoch and epochs % args.checkpoint_interval != 0),
+        )
+
         pic_dir = "./pic/"
         if not os.path.exists(pic_dir):
             os.makedirs(pic_dir, exist_ok=True)

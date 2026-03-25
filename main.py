@@ -8,7 +8,8 @@ from util.test import evaluation, visualize_anomaly_maps_simple
 from util.visualize_comparison import (
     visualize_recon_vs_energy,
     visualize_multi_scale_energy,
-    compare_recon_energy_statistics
+    compare_recon_energy_statistics,
+    visualize_recon_energy_unified,
 )
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 from util.checkpoint import (
@@ -218,6 +219,64 @@ def loss_draw(loss_history, save_path=None):
     except Exception as e:
         print(f"Error generating loss plot: {e}")
         plt.close()
+
+def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
+                     device, args, amp_ctx,
+                     need_cached_maps, epochs, logger,
+                     enable_stats=True):
+    """
+    执行一次完整评估（metrics + 可选缓存 map），并生成重建误差/能量图可视化。
+
+    参数:
+        pfe, ae, discriminator: 模型
+        test_dataloader: 测试数据加载器
+        device: 设备
+        args: 命令行参数
+        amp_ctx: AMP 上下文（nullcontext 或 autocast）
+        need_cached_maps: bool，是否返回并可视化中间 map
+        epochs: 当前 epoch（用于可视化路径）
+        logger: 日志记录器
+        enable_stats: bool，训练结束后是否打印统计信息
+
+    返回:
+        metrics: 评估指标字典
+        recon_maps, energy_maps, final_maps, all_gts, anomaly_maps（仅当 need_cached_maps=True 时有值）
+    """
+    with amp_ctx():
+        if need_cached_maps:
+            metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                pfe, ae, discriminator, test_dataloader, device, args, return_maps=True)
+        else:
+            metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args)
+            recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = None, None, None, None, None
+
+    infostr = get_res_str(metrics)
+    logger.info("Test: {}".format(infostr))
+
+    if need_cached_maps:
+        try:
+            cached_maps = {
+                'recon_maps': recon_maps,
+                'energy_maps': energy_maps,
+                'final_maps': final_maps,
+                'anomaly_maps': anomaly_maps,
+            }
+            visualize_recon_energy_unified(
+                pfe, ae, discriminator, test_dataloader, args, device, epochs,
+                cached_maps=cached_maps,
+                enable_stats=enable_stats,
+                enable_comparison=args.enable_recon_energy_viz,
+                enable_multiscale=args.enable_multi_scale_viz,
+            )
+            if args.enable_recon_energy_viz:
+                logger.info("Recon vs Energy viz saved at epoch {}".format(epochs))
+            if args.enable_multi_scale_viz:
+                logger.info("Multi-scale energy viz saved at epoch {}".format(epochs))
+        except Exception as e:
+            logger.error("Failed to generate recon vs energy visualizations: {}".format(str(e)))
+
+    return metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps
+
 
 def train(args):
     """
@@ -504,53 +563,24 @@ def train(args):
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
-            with amp_ctx():
-                metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args)
-            infostr = get_res_str(metrics)
-            logger.info("Test: {}".format(infostr))
+            need_cached_maps = args.enable_recon_energy_viz or args.enable_multi_scale_viz
+            metrics, _, _, _, _ = run_eval_and_viz(
+                pfe, ae, discriminator, test_dataloader,
+                device, args, amp_ctx,
+                need_cached_maps=need_cached_maps,
+                epochs=epoch, logger=logger,
+                enable_stats=False,
+            )
 
-            # 可选：在定期评估时绘制异常热力图
+            # 可选：在定期评估时绘制异常热力图（独立计算，与 cached_maps 无关）
             if args.enable_epoch_viz and epoch % args.viz_interval == 0:
                 try:
                     logger.info("Generating anomaly maps at epoch {}...".format(epoch))
-
-                    # 使用简化的matplotlib可视化
                     visualize_anomaly_maps_simple(pfe, ae, test_dataloader, args, device, epoch)
-
                     viz_result_path = './results/{}_{}_epoch_{}'.format(args.dataset, args.normal, epoch)
                     logger.info("Anomaly maps saved to: {}".format(viz_result_path))
-
                 except Exception as e:
                     logger.error("Failed to generate anomaly maps at epoch {}: {}".format(epoch, str(e)))
-
-            # 重建误差 vs 能量图对比可视化（复用 eval_epoch 频率）
-            if args.enable_recon_energy_viz:
-                try:
-                    logger.info("Generating recon vs energy comparison at epoch {}...".format(epoch))
-
-                    # 详细对比图
-                    visualize_recon_vs_energy(pfe, ae, discriminator, test_dataloader, args, device, epoch)
-
-                    recon_energy_result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
-                        args.dataset, args.normal, epoch)
-                    logger.info("Reconstruction vs Energy comparison saved to: {}".format(recon_energy_result_path))
-
-                except Exception as e:
-                    logger.error("Failed to generate recon vs energy comparison at epoch {}: {}".format(epoch, str(e)))
-
-            # 多尺度能量图叠加可视化（复用 eval_epoch 频率）
-            if args.enable_multi_scale_viz:
-                try:
-                    logger.info("Generating multi-scale energy overlay at epoch {}...".format(epoch))
-
-                    visualize_multi_scale_energy(pfe, discriminator, test_dataloader, args, device, epoch)
-
-                    multi_scale_result_path = './results/{}_{}_multiscale_energy_epoch_{}'.format(
-                        args.dataset, args.normal, epoch)
-                    logger.info("Multi-scale energy visualization saved to: {}".format(multi_scale_result_path))
-
-                except Exception as e:
-                    logger.error("Failed to generate multi-scale energy visualization at epoch {}: {}".format(epoch, str(e)))
 
             # 7.1 checkpoint 保存
             # 保存 best checkpoint（基于 Image AUROC）
@@ -622,9 +652,6 @@ def train(args):
     try:
         logger.info("Starting post-training visualization...")
 
-        # 9.1 异常热力图可视化
-        logger.info("Generating anomaly map visualization...")
-
         # 设置数据变换（与训练时相同）
         if args.dataset in ['mvtec', 'visa', 'btad']:
             img_transform = transforms.Compose([
@@ -639,6 +666,9 @@ def train(args):
                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
             ])
             gt_transform = transforms.Compose([transforms.ToTensor()])
+
+        # 9.1 异常热力图可视化（使用独立采样的 dataloader）
+        logger.info("Generating anomaly map visualization...")
 
         # 创建测试数据集（只可视化前几个样本以节省时间）
         if args.dataset == 'mvtec':
@@ -678,45 +708,53 @@ def train(args):
 
         viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
 
-        # 使用简化的matplotlib可视化（不依赖opencv）
-        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs)
+        # 9.1 & 9.2 共用一次前向评估，消除重复计算
+        logger.info("Running evaluation for visualizations (single forward pass)...")
+        with amp_ctx():
+            metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                pfe, ae, discriminator, viz_dataloader, device, args, return_maps=True)
+        logger.info("Test: {}".format(get_res_str(metrics)))
+        cached_maps = {
+            'recon_maps': recon_maps,
+            'energy_maps': energy_maps,
+            'final_maps': final_maps,
+        }
 
+        # 9.1 异常热力图可视化（使用预计算的 anomaly_maps，不再重复前向）
+        logger.info("Generating anomaly map visualization...")
+        visualize_anomaly_maps_simple(
+            pfe, ae, viz_dataloader, args, device, epochs,
+            anomaly_maps=anomaly_maps
+        )
         viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
         logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
 
-        # 9.2 重建误差 vs 能量图对比可视化
-        if args.enable_recon_energy_viz:
-            logger.info("Generating recon vs energy comparison...")
+        # 9.2 重建误差 vs 能量图可视化（复用 cached_maps，不再重新评估）
+        if args.enable_recon_energy_viz or args.enable_multi_scale_viz:
+            try:
+                logger.info("Generating recon vs energy visualizations (using cached maps)...")
 
-            # 统计对比
-            logger.info("Running statistical comparison between recon and energy maps...")
-            stats = compare_recon_energy_statistics(pfe, ae, discriminator, test_dataloader, args, device)
+                visualize_recon_energy_unified(
+                    pfe, ae, discriminator, viz_dataloader, args, device, epochs,
+                    cached_maps=cached_maps,
+                    enable_stats=False,
+                    enable_comparison=args.enable_recon_energy_viz,
+                    enable_multiscale=args.enable_multi_scale_viz,
+                )
 
-            logger.info("=" * 70)
-            logger.info("Statistical Comparison Summary:")
-            logger.info(f"  Recon Map Global Mean: {np.mean(stats['recon']['means']):.6f}")
-            logger.info(f"  Energy Map Global Mean: {np.mean(stats['energy']['means']):.6f}")
-            logger.info(f"  Average Correlation: {np.mean(stats['correlation']):.6f}")
-            logger.info("=" * 70)
+                recon_energy_result_path = './results/{}_{}_recon_vs_energy_final_epoch_{}'.format(
+                    args.dataset, args.normal, epochs)
+                multi_scale_result_path = './results/{}_{}_multiscale_energy_final_epoch_{}'.format(
+                    args.dataset, args.normal, epochs)
+                if args.enable_recon_energy_viz:
+                    logger.info("Reconstruction vs Energy comparison completed. Results saved to: {}".format(
+                        recon_energy_result_path))
+                if args.enable_multi_scale_viz:
+                    logger.info("Multi-scale energy visualization completed. Results saved to: {}".format(
+                        multi_scale_result_path))
 
-            # 详细对比图
-            visualize_recon_vs_energy(pfe, ae, discriminator, test_dataloader, args, device, epochs)
-
-            recon_energy_result_path = './results/{}_{}_recon_vs_energy_final_epoch_{}'.format(
-                args.dataset, args.normal, epochs)
-            logger.info("Reconstruction vs Energy comparison completed. Results saved to: {}".format(
-                recon_energy_result_path))
-
-        # 9.3 多尺度能量图叠加可视化
-        if args.enable_multi_scale_viz:
-            logger.info("Generating multi-scale energy overlay...")
-
-            visualize_multi_scale_energy(pfe, discriminator, test_dataloader, args, device, epochs)
-
-            multi_scale_result_path = './results/{}_{}_multiscale_energy_final_epoch_{}'.format(
-                args.dataset, args.normal, epochs)
-            logger.info("Multi-scale energy visualization completed. Results saved to: {}".format(
-                multi_scale_result_path))
+            except Exception as e:
+                logger.error("Failed to generate recon vs energy visualizations: {}".format(str(e)))
 
         logger.info("All post-training visualizations completed successfully!")
 

@@ -2,7 +2,7 @@
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
 # checkpoint 配置（新增功能）
-checkpoint_interval=10          # 每 N 个 epoch 保存一次 checkpoint；0=仅保存 final 和 best
+checkpoint_interval=20          # 每 N 个 epoch 保存一次 checkpoint；0=仅保存 final 和 best
 checkpoint_mode=best            # 自动加载策略：best / latest / final
 # resume=false                  # 取消注释以从 checkpoint 恢复训练（会加载 optimizer 状态）
 # skip_training=false           # 取消注释以跳过训练直接评估（需配合 checkpoint_path 使用）

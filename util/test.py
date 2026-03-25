@@ -232,7 +232,7 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
-def evaluation(encoder, ed, discriminator, dataloader, device, args):
+def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps=False):
     """
     统一评估接口
 
@@ -243,15 +243,20 @@ def evaluation(encoder, ed, discriminator, dataloader, device, args):
         dataloader: 数据加载器
         device: 计算设备
         args: 命令行参数
+        return_maps: bool，是否返回中间 map（用于避免可视化时的重复计算）
 
     返回:
         metrics: 评估指标字典
+        若 return_maps=True，额外返回 (recon_maps, energy_maps, final_maps, all_gts, anomaly_maps)
     """
     if args.dataset in ['mvtec', 'visa', 'btad']:
-        return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args)
+        return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps)
     else:
-        # semantic 模式不使用判别器
-        return evaluation_semantic(encoder, ed, dataloader, device, args)
+        # semantic 模式不使用判别器，仅返回 metrics（不支持 return_maps）
+        result = evaluation_semantic(encoder, ed, dataloader, device, args)
+        if return_maps:
+            return result, None, None, None, None, None
+        return result
 
 def evaluation_semantic(encoder, ed, dataloader, device, args):
     encoder.eval()
@@ -277,7 +282,7 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
         metric_dict['Image'] = calculate_metrics(sample_score_list, gt_list)
     return metric_dict
 
-def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
+def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps=False):
     """
     像素级异常检测评估
 
@@ -288,6 +293,15 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
         dataloader: 数据加载器
         device: 计算设备
         args: 命令行参数
+        return_maps: bool，是否返回所有批次的中间 map（避免可视化时重复计算）
+
+    返回:
+        metrics: 评估指标字典
+        若 return_maps=True，额外返回 (recon_maps, energy_maps_list, final_maps, all_gts)
+        - recon_maps: np.ndarray [N_total, H, W]，重建误差图
+        - energy_maps_list: list of torch.Tensor [[N,1,H,W], ...]，每尺度一个，共 3 个尺度
+        - final_maps: np.ndarray [N_total, H, W]，融合后的异常图
+        - all_gts: np.ndarray [N_total, H, W]，ground truth mask
     """
     encoder.eval()
     ed.eval()
@@ -302,7 +316,14 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
     aupro_list = []
     all_gts = []
     all_maps = []
-    metrics = {}
+
+    # 仅在需要返回 map 时才收集
+    if return_maps:
+        all_recon_maps = []
+        all_energy_maps = []   # 每 batch 一个 torch.Tensor [N, 1, H, W]
+        all_final_maps = []
+        all_anomaly_maps = []
+
     with torch.no_grad():
         for img, gt, label in dataloader:
             img = img.to(device)
@@ -322,6 +343,20 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
             anomaly_map = final_map
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
+
+            # 收集用于返回 map
+            if return_maps:
+                all_recon_maps.append(recon_map)
+                # energy_maps: list of [N,1,H,W]，对每个尺度逐个拼接
+                if all_energy_maps:
+                    for j in range(len(energy_maps)):
+                        all_energy_maps[j] = torch.cat([all_energy_maps[j], energy_maps[j]], dim=0)
+                else:
+                    # 第一次：初始化各尺度的累积张量
+                    all_energy_maps = [em.clone() for em in energy_maps]
+                all_final_maps.append(final_map)
+                all_anomaly_maps.append(anomaly_map)
+
             all_gts.append(gt.cpu().numpy())
             all_maps.append(anomaly_map)
             pixel_gt_list.append(gt.cpu().numpy().astype(int).reshape(-1))  # 扁平向量，一维
@@ -331,11 +366,11 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
             sample_score_list.append(sample_score)
             label = gt.reshape(gt.shape[0], -1).max(axis=-1)[0]
             if len(gt[label.bool()]) > 0:
-                anomaly_map = anomaly_map[label.bool()]
-                gt = gt[label.bool()]
-                for am, g in zip(anomaly_map, gt):
+                anomaly_map_filtered = anomaly_map[label.bool()]
+                gt_filtered = gt[label.bool()]
+                for am, g in zip(anomaly_map_filtered, gt_filtered):
                     aupro_list.append(compute_pro(g.unsqueeze(dim=0).cpu().numpy().astype(int), am.reshape(1, *am.shape)))
-                    
+
         pixel_gt_list = np.concatenate(pixel_gt_list).reshape(-1)
         pixel_score_list = np.concatenate(pixel_score_list).reshape(-1)
         sample_gt_list = np.concatenate(sample_gt_list)
@@ -343,43 +378,52 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args):
         pixel_aupro = round(np.mean(aupro_list), 6)
         all_gts = np.concatenate(all_gts)
         all_maps = np.concatenate(all_maps)
+        metrics = {}
         metrics['Pixel'] = calculate_metrics(pixel_score_list, pixel_gt_list, False)
         metrics['Pixel']['PRO'] = pixel_aupro
         metrics['Image'] = calculate_metrics(sample_score_list, sample_gt_list, True)
+
+    if return_maps:
+        recon_maps = np.concatenate(all_recon_maps, axis=0)
+        final_maps = np.concatenate(all_final_maps, axis=0)
+        anomaly_maps = np.concatenate(all_anomaly_maps, axis=0)
+        # energy_maps 已在循环中拼接，all_energy_maps[j] 就是第 j 尺度的完整 torch.Tensor
+        return metrics, recon_maps, all_energy_maps, final_maps, all_gts, anomaly_maps
+
     return metrics
 
-def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix=""):
-    pfe.eval()
-    ae.eval()
-    with torch.no_grad():
-        cnt = 0
-        for data in dataloader:
-            imgs = data[0].to(device)
-            inputs = pfe(imgs)
-            outputs = ae(inputs)
-            labels = data[-1]
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='a')
+# def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix=""):
+#     pfe.eval()
+#     ae.eval()
+#     with torch.no_grad():
+#         cnt = 0
+#         for data in dataloader:
+#             imgs = data[0].to(device)
+#             inputs = pfe(imgs)
+#             outputs = ae(inputs)
+#             labels = data[-1]
+#             anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='a')
             
-            imgs = transform_invert(imgs, transform)
+#             imgs = transform_invert(imgs, transform)
             
-            if len(data) == 3:
-                gts = data[1].squeeze(1)
-                pack = zip(imgs, anomaly_maps, gts, labels)
-            else:
-                pack = zip(imgs, anomaly_maps, labels)
-            for p in pack:
-                ano_map = cvt2heatmap((p[1] / 2) * 255)
-                img = cv2.cvtColor((p[0].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8), cv2.COLOR_BGR2RGB)
-                result_path = './results/' + args.dataset +'_' + args.normal + postfix
-                if not os.path.exists(result_path):
-                    os.makedirs(result_path)
-                if len(data) == 3:
-                    gt = cv2.cvtColor((p[2].cpu().numpy() * 255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
-                    res = np.vstack((img, gt, ano_map))
-                else:
-                    res = np.vstack((img, ano_map))
-                cv2.imwrite(result_path + '/' + str(cnt) + '_' + str(p[-1].item()) + '.png', res)
-                cnt += 1
+#             if len(data) == 3:
+#                 gts = data[1].squeeze(1)
+#                 pack = zip(imgs, anomaly_maps, gts, labels)
+#             else:
+#                 pack = zip(imgs, anomaly_maps, labels)
+#             for p in pack:
+#                 ano_map = cvt2heatmap((p[1] / 2) * 255)
+#                 img = cv2.cvtColor((p[0].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8), cv2.COLOR_BGR2RGB)
+#                 result_path = './results/' + args.dataset +'_' + args.normal + postfix
+#                 if not os.path.exists(result_path):
+#                     os.makedirs(result_path)
+#                 if len(data) == 3:
+#                     gt = cv2.cvtColor((p[2].cpu().numpy() * 255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
+#                     res = np.vstack((img, gt, ano_map))
+#                 else:
+#                     res = np.vstack((img, ano_map))
+#                 cv2.imwrite(result_path + '/' + str(cnt) + '_' + str(p[-1].item()) + '.png', res)
+#                 cnt += 1
 
 
 def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
@@ -433,27 +477,34 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
     return pro_auc
 
 
-def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
+def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs,
+                                  anomaly_maps=None):
     """
     使用matplotlib进行异常检测热力图可视化（不依赖OpenCV）
     支持类型平衡采样，每个异常类型选择固定数量的样本
+
+    参数:
+        anomaly_maps: np.ndarray [N, H, W] 或 None。若为 None，则在函数内部重新计算前向。
     """
     pfe.eval()
     ae.eval()
 
     with torch.no_grad():
         cnt = 0
+        global_offset = 0  # 跟踪缓存 anomaly_maps 中的全局样本索引
+
         for data in dataloader:
-            # 不再限制样本数量，让类型平衡采样决定
             imgs = data[0].to(device)
-            inputs = pfe(imgs)
-            outputs = ae(inputs)
             labels = data[-1]
+            batch_size = imgs.size(0)
 
-            # 计算异常图
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
+            # 仅在未传入缓存时才重新计算前向
+            if anomaly_maps is None:
+                inputs = pfe(imgs)
+                outputs = ae(inputs)
+                batch_anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='add')
 
-            # 反变换图像 - 确保与原始图像尺寸一致
+            # 反变换图像
             img_transform = transforms.Compose([
                 transforms.Normalize(mean=(-0.485/0.229, -0.456/0.224, -0.406/0.225),
                                    std=(1/0.229, 1/0.224, 1/0.225))
@@ -465,12 +516,17 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
             if not os.path.exists(result_path):
                 os.makedirs(result_path, exist_ok=True)
 
-            for i, (img, anomaly_map, label) in enumerate(zip(imgs_denorm, anomaly_maps, labels)):
+            for i, (img, label) in enumerate(zip(imgs_denorm, labels)):
+                # 获取当前样本的异常图：缓存优先，否则按需计算
+                if anomaly_maps is not None:
+                    amap = anomaly_maps[global_offset + i]
+                else:
+                    amap = batch_anomaly_maps[i]
+                amap = amap.squeeze()
+
                 # 转换为numpy数组
                 img_np = img.permute(1, 2, 0).cpu().numpy()
                 img_np = np.clip(img_np, 0, 1)  # 确保值在[0,1]范围内
-
-                anomaly_map = anomaly_map.squeeze()
 
                 # 如果有ground truth
                 if len(data) >= 3:
@@ -506,7 +562,7 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                 axes[0].set_ylim(img_height, 0)
 
                 # 2. 显示异常热力图 - 与原始图像尺寸完全匹配
-                im = axes[1].imshow(anomaly_map, cmap='jet', aspect='equal',
+                im = axes[1].imshow(amap, cmap='jet', aspect='equal',
                                    extent=[0, img_width, img_height, 0])
                 axes[1].set_title('Anomaly Map', fontsize=12, fontweight='bold')
                 axes[1].axis('off')
@@ -524,7 +580,7 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                     # 4. 显示叠加效果（原始图像 + 异常热力图）- 确保完全重合
                     axes[3].imshow(img_np, aspect='equal',
                                   extent=[0, img_width, img_height, 0])
-                    axes[3].imshow(anomaly_map, cmap='jet', alpha=0.6, aspect='equal',
+                    axes[3].imshow(amap, cmap='jet', alpha=0.6, aspect='equal',
                                   extent=[0, img_width, img_height, 0])
                     axes[3].set_title('Overlay (Original + Anomaly)', fontsize=12, fontweight='bold')
                     axes[3].axis('off')
@@ -532,7 +588,7 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                     # 3. 显示叠加效果（原始图像 + 异常热力图）- 确保完全重合
                     axes[2].imshow(img_np, aspect='equal',
                                   extent=[0, img_width, img_height, 0])
-                    axes[2].imshow(anomaly_map, cmap='jet', alpha=0.6, aspect='equal',
+                    axes[2].imshow(amap, cmap='jet', alpha=0.6, aspect='equal',
                                   extent=[0, img_width, img_height, 0])
                     axes[2].set_title('Overlay (Original + Anomaly)', fontsize=12, fontweight='bold')
                     axes[2].axis('off')
@@ -547,3 +603,5 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                 plt.close()
 
                 cnt += 1
+            # 每个 batch 结束后更新全局偏移量
+            global_offset += batch_size

@@ -106,7 +106,7 @@ def parse_args():
                        help='soft gate fusion: energy map threshold (Te parameter), recommended 0.6 after per-sample minmax')
     parser.add_argument('--gate_sigma', type=float, default=0.0,
                        help='soft gate fusion: Gaussian smoothing sigma for energy map (0 means no smoothing)')
-    parser.add_argument('--recon_norm_quantile_low', type=float, default=0.02,
+    parser.add_argument('--recon_norm_quantile_low', type=float, default=0.00,
                        help='soft gate fusion: lower quantile for reconstruction error normalization')
     parser.add_argument('--recon_norm_quantile_high', type=float, default=0.98,
                        help='soft gate fusion: upper quantile for reconstruction error normalization')
@@ -573,7 +573,7 @@ def train(args):
                 logger.info("Valid: {}".format(valid_info))
 
             need_cached_maps = args.enable_recon_energy_viz or args.enable_multi_scale_viz
-            metrics, _, _, _, _ = run_eval_and_viz(
+            metrics, _, _, _, _, _ = run_eval_and_viz(
                 pfe, ae, discriminator, test_dataloader,
                 device, args, amp_ctx,
                 need_cached_maps=need_cached_maps,

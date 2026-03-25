@@ -139,66 +139,143 @@ def sigmoid_np(z: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-z))
 
 
+def quantile_clip(recon_map: np.ndarray,
+                  quantile_low: float = 0.02,
+                  quantile_high: float = 0.98) -> np.ndarray:
+    """
+    对重建误差图进行分位数截断（仅截断，不做归一化）。
+
+    将低于下分位数的值映射为边界值，高于上分位数的值同样映射为边界值，
+    中间值保持不变。这一步只过滤噪声和离群极端值，不改变相对比例。
+
+    参数:
+        recon_map: np.ndarray [N, H, W] 重建误差图
+        quantile_low: float 下分位数，默认为 0.02（即 P2）
+        quantile_high: float 上分位数，默认为 0.98（即 P98）
+
+    返回:
+        clipped: np.ndarray [N, H, W] 截断后的重建误差图
+    """
+    clipped = np.zeros_like(recon_map, dtype=np.float32)
+    for i in range(recon_map.shape[0]):
+        r = recon_map[i]
+        low_val = np.percentile(r, quantile_low * 100)
+        high_val = np.percentile(r, quantile_high * 100)
+        clipped[i] = np.clip(r, low_val, high_val)
+    return clipped
+
+
+def high_tail_compress(x: np.ndarray, method: str = 'sqrt') -> np.ndarray:
+    """
+    对 [0, 1] 范围内的值进行高尾压缩，抑制离群高点。
+
+    参数:
+        x: np.ndarray [N, H, W] 值域应在 [0, 1] 范围内
+        method: str 压缩方式
+            - 'sqrt':  sqrt(x)，压缩适中，保留线性区间的区分度
+            - 'log':   log(1 + x)，压缩激进，对高值抑制更强
+            - 'none':  不做任何压缩，直接返回
+
+    返回:
+        compressed: np.ndarray [N, H, W] 压缩后的结果
+    """
+    if method == 'none' or method is None:
+        return x
+    elif method == 'sqrt':
+        return np.sqrt(x)
+    elif method == 'log':
+        return np.log1p(x) / np.log1p(1.0)  # 归一化，使 x=1 时输出为 1
+    else:
+        raise ValueError(f"Unknown compression method: {method}. Choose 'sqrt', 'log', or 'none'.")
+
+
 def soft_gate_fuse(recon_map: np.ndarray,
                    energy_maps_t: list,
-                   k: float = 10.0,
-                   Te: float = 0.5,
-                   smooth_sigma: float = 0.0) -> np.ndarray:
+                   k: float = 0.45,
+                   Te: float = 0.6,
+                   smooth_sigma: float = 0.0,
+                   recon_norm_quantile_low: float = 0.02,
+                   recon_norm_quantile_high: float = 0.98,
+                   recon_compress: str = 'sqrt',
+                   fuse_output_norm: bool = False) -> np.ndarray:
     """
-    软门控融合机制：将重建误差图与多尺度能量图融合
+    软门控融合机制：重建误差图（截断→压缩→归一化）与多尺度能量图（先平均→后归一化）融合。
 
-    融合公式: final = recon_map * sigmoid(k * (energy_norm - Te))
+    融合公式: final = recon_normed * sigmoid(k * (energy_norm - Te))
 
     参数:
         recon_map: np.ndarray [N,H,W] 重建误差图（cal_anomaly_map输出）
         energy_maps_t: list of torch.Tensor [[N,1,H,W], [N,1,H,W], [N,1,H,W]]
                        多尺度能量图列表（cal_energy_map输出）
-        k: float = 10.0 门控曲线的陡峭程度
-        Te: float = 0.5 能量图的阈值（建议做per-sample minmax归一化后使用）
+        k: float = 0.45 门控曲线的陡峭程度
+        Te: float = 0.6 能量图的阈值
         smooth_sigma: float = 0.0 高斯平滑的sigma值，0表示不平滑
+        recon_norm_quantile_low: float = 0.02 下分位数
+        recon_norm_quantile_high: float = 0.98 上分位数
+        recon_compress: str = 'sqrt' 高尾压缩方式，'sqrt' | 'log' | 'none'
+        fuse_output_norm: bool = False 是否在融合后对结果再做一次 min-max 归一化。
+                         警告：此选项仅用于可视化时提升对比度，指标计算时必须关闭，
+                         否则会将残留噪声二次拉伸导致假阳性升高。
 
     返回:
         final_map: np.ndarray [N,H,W] 融合后的异常图
     """
-    # 1) 将所有能量图转换并拼接
+    # ---------- 重建误差图分支：截断 → 压缩 → 归一化 ----------
+    # 步骤 1a：分位数截断（仅过滤噪声和极端离群值，不改变相对比例）
+    recon_clipped = quantile_clip(
+        recon_map,
+        quantile_low=recon_norm_quantile_low,
+        quantile_high=recon_norm_quantile_high
+    )
+
+    # 步骤 1b：高尾压缩（放大正常/异常区域的数值差距）
+    recon_compressed = high_tail_compress(recon_clipped, method=recon_compress)
+
+    # 步骤 1c：归一化到 [0, 1]（固定输出尺度）
+    recon_normed = minmax_norm_per_sample(recon_compressed)
+
+    # ---------- 能量图分支：先平均 → 后归一化 ----------
+    # 步骤 2a：将 torch.Tensor 转为 numpy 并 squeeze 到 [N, H, W]
     energy_maps_np = []
-    for energy_map_t in energy_maps_t:
-        energy_map = energy_map_t.detach().cpu().numpy()  # [N,1,H,W]
-        energy_maps_np.append(energy_map)
+    for em_t in energy_maps_t:
+        em = em_t.detach().cpu().numpy().squeeze(1)  # [N, H, W]
+        energy_maps_np.append(em)
 
-    # 2) 堆叠成 [N, 3, H, W] 然后 squeeze 成 [N, H, W]
-    energy_stacked = np.stack([em.squeeze(1) for em in energy_maps_np], axis=1)  # [N, 3, H, W]
-    energy_stacked = energy_stacked.transpose(0, 2, 3, 1)  # [N, H, W, 3] for per-sample processing
+    # 步骤 2b：先对多尺度能量图进行平均（保留各尺度的原始量级差异）
+    energy_avg = np.stack(energy_maps_np, axis=1).mean(axis=1)  # [N, H, W]
 
-    # 3) 对每个样本、每个尺度的能量图进行 per-sample minmax 归一化
-    energy_norm = np.zeros_like(energy_stacked)  # [N, H, W, 3]
-    for n in range(energy_stacked.shape[0]):
-        for c in range(energy_stacked.shape[3]):
-            em = energy_stacked[n, :, :, c]
-            em_min, em_max = em.min(), em.max()
-            if em_max - em_min > 1e-12:
-                energy_norm[n, :, :, c] = (em - em_min) / (em_max - em_min)
-            else:
-                energy_norm[n, :, :, c] = em
+    # 步骤 2c：对平均后的能量图做 per-sample minmax 归一化（统一尺度）
+    energy_norm = np.zeros_like(energy_avg)  # [N, H, W]
+    for i in range(energy_avg.shape[0]):
+        e = energy_avg[i]
+        e_min, e_max = e.min(), e.max()
+        if e_max - e_min > 1e-12:
+            energy_norm[i] = (e - e_min) / (e_max - e_min)
+        else:
+            energy_norm[i] = np.zeros_like(e)
 
-    energy_norm = energy_norm.transpose(0, 3, 1, 2)  # [N, 3, H, W]
-
-    # 4) 可选：在门控之前对能量图进行高斯平滑
+    # 步骤 2d：可选高斯平滑（在归一化之后应用，滤除归一化引入的边缘伪影）
     if smooth_sigma and smooth_sigma > 0:
-        for c in range(energy_norm.shape[1]):
-            energy_norm[:, c] = np.stack([
-                gaussian_filter(energy_norm[n, c], sigma=smooth_sigma)
-                for n in range(energy_norm.shape[0])
-            ], axis=0)
+        energy_norm = np.stack([
+            gaussian_filter(energy_norm[i], sigma=smooth_sigma)
+            for i in range(energy_norm.shape[0])
+        ], axis=0)
 
-    # 5) 对多尺度能量图进行平均融合
-    energy_avg = energy_norm.mean(axis=1)  # [N, H, W]
+    # ---------- 计算门控权重 ----------
+    gate = sigmoid_np(k * (energy_norm - Te))  # [N, H, W] ∈ (0, 1)
 
-    # 6) 计算门控权重 g in (0,1)
-    gate = sigmoid_np(k * (energy_avg - Te))  # [N,H,W]
+    # ---------- 融合 ----------
+    final = recon_normed.astype(np.float32) * gate.astype(np.float32)
 
-    # 7) 融合：final = recon * gate
-    final = recon_map.astype(np.float32) * gate.astype(np.float32)
+    # ---------- 可选：融合后归一化（仅可视化时开启） ----------
+    if fuse_output_norm:
+        for i in range(final.shape[0]):
+            f = final[i]
+            f_min, f_max = f.min(), f.max()
+            if f_max - f_min > 1e-12:
+                final[i] = (f - f_min) / (f_max - f_min)
+            else:
+                final[i] = np.zeros_like(f)
 
     return final
 
@@ -338,7 +415,11 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
                 energy_maps_t=energy_maps,
                 k=args.gate_k,
                 Te=args.gate_te,
-                smooth_sigma=args.gate_sigma
+                smooth_sigma=args.gate_sigma,
+                recon_norm_quantile_low=args.recon_norm_quantile_low,
+                recon_norm_quantile_high=args.recon_norm_quantile_high,
+                recon_compress=args.recon_compress,
+                fuse_output_norm=args.fuse_output_norm
             )
             anomaly_map = final_map
             gt[gt > 0.5] = 1

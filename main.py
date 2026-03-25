@@ -6,9 +6,9 @@ import random
 import os
 from util.test import evaluation, visualize_anomaly_maps_simple
 from util.visualize_comparison import (
-    visualize_recon_vs_energy,
-    visualize_multi_scale_energy,
-    compare_recon_energy_statistics,
+    # visualize_recon_vs_energy,
+    # visualize_multi_scale_energy,
+    # compare_recon_energy_statistics,
     visualize_recon_energy_unified,
 )
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
@@ -100,12 +100,21 @@ def parse_args():
                             'Recommended: 0.0 for zipper/tile, 0.5 for others')
 
     # 软门控融合参数
-    parser.add_argument('--gate_k', type=float, default=10.0,
+    parser.add_argument('--gate_k', type=float, default=0.45,
                        help='soft gate fusion: steepness of sigmoid curve (k parameter)')
-    parser.add_argument('--gate_te', type=float, default=0.5,
-                       help='soft gate fusion: energy map threshold (Te parameter), recommended 0.5 after per-sample minmax')
+    parser.add_argument('--gate_te', type=float, default=0.6,
+                       help='soft gate fusion: energy map threshold (Te parameter), recommended 0.6 after per-sample minmax')
     parser.add_argument('--gate_sigma', type=float, default=0.0,
                        help='soft gate fusion: Gaussian smoothing sigma for energy map (0 means no smoothing)')
+    parser.add_argument('--recon_norm_quantile_low', type=float, default=0.02,
+                       help='soft gate fusion: lower quantile for reconstruction error normalization')
+    parser.add_argument('--recon_norm_quantile_high', type=float, default=0.98,
+                       help='soft gate fusion: upper quantile for reconstruction error normalization')
+    parser.add_argument('--recon_compress', type=str, default='sqrt',
+                       choices=['sqrt', 'log', 'none'],
+                       help='soft gate fusion: high-tail compression method for reconstruction error')
+    parser.add_argument('--no_fuse_output_norm', action='store_false', dest='fuse_output_norm',
+                       help='disable min-max normalization of fused output (enabled by default)')
 
     # 重建误差 vs 能量图对比可视化参数（复用 eval_epoch 频率）
     parser.add_argument('--enable_recon_energy_viz', action='store_true',

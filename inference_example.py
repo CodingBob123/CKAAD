@@ -64,9 +64,16 @@ def parse_args():
     parser.add_argument('--topk', type=int, default=100)
 
     # 软门控参数（需与训练时一致）
-    parser.add_argument('--gate_k', type=float, default=10.0)
-    parser.add_argument('--gate_te', type=float, default=0.5)
+    parser.add_argument('--gate_k', type=float, default=0.45)
+    parser.add_argument('--gate_te', type=float, default=0.6)
     parser.add_argument('--gate_sigma', type=float, default=0.0)
+    parser.add_argument('--recon_norm_quantile_low', type=float, default=0.02)
+    parser.add_argument('--recon_norm_quantile_high', type=float, default=0.98)
+    parser.add_argument('--recon_compress', type=str, default='sqrt',
+                        choices=['sqrt', 'log', 'none'])
+    parser.add_argument('--no_fuse_output_norm', action='store_false', dest='fuse_output_norm',
+                        default=True,
+                        help='disable min-max normalization of fused output (enabled by default)')
 
     # 日志
     parser.add_argument('--log_dir', type=str, default='./log/')

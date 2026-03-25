@@ -325,13 +325,17 @@ def visualize_recon_vs_energy(encoder, ed, discriminator, dataloader, args, devi
             # 2. 计算多尺度能量图
             energy_maps = cal_energy_map(discriminator, inputs, imgs.shape[-1])  # [[N,1,H,W], ...]
 
-            # 3. 计算融合结果
+            # 3. 计算融合结果（可视化时开启 fuse_output_norm 以提升热力图对比度）
             final_map = soft_gate_fuse(
                 recon_map=recon_map,
                 energy_maps_t=energy_maps,
                 k=args.gate_k,
                 Te=args.gate_te,
-                smooth_sigma=args.gate_sigma
+                smooth_sigma=args.gate_sigma,
+                recon_norm_quantile_low=args.recon_norm_quantile_low,
+                recon_norm_quantile_high=args.recon_norm_quantile_high,
+                recon_compress=args.recon_compress,
+                fuse_output_norm=True
             )
 
             # 4. 反变换图像

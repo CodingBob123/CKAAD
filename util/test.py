@@ -309,7 +309,8 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
-def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps=False):
+def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
+             recon_only=False):
     """
     统一评估接口
 
@@ -321,13 +322,15 @@ def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps
         device: 计算设备
         args: 命令行参数
         return_maps: bool，是否返回中间 map（用于避免可视化时的重复计算）
+        recon_only: bool，是否使用纯重建误差图（跳过能量图融合，用于 Recon baseline 训练）
 
     返回:
         metrics: 评估指标字典
         若 return_maps=True，额外返回 (recon_maps, energy_maps, final_maps, all_gts, anomaly_maps)
     """
     if args.dataset in ['mvtec', 'visa', 'btad']:
-        return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps)
+        return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args,
+                                return_maps, recon_only)
     else:
         # semantic 模式不使用判别器，仅返回 metrics（不支持 return_maps）
         result = evaluation_semantic(encoder, ed, dataloader, device, args)
@@ -359,7 +362,8 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
         metric_dict['Image'] = calculate_metrics(sample_score_list, gt_list)
     return metric_dict
 
-def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps=False):
+def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
+                     recon_only=False):
     """
     像素级异常检测评估
 
@@ -371,6 +375,7 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         device: 计算设备
         args: 命令行参数
         return_maps: bool，是否返回所有批次的中间 map（避免可视化时重复计算）
+        recon_only: bool，是否使用纯重建误差图（不做能量图融合，用于 Recon baseline 训练）
 
     返回:
         metrics: 评估指标字典
@@ -407,20 +412,26 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
             inputs = encoder(img)
             outputs = ed(inputs)
             gt = gt.squeeze(1)
-            # 软门控机制的加入
             recon_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
-            energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
-            final_map = soft_gate_fuse(
-                recon_map=recon_map,
-                energy_maps_t=energy_maps,
-                k=args.gate_k,
-                Te=args.gate_te,
-                smooth_sigma=args.gate_sigma,
-                recon_norm_quantile_low=args.recon_norm_quantile_low,
-                recon_norm_quantile_high=args.recon_norm_quantile_high,
-                recon_compress=args.recon_compress,
-                fuse_output_norm=args.fuse_output_norm
-            )
+
+            # ---------- Recon-only 模式（Day 1 基线训练用）：跳过能量图融合 ----------
+            if recon_only:
+                final_map = recon_map
+                energy_maps = None
+            else:
+                energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
+                final_map = soft_gate_fuse(
+                    recon_map=recon_map,
+                    energy_maps_t=energy_maps,
+                    k=args.gate_k,
+                    Te=args.gate_te,
+                    smooth_sigma=args.gate_sigma,
+                    recon_norm_quantile_low=args.recon_norm_quantile_low,
+                    recon_norm_quantile_high=args.recon_norm_quantile_high,
+                    recon_compress=args.recon_compress,
+                    fuse_output_norm=args.fuse_output_norm
+                )
+
             anomaly_map = final_map
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
@@ -429,12 +440,14 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
             if return_maps:
                 all_recon_maps.append(recon_map)
                 # energy_maps: list of [N,1,H,W]，对每个尺度逐个拼接
-                if all_energy_maps:
-                    for j in range(len(energy_maps)):
-                        all_energy_maps[j] = torch.cat([all_energy_maps[j], energy_maps[j]], dim=0)
+                if not recon_only:
+                    if all_energy_maps:
+                        for j in range(len(energy_maps)):
+                            all_energy_maps[j] = torch.cat([all_energy_maps[j], energy_maps[j]], dim=0)
+                    else:
+                        all_energy_maps = [em.clone() for em in energy_maps]
                 else:
-                    # 第一次：初始化各尺度的累积张量
-                    all_energy_maps = [em.clone() for em in energy_maps]
+                    all_energy_maps = None
                 all_final_maps.append(final_map)
                 all_anomaly_maps.append(anomaly_map)
 

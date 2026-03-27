@@ -61,21 +61,24 @@ def visualize_recon_energy_unified(encoder, ed, discriminator, dataloader,
         print("[visualize_recon_energy_unified] cached_maps is None, skipping all visualizations.")
         return None
 
+    # Recon-only 模式下跳过可视化（无能量图数据）
     # ---------------------------------------------------------------
-    # 总是计算 stats（用于返回；enable_stats 仅控制是否打印）
+    if cached_maps.get('energy_maps') is None:
+        print("[visualize_recon_energy_unified] energy_maps is None (recon_only mode), skipping visualization.")
+        return None
+
+    # ---------------------------------------------------------------
+    # 计算统计信息
     # ---------------------------------------------------------------
     recon_maps = cached_maps['recon_maps']
     energy_maps = cached_maps['energy_maps']
-
     energy_maps_np = [em.cpu().numpy() for em in energy_maps]
     energy_avg = np.mean(np.stack([em.squeeze(1) for em in energy_maps_np]), axis=0)
-
     stats = {
         'recon': {'values': [], 'means': [], 'stds': [], 'maxs': []},
         'energy': {'values': [], 'means': [], 'stds': [], 'maxs': []},
         'correlation': []
     }
-
     for i in range(recon_maps.shape[0]):
         r = recon_maps[i]
         e = energy_avg[i]

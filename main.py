@@ -123,6 +123,10 @@ def parse_args():
                        help='soft gate fusion: high-tail compression method for reconstruction error')
     parser.add_argument('--no_fuse_output_norm', action='store_false', dest='fuse_output_norm',
                        help='disable min-max normalization of fused output (enabled by default)')
+    # Recon-only 模式（Day 1 纯基线训练用）：跳过能量图融合
+    parser.add_argument('--recon_only', action='store_true',
+                       help='use only reconstruction error map (skip energy map fusion). '
+                            'Used for Day 1 Recon baseline training.')
 
     return parser.parse_args()
 
@@ -234,7 +238,8 @@ def loss_draw(loss_history, save_path=None):
 def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
                      device, args, amp_ctx,
                      need_cached_maps, epochs, logger,
-                     enable_stats=True):
+                     enable_stats=True,
+                     recon_only=False):
     """
     执行一次完整评估（metrics + 可选缓存 map），并生成重建误差/能量图可视化。
 
@@ -248,6 +253,7 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
         epochs: 当前 epoch（用于可视化路径）
         logger: 日志记录器
         enable_stats: bool，训练结束后是否打印统计信息
+        recon_only: bool，是否使用纯重建误差图（跳过能量图融合）
 
     返回:
         metrics: 评估指标字典
@@ -256,9 +262,11 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
     with amp_ctx():
         if need_cached_maps:
             metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = evaluation(
-                pfe, ae, discriminator, test_dataloader, device, args, return_maps=True)
+                pfe, ae, discriminator, test_dataloader, device, args, return_maps=True,
+                recon_only=recon_only)
         else:
-            metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args)
+            metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args,
+                              recon_only=recon_only)
             recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = None, None, None, None, None
 
     infostr = get_res_str(metrics)
@@ -400,7 +408,8 @@ def train(args):
         ae.eval()
         discriminator.eval()
         with amp_ctx():
-            metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args)
+            metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args,
+                              recon_only=args.recon_only)
         infostr = get_res_str(metrics)
         logger.info("Test (from checkpoint): {}".format(infostr))
         return
@@ -565,7 +574,8 @@ def train(args):
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 with amp_ctx():
-                    valid_metrics = evaluation(pfe, ae, discriminator, valid_dataloader, device, args)
+                    valid_metrics = evaluation(pfe, ae, discriminator, valid_dataloader, device, args,
+                                            recon_only=args.recon_only)
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
@@ -579,6 +589,7 @@ def train(args):
                 need_cached_maps=need_cached_maps,
                 epochs=epoch, logger=logger,
                 enable_stats=False,
+                recon_only=args.recon_only,
             )
 
             # 可选：在定期评估时绘制异常热力图（独立计算，与 cached_maps 无关）
@@ -721,7 +732,8 @@ def train(args):
         logger.info("Running evaluation for visualizations (single forward pass)...")
         with amp_ctx():
             metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = evaluation(
-                pfe, ae, discriminator, viz_dataloader, device, args, return_maps=True)
+                pfe, ae, discriminator, viz_dataloader, device, args,
+                return_maps=True, recon_only=args.recon_only)
         logger.info("Test: {}".format(get_res_str(metrics)))
         cached_maps = {
             'recon_maps': recon_maps,

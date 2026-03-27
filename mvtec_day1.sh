@@ -6,15 +6,16 @@
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
 checkpoint_interval=8          # 每 8 个 epoch 保存一次 checkpoint
-checkpoint_mode=latest        # 加载最新保存的 checkpoint
+checkpoint_mode=latest         # 加载最新保存的 checkpoint
 
-# 全部 15 个类别，每个 160 轮，每 8 轮 eval + checkpoint
-for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+# for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
 do
     echo "[Day1 Baseline] Training: $normal"
 
     case $normal in 'bottle'|'cable'|'capsule')
             lr=15e-04
+            d_lr=5e-04
             ;;
         'transistor')
             lr=1e-03
@@ -24,16 +25,23 @@ do
             ;;
     esac
 
+    case $normal in 'carpet')
+            epochs=20
+            eval_epoch=8
+            ;;
+        *)
+            epochs=160
+            eval_epoch=8
+            ;;
+    esac
+
     case $normal in 'toothbrush'|'transistor'|'wood')
-            enable_enhancement=True
+            enable_enhancement=False
             ;;
         *)
             enable_enhancement=False
             ;;
     esac
-
-    epochs=160
-    eval_epoch=8
 
     # 基础命令：关闭能量图融合，使用 --recon_only 跳过 D(input) 能量图融合
     base_args=(

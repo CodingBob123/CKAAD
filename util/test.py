@@ -106,6 +106,40 @@ def cal_energy_map(discriminator, feat_list, out_size):
 
     return energy_maps  # 返回列表，每个元素是 [N, 1, H, W]
 
+
+def cal_energy_diff_map(discriminator, inputs, outputs, out_size):
+    """
+    计算多层能量差图：D(inputs) - D(outputs)
+    用于 V3-V6 的能量差模式
+
+    判别器对正常特征输出低能量，对异常/重建特征输出高能量。
+    因此：
+        - 正常区域：input 和 output 都偏正常，差值小
+        - 异常区域：input 偏异常，output 被拉回正常，差值大
+
+    参数:
+        discriminator: 训练好的判别器模型
+        inputs:  list of torch.Tensor，输入特征列表 [x1, x2, x3]
+        outputs: list of torch.Tensor，重建特征列表 [x1', x2', x3']
+        out_size: int，输出图的尺寸（通常为原始图像尺寸）
+
+    返回:
+        diff_maps: list of torch.Tensor [[N,1,H,W], ...]
+                   三层能量差图，已上采样到 out_size
+                   diff_maps[i] = energy_inputs[i] - energy_outputs[i]
+    """
+    # 计算 input 和 output 的能量图
+    energy_in = cal_energy_map(discriminator, inputs, out_size)   # [N,1,H,W] x 3
+    energy_out = cal_energy_map(discriminator, outputs, out_size)  # [N,1,H,W] x 3
+
+    # 每层做差
+    diff_maps = []
+    for i in range(len(energy_in)):
+        diff_maps.append(energy_in[i] - energy_out[i])
+
+    return diff_maps
+
+
 def show_cam_on_image(img, anomaly_map):
     cam = np.float32(anomaly_map)/255 + np.float32(img)/255
     cam = cam / np.max(cam)
@@ -310,7 +344,7 @@ def calculate_metrics(scores, labels, acc=True):
     return res
 
 def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
-             recon_only=False):
+             recon_only=False, energy_diff_mode=False):
     """
     统一评估接口
 
@@ -323,19 +357,22 @@ def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps
         args: 命令行参数
         return_maps: bool，是否返回中间 map（用于避免可视化时的重复计算）
         recon_only: bool，是否使用纯重建误差图（跳过能量图融合，用于 Recon baseline 训练）
+        energy_diff_mode: bool，是否使用能量差模式（V3-V6：D(input) - D(output)，默认 False）
 
     返回:
         metrics: 评估指标字典
-        若 return_maps=True，额外返回 (recon_maps, energy_maps, final_maps, all_gts, anomaly_maps)
+        若 return_maps=True：
+            - 默认模式：返回 (recon_maps, energy_maps, None, None, final_maps, all_gts, anomaly_maps)
+            - energy_diff_mode=True：返回 (recon_maps, energy_diff_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps)
     """
     if args.dataset in ['mvtec', 'visa', 'btad']:
         return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args,
-                                return_maps, recon_only)
+                                return_maps, recon_only, energy_diff_mode)
     else:
         # semantic 模式不使用判别器，仅返回 metrics（不支持 return_maps）
         result = evaluation_semantic(encoder, ed, dataloader, device, args)
         if return_maps:
-            return result, None, None, None, None, None
+            return result, None, None, None, None, None, None, None
         return result
 
 def evaluation_semantic(encoder, ed, dataloader, device, args):
@@ -363,7 +400,7 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
     return metric_dict
 
 def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
-                     recon_only=False):
+                     recon_only=False, energy_diff_mode=False):
     """
     像素级异常检测评估
 
@@ -376,12 +413,16 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         args: 命令行参数
         return_maps: bool，是否返回所有批次的中间 map（避免可视化时重复计算）
         recon_only: bool，是否使用纯重建误差图（不做能量图融合，用于 Recon baseline 训练）
+        energy_diff_mode: bool，是否使用能量差模式（V3-V6：D(input) - D(output)，默认 False）
 
     返回:
         metrics: 评估指标字典
         若 return_maps=True，额外返回 (recon_maps, energy_maps_list, final_maps, all_gts)
         - recon_maps: np.ndarray [N_total, H, W]，重建误差图
         - energy_maps_list: list of torch.Tensor [[N,1,H,W], ...]，每尺度一个，共 3 个尺度
+          当 energy_diff_mode=True 时，返回的是能量差图
+        - energy_in_maps: list of torch.Tensor [[N,1,H,W], ...]，输入能量图（仅 energy_diff_mode=True 时有值）
+        - energy_out_maps: list of torch.Tensor [[N,1,H,W], ...]，输出能量图（仅 energy_diff_mode=True 时有值）
         - final_maps: np.ndarray [N_total, H, W]，融合后的异常图
         - all_gts: np.ndarray [N_total, H, W]，ground truth mask
     """
@@ -405,6 +446,9 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         all_energy_maps = []   # 每 batch 一个 torch.Tensor [N, 1, H, W]
         all_final_maps = []
         all_anomaly_maps = []
+        # 能量差模式下额外保存输入/输出能量图用于可视化
+        all_energy_in_maps = []
+        all_energy_out_maps = []
 
     with torch.no_grad():
         for img, gt, label in dataloader:
@@ -418,8 +462,31 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
             if recon_only:
                 final_map = recon_map
                 energy_maps = None
+                energy_in_maps = None
+                energy_out_maps = None
+            # ---------- 能量差模式（V3-V6）：使用 D(input) - D(output) ----------
+            elif energy_diff_mode:
+                # 分别计算输入和输出的能量图
+                energy_in_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
+                energy_out_maps = cal_energy_map(discriminator, outputs, img.shape[-1])
+                # 计算能量差
+                energy_maps = [energy_in_maps[i] - energy_out_maps[i] for i in range(len(energy_in_maps))]
+                final_map = soft_gate_fuse(
+                    recon_map=recon_map,
+                    energy_maps_t=energy_maps,
+                    k=args.gate_k,
+                    Te=args.gate_te,
+                    smooth_sigma=args.gate_sigma,
+                    recon_norm_quantile_low=args.recon_norm_quantile_low,
+                    recon_norm_quantile_high=args.recon_norm_quantile_high,
+                    recon_compress=args.recon_compress,
+                    fuse_output_norm=args.fuse_output_norm
+                )
+            # ---------- 默认模式（V2）：使用 D(input) ----------
             else:
                 energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
+                energy_in_maps = None
+                energy_out_maps = None
                 final_map = soft_gate_fuse(
                     recon_map=recon_map,
                     energy_maps_t=energy_maps,
@@ -446,6 +513,18 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
                             all_energy_maps[j] = torch.cat([all_energy_maps[j], energy_maps[j]], dim=0)
                     else:
                         all_energy_maps = [em.clone() for em in energy_maps]
+                    # 能量差模式下，额外保存输入/输出能量图
+                    if energy_diff_mode and energy_in_maps is not None and energy_out_maps is not None:
+                        if all_energy_in_maps:
+                            for j in range(len(energy_in_maps)):
+                                all_energy_in_maps[j] = torch.cat([all_energy_in_maps[j], energy_in_maps[j]], dim=0)
+                        else:
+                            all_energy_in_maps = [em.clone() for em in energy_in_maps]
+                        if all_energy_out_maps:
+                            for j in range(len(energy_out_maps)):
+                                all_energy_out_maps[j] = torch.cat([all_energy_out_maps[j], energy_out_maps[j]], dim=0)
+                        else:
+                            all_energy_out_maps = [em.clone() for em in energy_out_maps]
                 else:
                     all_energy_maps = None
                 all_final_maps.append(final_map)
@@ -482,7 +561,10 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         final_maps = np.concatenate(all_final_maps, axis=0)
         anomaly_maps = np.concatenate(all_anomaly_maps, axis=0)
         # energy_maps 已在循环中拼接，all_energy_maps[j] 就是第 j 尺度的完整 torch.Tensor
-        return metrics, recon_maps, all_energy_maps, final_maps, all_gts, anomaly_maps
+        # 能量差模式下，额外返回输入/输出能量图用于可视化
+        if energy_diff_mode:
+            return metrics, recon_maps, all_energy_maps, all_energy_in_maps, all_energy_out_maps, final_maps, all_gts, anomaly_maps
+        return metrics, recon_maps, all_energy_maps, None, None, final_maps, all_gts, anomaly_maps
 
     return metrics
 
@@ -606,7 +688,7 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs,
             imgs_denorm = img_transform(imgs)
 
             # 创建结果目录
-            result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+            result_path = '/hy-tmp/results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
             if not os.path.exists(result_path):
                 os.makedirs(result_path, exist_ok=True)
 

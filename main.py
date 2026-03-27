@@ -127,6 +127,10 @@ def parse_args():
     parser.add_argument('--recon_only', action='store_true',
                        help='use only reconstruction error map (skip energy map fusion). '
                             'Used for Day 1 Recon baseline training.')
+    # 能量差模式（V3-V6）：使用 D(input) - D(output) 作为能量图
+    parser.add_argument('--energy_diff_mode', action='store_true',
+                       help='use energy difference mode (D(input) - D(output)) for V3-V6. '
+                            'Default is False (uses D(input) only).')
 
     return parser.parse_args()
 
@@ -239,7 +243,8 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
                      device, args, amp_ctx,
                      need_cached_maps, epochs, logger,
                      enable_stats=True,
-                     recon_only=False):
+                     recon_only=False,
+                     energy_diff_mode=False):
     """
     执行一次完整评估（metrics + 可选缓存 map），并生成重建误差/能量图可视化。
 
@@ -254,6 +259,7 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
         logger: 日志记录器
         enable_stats: bool，训练结束后是否打印统计信息
         recon_only: bool，是否使用纯重建误差图（跳过能量图融合）
+        energy_diff_mode: bool，是否使用能量差模式（V3-V6）
 
     返回:
         metrics: 评估指标字典
@@ -261,35 +267,58 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
     """
     with amp_ctx():
         if need_cached_maps:
-            metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = evaluation(
-                pfe, ae, discriminator, test_dataloader, device, args, return_maps=True,
-                recon_only=recon_only)
+            if energy_diff_mode:
+                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                    pfe, ae, discriminator, test_dataloader, device, args, return_maps=True,
+                    recon_only=recon_only, energy_diff_mode=energy_diff_mode)
+            else:
+                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                    pfe, ae, discriminator, test_dataloader, device, args, return_maps=True,
+                    recon_only=recon_only, energy_diff_mode=energy_diff_mode)
         else:
             metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args,
-                              recon_only=recon_only)
-            recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = None, None, None, None, None
+                              recon_only=recon_only, energy_diff_mode=energy_diff_mode)
+            recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = None, None, None, None, None, None, None
 
     infostr = get_res_str(metrics)
     logger.info("Test: {}".format(infostr))
 
     if need_cached_maps:
         try:
-            cached_maps = {
-                'recon_maps': recon_maps,
-                'energy_maps': energy_maps,
-                'final_maps': final_maps,
-                'anomaly_maps': anomaly_maps,
-            }
-            visualize_recon_energy_unified(
-                pfe, ae, discriminator, test_dataloader, args, device, epochs,
-                cached_maps=cached_maps,
-                enable_stats=enable_stats,
-            )
-            logger.info("Recon vs Energy viz saved at epoch {}".format(epochs))
+            if energy_diff_mode:
+                cached_maps = {
+                    'recon_maps': recon_maps,
+                    'energy_maps': energy_maps,
+                    'energy_in_maps': energy_in_maps,
+                    'energy_out_maps': energy_out_maps,
+                    'final_maps': final_maps,
+                    'anomaly_maps': anomaly_maps,
+                }
+                # 导入新的可视化函数
+                from util.visualize_comparison import visualize_energy_diff_unified
+                visualize_energy_diff_unified(
+                    pfe, ae, discriminator, test_dataloader, args, device, epochs,
+                    cached_maps=cached_maps,
+                    enable_stats=enable_stats,
+                )
+                logger.info("Energy Diff viz saved at epoch {}".format(epochs))
+            else:
+                cached_maps = {
+                    'recon_maps': recon_maps,
+                    'energy_maps': energy_maps,
+                    'final_maps': final_maps,
+                    'anomaly_maps': anomaly_maps,
+                }
+                visualize_recon_energy_unified(
+                    pfe, ae, discriminator, test_dataloader, args, device, epochs,
+                    cached_maps=cached_maps,
+                    enable_stats=enable_stats,
+                )
+                logger.info("Recon vs Energy viz saved at epoch {}".format(epochs))
         except Exception as e:
-            logger.error("Failed to generate recon vs energy visualizations: {}".format(str(e)))
+            logger.error("Failed to generate visualizations: {}".format(str(e)))
 
-    return metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps
+    return metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps
 
 
 def train(args):
@@ -583,13 +612,14 @@ def train(args):
             need_viz = (args.enable_recon_energy_viz
                         and (args.viz_eval_interval == 0 or epoch % args.viz_eval_interval == 0))
             need_cached_maps = need_viz
-            metrics, _, _, _, _, _ = run_eval_and_viz(
+            metrics, _, _, _, _, _, _, _ = run_eval_and_viz(
                 pfe, ae, discriminator, test_dataloader,
                 device, args, amp_ctx,
                 need_cached_maps=need_cached_maps,
                 epochs=epoch, logger=logger,
                 enable_stats=False,
                 recon_only=args.recon_only,
+                energy_diff_mode=getattr(args, 'energy_diff_mode', False),
             )
 
             # 可选：在定期评估时绘制异常热力图（独立计算，与 cached_maps 无关）
@@ -597,7 +627,7 @@ def train(args):
                 try:
                     logger.info("Generating anomaly maps at epoch {}...".format(epoch))
                     visualize_anomaly_maps_simple(pfe, ae, test_dataloader, args, device, epoch)
-                    viz_result_path = './results/{}_{}_epoch_{}'.format(args.dataset, args.normal, epoch)
+                    viz_result_path = '/hy-tmp/results/{}_{}_epoch_{}'.format(args.dataset, args.normal, epoch)
                     logger.info("Anomaly maps saved to: {}".format(viz_result_path))
                 except Exception as e:
                     logger.error("Failed to generate anomaly maps at epoch {}: {}".format(epoch, str(e)))
@@ -730,16 +760,35 @@ def train(args):
 
         # 9.1 & 9.2 共用一次前向评估，消除重复计算
         logger.info("Running evaluation for visualizations (single forward pass)...")
+        energy_diff_mode = getattr(args, 'energy_diff_mode', False)
         with amp_ctx():
-            metrics, recon_maps, energy_maps, final_maps, all_gts, anomaly_maps = evaluation(
-                pfe, ae, discriminator, viz_dataloader, device, args,
-                return_maps=True, recon_only=args.recon_only)
+            if energy_diff_mode:
+                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                    pfe, ae, discriminator, viz_dataloader, device, args,
+                    return_maps=True, recon_only=args.recon_only, energy_diff_mode=energy_diff_mode)
+            else:
+                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                    pfe, ae, discriminator, viz_dataloader, device, args,
+                    return_maps=True, recon_only=args.recon_only, energy_diff_mode=energy_diff_mode)
         logger.info("Test: {}".format(get_res_str(metrics)))
-        cached_maps = {
-            'recon_maps': recon_maps,
-            'energy_maps': energy_maps,
-            'final_maps': final_maps,
-        }
+
+        # 构建 cached_maps
+        if energy_diff_mode:
+            cached_maps = {
+                'recon_maps': recon_maps,
+                'energy_maps': energy_maps,
+                'energy_in_maps': energy_in_maps,
+                'energy_out_maps': energy_out_maps,
+                'final_maps': final_maps,
+                'anomaly_maps': anomaly_maps,
+            }
+        else:
+            cached_maps = {
+                'recon_maps': recon_maps,
+                'energy_maps': energy_maps,
+                'final_maps': final_maps,
+                'anomaly_maps': anomaly_maps,
+            }
 
         # 9.1 异常热力图可视化（使用预计算的 anomaly_maps，不再重复前向）
         logger.info("Generating anomaly map visualization...")
@@ -747,7 +796,7 @@ def train(args):
             pfe, ae, viz_dataloader, args, device, epochs,
             anomaly_maps=anomaly_maps
         )
-        viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
+        viz_result_path = '/hy-tmp/results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
         logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
 
         # 9.2 重建误差 vs 能量图可视化（复用 cached_maps，不再重新评估）
@@ -755,19 +804,28 @@ def train(args):
             try:
                 logger.info("Generating recon vs energy visualizations (using cached maps)...")
 
-                visualize_recon_energy_unified(
-                    pfe, ae, discriminator, viz_dataloader, args, device, epochs,
-                    cached_maps=cached_maps,
-                    enable_stats=False,
-                )
+                if energy_diff_mode:
+                    from util.visualize_comparison import visualize_energy_diff_unified
+                    visualize_energy_diff_unified(
+                        pfe, ae, discriminator, viz_dataloader, args, device, epochs,
+                        cached_maps=cached_maps,
+                        enable_stats=False,
+                    )
+                    result_path = '/hy-tmp/results/{}_{}_energy_diff_final_epoch_{}'.format(
+                        args.dataset, args.normal, epochs)
+                else:
+                    visualize_recon_energy_unified(
+                        pfe, ae, discriminator, viz_dataloader, args, device, epochs,
+                        cached_maps=cached_maps,
+                        enable_stats=False,
+                    )
+                    result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_final_epoch_{}'.format(
+                        args.dataset, args.normal, epochs)
 
-                recon_energy_result_path = './results/{}_{}_recon_vs_energy_final_epoch_{}'.format(
-                    args.dataset, args.normal, epochs)
-                logger.info("Reconstruction vs Energy comparison completed. Results saved to: {}".format(
-                    recon_energy_result_path))
+                logger.info("Energy visualization completed. Results saved to: {}".format(result_path))
 
             except Exception as e:
-                logger.error("Failed to generate recon vs energy visualizations: {}".format(str(e)))
+                logger.error("Failed to generate energy visualizations: {}".format(str(e)))
 
         logger.info("All post-training visualizations completed successfully!")
 

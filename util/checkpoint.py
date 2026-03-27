@@ -21,20 +21,18 @@ def build_checkpoint_dir(args) -> str:
     Build the checkpoint directory path based on training arguments.
 
     Args:
-        args: argparse Namespace with dataset, normal, labeled_anomaly_class, seed
+        args: argparse Namespace with dataset, normal, labeled_anomaly_class, seed,
+              and optionally checkpoint_dir for custom root.
 
     Returns:
         Absolute path to the checkpoint directory, e.g.
         ./checkpoints/mvtec/carpet/n_0_a_1_s_0/
+        or /hy-tmp/checkpoints/mvtec/carpet/n_0_a_1_s_0/ if --checkpoint_dir is set.
     """
-    log_dir = os.path.join(
-        args.log_dir,
-        f"lan{args.labeled_anomaly_ratio:.2f}_acn{args.labeled_anomaly_class_num}",
-        args.dataset
-    )
-    # e.g. ./log/lan0.00_acn0/mvtec
+    # 支持通过命令行参数自定义 checkpoint 根目录
+    ckpt_root = getattr(args, "checkpoint_dir", None) or "checkpoints"
     ckpt_dir = os.path.join(
-        "checkpoints",
+        ckpt_root,
         args.dataset,
         args.normal,
         f"n_{args.normal}_a_{args.labeled_anomaly_class}_s_{args.seed}"

@@ -4,7 +4,6 @@ labeled_anomaly_class_num=1
 # checkpoint 配置（新增功能）
 checkpoint_interval=20          # 每 N 个 epoch 保存一次 checkpoint；0=仅保存 final 和 best
 checkpoint_mode=best            # 自动加载策略：best / latest / final
-checkpoint_dir=/hy-tmp/checkpoints  # checkpoint 存储根目录；设为空或不设置则默认保存在项目根目录的 ./checkpoints 下
 # resume=false                  # 取消注释以从 checkpoint 恢复训练（会加载 optimizer 状态）
 # skip_training=false           # 取消注释以跳过训练直接评估（需配合 checkpoint_path 使用）
 # checkpoint_path=              # 显式指定 checkpoint 路径，不指定则自动按 mode 搜索
@@ -74,7 +73,6 @@ do
         # ---- checkpoint 相关参数（新增） ----
         --checkpoint_interval ${checkpoint_interval}
         --checkpoint_mode ${checkpoint_mode}
-        --checkpoint_dir ${checkpoint_dir}
     )
 
     # 可选：resume 恢复训练（加载权重 + optimizer 状态）

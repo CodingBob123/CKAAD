@@ -85,9 +85,17 @@ def parse_args():
                        help='list available checkpoints for the current category config and exit')
 
     # 可视化相关参数
-    parser.add_argument('--enable_epoch_viz', action='store_true', help='enable anomaly map visualization during training (every 8 epochs)')
-    parser.add_argument('--viz_interval', type=int, default=8, help='interval for anomaly map visualization during training')
+    # 系统A，原版重建误差图与原图对比
+    parser.add_argument('--enable_epoch_viz',default=False, action='store_true', help='enable anomaly map visualization during training (every 8 epochs)')
+    parser.add_argument('--viz_interval', type=int, default=0, help='interval for anomaly map visualization during training')
     parser.add_argument('--viz_samples_per_type', type=int, default=3, help='number of samples to visualize per anomaly type (including normal)')
+    # 系统B，新版重建误差图与能量图情况对比
+    parser.add_argument('--enable_recon_energy_viz', action='store_true', default=True,
+                       help='enable unified reconstruction vs energy visualization')
+    parser.add_argument('--viz_eval_interval', type=int, default=0,
+                       help='visualization generation interval in epochs; '
+                            '0 means only generate at the end of training; '
+                            '>0 means generate every N epochs during training')
 
     # 新增：渐进式实验配置参数
     parser.add_argument('--enable_enhancement', nargs='*', type=lambda x: str(x).lower() in ('true', '1', 'yes', 't', 'y'),
@@ -115,12 +123,6 @@ def parse_args():
                        help='soft gate fusion: high-tail compression method for reconstruction error')
     parser.add_argument('--no_fuse_output_norm', action='store_false', dest='fuse_output_norm',
                        help='disable min-max normalization of fused output (enabled by default)')
-
-    # 重建误差 vs 能量图对比可视化参数（复用 eval_epoch 频率）
-    parser.add_argument('--enable_recon_energy_viz', action='store_true',
-                       help='enable reconstruction error vs energy map comparison visualization (uses eval_epoch frequency)')
-    parser.add_argument('--enable_multi_scale_viz', action='store_true',
-                       help='enable multi-scale energy map overlay visualization (uses eval_epoch frequency)')
 
     return parser.parse_args()
 
@@ -274,13 +276,8 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
                 pfe, ae, discriminator, test_dataloader, args, device, epochs,
                 cached_maps=cached_maps,
                 enable_stats=enable_stats,
-                enable_comparison=args.enable_recon_energy_viz,
-                enable_multiscale=args.enable_multi_scale_viz,
             )
-            if args.enable_recon_energy_viz:
-                logger.info("Recon vs Energy viz saved at epoch {}".format(epochs))
-            if args.enable_multi_scale_viz:
-                logger.info("Multi-scale energy viz saved at epoch {}".format(epochs))
+            logger.info("Recon vs Energy viz saved at epoch {}".format(epochs))
         except Exception as e:
             logger.error("Failed to generate recon vs energy visualizations: {}".format(str(e)))
 
@@ -572,7 +569,10 @@ def train(args):
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
-            need_cached_maps = args.enable_recon_energy_viz or args.enable_multi_scale_viz
+            # 可视化在独立周期下触发（与 eval_epoch 解耦）
+            need_viz = (args.enable_recon_energy_viz
+                        and (args.viz_eval_interval == 0 or epoch % args.viz_eval_interval == 0))
+            need_cached_maps = need_viz
             metrics, _, _, _, _, _ = run_eval_and_viz(
                 pfe, ae, discriminator, test_dataloader,
                 device, args, amp_ctx,
@@ -739,7 +739,7 @@ def train(args):
         logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))
 
         # 9.2 重建误差 vs 能量图可视化（复用 cached_maps，不再重新评估）
-        if args.enable_recon_energy_viz or args.enable_multi_scale_viz:
+        if args.enable_recon_energy_viz:
             try:
                 logger.info("Generating recon vs energy visualizations (using cached maps)...")
 
@@ -747,20 +747,12 @@ def train(args):
                     pfe, ae, discriminator, viz_dataloader, args, device, epochs,
                     cached_maps=cached_maps,
                     enable_stats=False,
-                    enable_comparison=args.enable_recon_energy_viz,
-                    enable_multiscale=args.enable_multi_scale_viz,
                 )
 
                 recon_energy_result_path = './results/{}_{}_recon_vs_energy_final_epoch_{}'.format(
                     args.dataset, args.normal, epochs)
-                multi_scale_result_path = './results/{}_{}_multiscale_energy_final_epoch_{}'.format(
-                    args.dataset, args.normal, epochs)
-                if args.enable_recon_energy_viz:
-                    logger.info("Reconstruction vs Energy comparison completed. Results saved to: {}".format(
-                        recon_energy_result_path))
-                if args.enable_multi_scale_viz:
-                    logger.info("Multi-scale energy visualization completed. Results saved to: {}".format(
-                        multi_scale_result_path))
+                logger.info("Reconstruction vs Energy comparison completed. Results saved to: {}".format(
+                    recon_energy_result_path))
 
             except Exception as e:
                 logger.error("Failed to generate recon vs energy visualizations: {}".format(str(e)))

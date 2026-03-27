@@ -19,7 +19,7 @@ do
             ;;
         *)
             epochs=160
-            eval_epoch=8
+            eval_epoch=10
             ;;
     esac
 
@@ -66,8 +66,9 @@ do
         --gate_k 10.0
         --gate_te 0.5
         --gate_sigma 0.0
-        --enable_recon_energy_viz
-        --enable_multi_scale_viz
+        --enable_recon_energy_viz \
+        --viz_eval_interval 20 \
+        --viz_samples_per_type 3 \
         --use_amp
         # ---- checkpoint 相关参数（新增） ----
         --checkpoint_interval ${checkpoint_interval}

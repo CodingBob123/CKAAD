@@ -9,8 +9,8 @@ checkpoint_interval=8          # 每 8 个 epoch 保存一次 checkpoint
 checkpoint_mode=latest         # 加载最新保存的 checkpoint
 checkpoint_dir=/hy-tmp/checkpoints  # checkpoint 存储根目录；设为空或不设置则默认保存在项目根目录的 ./checkpoints 下
 
-# for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
-for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+for normal in 'bottle' 'cable' 'hazelnut' 'leather'
+# for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
 do
     echo "[Day1 Baseline] Training: $normal"
 

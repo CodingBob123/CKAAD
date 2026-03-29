@@ -1,0 +1,302 @@
+[2026-03-27 10:32:08,302][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_capsule_a_0_s_111.txt
+[2026-03-27 10:32:08,302][main.py][line:345][INFO] class: capsule
+[2026-03-27 10:32:08,302][main.py][line:840][INFO] --------args----------
+[2026-03-27 10:32:08,302][main.py][line:842][INFO] dataset: mvtec
+[2026-03-27 10:32:08,302][main.py][line:842][INFO] batch_size: 16
+[2026-03-27 10:32:08,302][main.py][line:842][INFO] lr: 0.0015
+[2026-03-27 10:32:08,302][main.py][line:842][INFO] epochs: 160
+[2026-03-27 10:32:08,302][main.py][line:842][INFO] img_size: 256
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] normal: capsule
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] seed: 111
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] topk: 100
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] use_amp: True
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] compile: False
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] resume: False
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] skip_training: False
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-27 10:32:08,303][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] viz_interval: 0
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] recon_only: True
+[2026-03-27 10:32:08,304][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-27 10:32:08,304][main.py][line:843][INFO] --------args----------
+
+[2026-03-27 10:32:08,348][main.py][line:352][INFO] device: cuda
+[2026-03-27 10:32:08,349][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111  (will train from scratch)
+[2026-03-27 10:32:56,338][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+[2026-03-27 10:34:48,647][main.py][line:596][INFO] epoch [1/160], dis_loss: 14.950721, recon_loss:1.556977, adv_loss:0.108747, ae_loss: 1.559152
+[2026-03-27 10:36:54,631][main.py][line:596][INFO] epoch [2/160], dis_loss: 14.494591, recon_loss:0.859980, adv_loss:0.849008, ae_loss: 0.876960
+[2026-03-27 10:37:54,062][main.py][line:596][INFO] epoch [3/160], dis_loss: 13.431490, recon_loss:0.612663, adv_loss:2.323167, ae_loss: 0.659127
+[2026-03-27 10:38:19,389][main.py][line:596][INFO] epoch [4/160], dis_loss: 12.220553, recon_loss:0.487163, adv_loss:3.828125, ae_loss: 0.563725
+[2026-03-27 10:38:45,695][main.py][line:596][INFO] epoch [5/160], dis_loss: 11.122596, recon_loss:0.417292, adv_loss:4.922476, ae_loss: 0.515742
+[2026-03-27 10:39:11,573][main.py][line:596][INFO] epoch [6/160], dis_loss: 10.717548, recon_loss:0.368600, adv_loss:5.048978, ae_loss: 0.469590
+[2026-03-27 10:39:37,885][main.py][line:596][INFO] epoch [7/160], dis_loss: 10.782452, recon_loss:0.339483, adv_loss:4.594651, ae_loss: 0.431373
+[2026-03-27 10:40:03,492][main.py][line:596][INFO] epoch [8/160], dis_loss: 10.862981, recon_loss:0.318608, adv_loss:3.826022, ae_loss: 0.395120
+[2026-03-27 10:40:58,149][main.py][line:287][INFO] Test: Pixel_AUROC: 0.969049 Pixel_PRO: 0.891914 Image_AUROC: 0.644196 Image_F1: 0.912134 Image_ACC: 0.840909 
+[2026-03-27 10:40:58,152][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8
+[2026-03-27 10:40:59,882][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0008.pth
+[2026-03-27 10:41:01,521][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 10:41:27,203][main.py][line:596][INFO] epoch [9/160], dis_loss: 11.001202, recon_loss:0.292119, adv_loss:2.972206, ae_loss: 0.351563
+[2026-03-27 10:41:53,401][main.py][line:596][INFO] epoch [10/160], dis_loss: 11.322716, recon_loss:0.270220, adv_loss:2.097731, ae_loss: 0.312179
+[2026-03-27 10:42:18,887][main.py][line:596][INFO] epoch [11/160], dis_loss: 11.301082, recon_loss:0.255389, adv_loss:1.732572, ae_loss: 0.290042
+[2026-03-27 10:42:45,114][main.py][line:596][INFO] epoch [12/160], dis_loss: 11.264423, recon_loss:0.242285, adv_loss:1.568660, ae_loss: 0.273656
+[2026-03-27 10:43:10,694][main.py][line:596][INFO] epoch [13/160], dis_loss: 11.234375, recon_loss:0.231687, adv_loss:1.252329, ae_loss: 0.256733
+[2026-03-27 10:43:37,260][main.py][line:596][INFO] epoch [14/160], dis_loss: 11.165865, recon_loss:0.225130, adv_loss:1.244066, ae_loss: 0.250013
+[2026-03-27 10:44:02,761][main.py][line:596][INFO] epoch [15/160], dis_loss: 11.100962, recon_loss:0.219018, adv_loss:1.258489, ae_loss: 0.244187
+[2026-03-27 10:44:28,774][main.py][line:596][INFO] epoch [16/160], dis_loss: 11.043269, recon_loss:0.212616, adv_loss:1.232722, ae_loss: 0.237270
+[2026-03-27 10:45:19,818][main.py][line:287][INFO] Test: Pixel_AUROC: 0.970095 Pixel_PRO: 0.892421 Image_AUROC: 0.703231 Image_F1: 0.912134 Image_ACC: 0.840909 
+[2026-03-27 10:45:19,821][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 16
+[2026-03-27 10:45:21,595][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0016.pth
+[2026-03-27 10:45:24,875][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 10:45:51,509][main.py][line:596][INFO] epoch [17/160], dis_loss: 11.003005, recon_loss:0.206953, adv_loss:1.166504, ae_loss: 0.230284
+[2026-03-27 10:46:17,201][main.py][line:596][INFO] epoch [18/160], dis_loss: 10.969952, recon_loss:0.206076, adv_loss:1.131235, ae_loss: 0.228698
+[2026-03-27 10:46:42,692][main.py][line:596][INFO] epoch [19/160], dis_loss: 10.888221, recon_loss:0.199469, adv_loss:1.202674, ae_loss: 0.223523
+[2026-03-27 10:47:08,914][main.py][line:596][INFO] epoch [20/160], dis_loss: 10.874399, recon_loss:0.195108, adv_loss:1.132174, ae_loss: 0.217752
+[2026-03-27 10:47:35,884][main.py][line:596][INFO] epoch [21/160], dis_loss: 10.795072, recon_loss:0.191661, adv_loss:1.171011, ae_loss: 0.215082
+[2026-03-27 10:48:01,987][main.py][line:596][INFO] epoch [22/160], dis_loss: 10.796274, recon_loss:0.186501, adv_loss:1.061223, ae_loss: 0.207724
+[2026-03-27 10:48:28,596][main.py][line:596][INFO] epoch [23/160], dis_loss: 10.731971, recon_loss:0.183654, adv_loss:1.101412, ae_loss: 0.205683
+[2026-03-27 10:48:54,253][main.py][line:596][INFO] epoch [24/160], dis_loss: 10.727764, recon_loss:0.181542, adv_loss:1.041917, ae_loss: 0.202377
+[2026-03-27 10:49:46,529][main.py][line:287][INFO] Test: Pixel_AUROC: 0.976151 Pixel_PRO: 0.912394 Image_AUROC: 0.753091 Image_F1: 0.918455 Image_ACC: 0.856061 
+[2026-03-27 10:49:46,532][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 24
+[2026-03-27 10:49:48,209][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0024.pth
+[2026-03-27 10:49:51,309][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 10:50:18,703][main.py][line:596][INFO] epoch [25/160], dis_loss: 10.667668, recon_loss:0.178623, adv_loss:1.050331, ae_loss: 0.199629
+[2026-03-27 10:50:45,563][main.py][line:596][INFO] epoch [26/160], dis_loss: 10.629207, recon_loss:0.173887, adv_loss:1.047363, ae_loss: 0.194835
+[2026-03-27 10:51:11,399][main.py][line:596][INFO] epoch [27/160], dis_loss: 10.621995, recon_loss:0.172446, adv_loss:1.036358, ae_loss: 0.193172
+[2026-03-27 10:51:38,029][main.py][line:596][INFO] epoch [28/160], dis_loss: 10.572115, recon_loss:0.177712, adv_loss:1.087102, ae_loss: 0.199455
+[2026-03-27 10:52:04,804][main.py][line:596][INFO] epoch [29/160], dis_loss: 10.539663, recon_loss:0.172507, adv_loss:1.029109, ae_loss: 0.193089
+[2026-03-27 10:52:31,272][main.py][line:596][INFO] epoch [30/160], dis_loss: 10.500601, recon_loss:0.170571, adv_loss:1.037785, ae_loss: 0.191326
+[2026-03-27 10:52:56,752][main.py][line:596][INFO] epoch [31/160], dis_loss: 10.477764, recon_loss:0.164899, adv_loss:1.032565, ae_loss: 0.185553
+[2026-03-27 10:53:23,614][main.py][line:596][INFO] epoch [32/160], dis_loss: 10.466947, recon_loss:0.164105, adv_loss:0.990610, ae_loss: 0.183917
+[2026-03-27 10:54:15,846][main.py][line:287][INFO] Test: Pixel_AUROC: 0.980774 Pixel_PRO: 0.931035 Image_AUROC: 0.764260 Image_F1: 0.923729 Image_ACC: 0.863636 
+[2026-03-27 10:54:15,848][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 32
+[2026-03-27 10:54:17,518][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0032.pth
+[2026-03-27 10:54:20,877][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 10:54:47,295][main.py][line:596][INFO] epoch [33/160], dis_loss: 10.438101, recon_loss:0.165368, adv_loss:0.971943, ae_loss: 0.184805
+[2026-03-27 10:55:13,920][main.py][line:596][INFO] epoch [34/160], dis_loss: 10.430288, recon_loss:0.160525, adv_loss:0.959585, ae_loss: 0.179720
+[2026-03-27 10:55:41,797][main.py][line:596][INFO] epoch [35/160], dis_loss: 10.360577, recon_loss:0.158066, adv_loss:1.041842, ae_loss: 0.178902
+[2026-03-27 10:56:08,110][main.py][line:596][INFO] epoch [36/160], dis_loss: 10.347356, recon_loss:0.156341, adv_loss:1.047363, ae_loss: 0.177288
+[2026-03-27 10:56:34,705][main.py][line:596][INFO] epoch [37/160], dis_loss: 10.310096, recon_loss:0.156017, adv_loss:1.067533, ae_loss: 0.177367
+[2026-03-27 10:57:01,872][main.py][line:596][INFO] epoch [38/160], dis_loss: 10.314904, recon_loss:0.154842, adv_loss:0.958684, ae_loss: 0.174015
+[2026-03-27 10:57:29,293][main.py][line:596][INFO] epoch [39/160], dis_loss: 10.238582, recon_loss:0.151261, adv_loss:1.055288, ae_loss: 0.172365
+[2026-03-27 10:57:55,351][main.py][line:596][INFO] epoch [40/160], dis_loss: 10.242188, recon_loss:0.150046, adv_loss:0.994854, ae_loss: 0.169942
+[2026-03-27 10:58:46,195][main.py][line:287][INFO] Test: Pixel_AUROC: 0.980488 Pixel_PRO: 0.929500 Image_AUROC: 0.796171 Image_F1: 0.931034 Image_ACC: 0.878788 
+[2026-03-27 10:58:46,197][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 40
+[2026-03-27 10:58:47,685][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0040.pth
+[2026-03-27 10:58:49,381][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 10:59:15,532][main.py][line:596][INFO] epoch [41/160], dis_loss: 10.256611, recon_loss:0.148892, adv_loss:0.965858, ae_loss: 0.168209
+[2026-03-27 10:59:43,397][main.py][line:596][INFO] epoch [42/160], dis_loss: 10.200721, recon_loss:0.147105, adv_loss:1.027043, ae_loss: 0.167645
+[2026-03-27 11:00:09,699][main.py][line:596][INFO] epoch [43/160], dis_loss: 10.160457, recon_loss:0.150349, adv_loss:1.026442, ae_loss: 0.170877
+[2026-03-27 11:00:35,575][main.py][line:596][INFO] epoch [44/160], dis_loss: 10.158053, recon_loss:0.146335, adv_loss:1.028245, ae_loss: 0.166900
+[2026-03-27 11:01:01,400][main.py][line:596][INFO] epoch [45/160], dis_loss: 10.180288, recon_loss:0.142828, adv_loss:0.955679, ae_loss: 0.161942
+[2026-03-27 11:01:27,895][main.py][line:596][INFO] epoch [46/160], dis_loss: 10.155048, recon_loss:0.142969, adv_loss:0.948242, ae_loss: 0.161934
+[2026-03-27 11:01:53,891][main.py][line:596][INFO] epoch [47/160], dis_loss: 10.152644, recon_loss:0.140432, adv_loss:0.908541, ae_loss: 0.158604
+[2026-03-27 11:02:18,659][main.py][line:596][INFO] epoch [48/160], dis_loss: 10.033053, recon_loss:0.141762, adv_loss:1.101863, ae_loss: 0.163799
+[2026-03-27 11:03:09,103][main.py][line:287][INFO] Test: Pixel_AUROC: 0.980354 Pixel_PRO: 0.930488 Image_AUROC: 0.822098 Image_F1: 0.927660 Image_ACC: 0.871212 
+[2026-03-27 11:03:09,106][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 48
+[2026-03-27 11:03:10,827][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0048.pth
+[2026-03-27 11:03:14,471][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:03:40,571][main.py][line:596][INFO] epoch [49/160], dis_loss: 10.097356, recon_loss:0.142147, adv_loss:0.982159, ae_loss: 0.161789
+[2026-03-27 11:04:06,901][main.py][line:596][INFO] epoch [50/160], dis_loss: 10.084736, recon_loss:0.137176, adv_loss:0.900428, ae_loss: 0.155183
+[2026-03-27 11:04:32,953][main.py][line:596][INFO] epoch [51/160], dis_loss: 10.040264, recon_loss:0.136753, adv_loss:0.939040, ae_loss: 0.155535
+[2026-03-27 11:04:57,880][main.py][line:596][INFO] epoch [52/160], dis_loss: 10.042668, recon_loss:0.137812, adv_loss:0.886869, ae_loss: 0.155550
+[2026-03-27 11:05:22,848][main.py][line:596][INFO] epoch [53/160], dis_loss: 10.053486, recon_loss:0.134441, adv_loss:0.858211, ae_loss: 0.151603
+[2026-03-27 11:05:49,201][main.py][line:596][INFO] epoch [54/160], dis_loss: 10.039062, recon_loss:0.133082, adv_loss:0.867037, ae_loss: 0.150422
+[2026-03-27 11:06:14,601][main.py][line:596][INFO] epoch [55/160], dis_loss: 9.963942, recon_loss:0.133036, adv_loss:0.955116, ae_loss: 0.152139
+[2026-03-27 11:06:39,510][main.py][line:596][INFO] epoch [56/160], dis_loss: 9.912861, recon_loss:0.131786, adv_loss:1.036884, ae_loss: 0.152523
+[2026-03-27 11:07:31,726][main.py][line:287][INFO] Test: Pixel_AUROC: 0.981840 Pixel_PRO: 0.939107 Image_AUROC: 0.880734 Image_F1: 0.947368 Image_ACC: 0.909091 
+[2026-03-27 11:07:31,729][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 56
+[2026-03-27 11:07:33,261][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0056.pth
+[2026-03-27 11:07:36,116][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:08:02,925][main.py][line:596][INFO] epoch [57/160], dis_loss: 9.923678, recon_loss:0.131389, adv_loss:0.966046, ae_loss: 0.150709
+[2026-03-27 11:08:29,388][main.py][line:596][INFO] epoch [58/160], dis_loss: 9.931490, recon_loss:0.129519, adv_loss:0.865835, ae_loss: 0.146835
+[2026-03-27 11:08:54,289][main.py][line:596][INFO] epoch [59/160], dis_loss: 9.900841, recon_loss:0.130562, adv_loss:0.901330, ae_loss: 0.148587
+[2026-03-27 11:09:18,975][main.py][line:596][INFO] epoch [60/160], dis_loss: 9.872596, recon_loss:0.128131, adv_loss:0.911659, ae_loss: 0.146363
+[2026-03-27 11:09:44,869][main.py][line:596][INFO] epoch [61/160], dis_loss: 9.859375, recon_loss:0.129875, adv_loss:0.894569, ae_loss: 0.147766
+[2026-03-27 11:10:11,687][main.py][line:596][INFO] epoch [62/160], dis_loss: 9.829928, recon_loss:0.142670, adv_loss:0.962703, ae_loss: 0.161923
+[2026-03-27 11:10:37,054][main.py][line:596][INFO] epoch [63/160], dis_loss: 9.816106, recon_loss:0.132511, adv_loss:0.992901, ae_loss: 0.152368
+[2026-03-27 11:11:02,106][main.py][line:596][INFO] epoch [64/160], dis_loss: 9.822115, recon_loss:0.129634, adv_loss:0.952524, ae_loss: 0.148685
+[2026-03-27 11:11:54,439][main.py][line:287][INFO] Test: Pixel_AUROC: 0.981860 Pixel_PRO: 0.936659 Image_AUROC: 0.865576 Image_F1: 0.946903 Image_ACC: 0.909091 
+[2026-03-27 11:11:54,442][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 64
+[2026-03-27 11:11:56,114][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0064.pth
+[2026-03-27 11:12:21,856][main.py][line:596][INFO] epoch [65/160], dis_loss: 9.783053, recon_loss:0.129306, adv_loss:1.038912, ae_loss: 0.150081
+[2026-03-27 11:12:46,805][main.py][line:596][INFO] epoch [66/160], dis_loss: 9.744591, recon_loss:0.128612, adv_loss:1.047438, ae_loss: 0.149561
+[2026-03-27 11:13:12,874][main.py][line:596][INFO] epoch [67/160], dis_loss: 9.778846, recon_loss:0.125120, adv_loss:0.993540, ae_loss: 0.144990
+[2026-03-27 11:13:39,189][main.py][line:596][INFO] epoch [68/160], dis_loss: 9.751803, recon_loss:0.122387, adv_loss:0.955078, ae_loss: 0.141489
+[2026-03-27 11:14:04,971][main.py][line:596][INFO] epoch [69/160], dis_loss: 9.814303, recon_loss:0.121425, adv_loss:0.764874, ae_loss: 0.136724
+[2026-03-27 11:14:30,413][main.py][line:596][INFO] epoch [70/160], dis_loss: 9.769832, recon_loss:0.121159, adv_loss:0.861140, ae_loss: 0.138384
+[2026-03-27 11:14:55,902][main.py][line:596][INFO] epoch [71/160], dis_loss: 9.737981, recon_loss:0.120151, adv_loss:0.933068, ae_loss: 0.138812
+[2026-03-27 11:15:21,685][main.py][line:596][INFO] epoch [72/160], dis_loss: 9.707332, recon_loss:0.120680, adv_loss:0.987605, ae_loss: 0.140433
+[2026-03-27 11:16:14,336][main.py][line:287][INFO] Test: Pixel_AUROC: 0.981948 Pixel_PRO: 0.937511 Image_AUROC: 0.895493 Image_F1: 0.951965 Image_ACC: 0.916667 
+[2026-03-27 11:16:14,339][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 72
+[2026-03-27 11:16:16,064][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0072.pth
+[2026-03-27 11:16:19,101][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:16:44,909][main.py][line:596][INFO] epoch [73/160], dis_loss: 9.721154, recon_loss:0.118990, adv_loss:0.941294, ae_loss: 0.137815
+[2026-03-27 11:17:10,504][main.py][line:596][INFO] epoch [74/160], dis_loss: 9.703125, recon_loss:0.119351, adv_loss:0.986553, ae_loss: 0.139082
+[2026-03-27 11:17:36,117][main.py][line:596][INFO] epoch [75/160], dis_loss: 9.752404, recon_loss:0.118766, adv_loss:0.866925, ae_loss: 0.136106
+[2026-03-27 11:18:00,887][main.py][line:596][INFO] epoch [76/160], dis_loss: 9.713341, recon_loss:0.117611, adv_loss:0.815730, ae_loss: 0.133923
+[2026-03-27 11:18:24,996][main.py][line:596][INFO] epoch [77/160], dis_loss: 9.682091, recon_loss:0.116675, adv_loss:0.829402, ae_loss: 0.133265
+[2026-03-27 11:18:50,518][main.py][line:596][INFO] epoch [78/160], dis_loss: 9.716947, recon_loss:0.115981, adv_loss:0.693172, ae_loss: 0.129846
+[2026-03-27 11:19:14,965][main.py][line:596][INFO] epoch [79/160], dis_loss: 9.673678, recon_loss:0.116203, adv_loss:0.841985, ae_loss: 0.133040
+[2026-03-27 11:19:40,992][main.py][line:596][INFO] epoch [80/160], dis_loss: 9.647837, recon_loss:0.115777, adv_loss:0.873272, ae_loss: 0.133243
+[2026-03-27 11:20:32,369][main.py][line:287][INFO] Test: Pixel_AUROC: 0.982459 Pixel_PRO: 0.940421 Image_AUROC: 0.911448 Image_F1: 0.960352 Image_ACC: 0.931818 
+[2026-03-27 11:20:32,372][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 80
+[2026-03-27 11:20:33,910][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0080.pth
+[2026-03-27 11:20:37,049][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:21:02,381][main.py][line:596][INFO] epoch [81/160], dis_loss: 9.643630, recon_loss:0.113336, adv_loss:0.839130, ae_loss: 0.130118
+[2026-03-27 11:21:28,172][main.py][line:596][INFO] epoch [82/160], dis_loss: 9.621394, recon_loss:0.115253, adv_loss:0.835449, ae_loss: 0.131960
+[2026-03-27 11:21:53,482][main.py][line:596][INFO] epoch [83/160], dis_loss: 9.636418, recon_loss:0.112271, adv_loss:0.769268, ae_loss: 0.127656
+[2026-03-27 11:22:17,820][main.py][line:596][INFO] epoch [84/160], dis_loss: 9.616587, recon_loss:0.112336, adv_loss:0.768742, ae_loss: 0.127711
+[2026-03-27 11:22:42,005][main.py][line:596][INFO] epoch [85/160], dis_loss: 9.599159, recon_loss:0.111703, adv_loss:0.800443, ae_loss: 0.127711
+[2026-03-27 11:23:05,115][main.py][line:596][INFO] epoch [86/160], dis_loss: 9.608173, recon_loss:0.113948, adv_loss:0.661659, ae_loss: 0.127181
+[2026-03-27 11:23:29,703][main.py][line:596][INFO] epoch [87/160], dis_loss: 9.599760, recon_loss:0.112190, adv_loss:0.719501, ae_loss: 0.126580
+[2026-03-27 11:23:54,518][main.py][line:596][INFO] epoch [88/160], dis_loss: 9.594952, recon_loss:0.111197, adv_loss:0.702036, ae_loss: 0.125238
+[2026-03-27 11:24:46,027][main.py][line:287][INFO] Test: Pixel_AUROC: 0.983163 Pixel_PRO: 0.941902 Image_AUROC: 0.918229 Image_F1: 0.964602 Image_ACC: 0.939394 
+[2026-03-27 11:24:46,029][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 88
+[2026-03-27 11:24:47,597][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0088.pth
+[2026-03-27 11:24:50,527][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:25:16,576][main.py][line:596][INFO] epoch [89/160], dis_loss: 9.554087, recon_loss:0.110480, adv_loss:0.748122, ae_loss: 0.125442
+[2026-03-27 11:25:42,300][main.py][line:596][INFO] epoch [90/160], dis_loss: 9.548678, recon_loss:0.109151, adv_loss:0.728854, ae_loss: 0.123728
+[2026-03-27 11:26:06,698][main.py][line:596][INFO] epoch [91/160], dis_loss: 9.543269, recon_loss:0.107953, adv_loss:0.673002, ae_loss: 0.121413
+[2026-03-27 11:26:30,208][main.py][line:596][INFO] epoch [92/160], dis_loss: 9.549279, recon_loss:0.108346, adv_loss:0.625714, ae_loss: 0.120861
+[2026-03-27 11:26:54,173][main.py][line:596][INFO] epoch [93/160], dis_loss: 9.543870, recon_loss:0.106881, adv_loss:0.673490, ae_loss: 0.120351
+[2026-03-27 11:27:19,117][main.py][line:596][INFO] epoch [94/160], dis_loss: 9.511418, recon_loss:0.106486, adv_loss:0.721492, ae_loss: 0.120916
+[2026-03-27 11:27:44,964][main.py][line:596][INFO] epoch [95/160], dis_loss: 9.514423, recon_loss:0.106163, adv_loss:0.673302, ae_loss: 0.119629
+[2026-03-27 11:28:10,660][main.py][line:596][INFO] epoch [96/160], dis_loss: 9.504207, recon_loss:0.106582, adv_loss:0.636907, ae_loss: 0.119320
+[2026-03-27 11:29:01,526][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984250 Pixel_PRO: 0.946213 Image_AUROC: 0.918229 Image_F1: 0.968889 Image_ACC: 0.946970 
+[2026-03-27 11:29:01,528][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 96
+[2026-03-27 11:29:03,204][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0096.pth
+[2026-03-27 11:29:29,492][main.py][line:596][INFO] epoch [97/160], dis_loss: 9.502404, recon_loss:0.106357, adv_loss:0.712365, ae_loss: 0.120604
+[2026-03-27 11:29:55,160][main.py][line:596][INFO] epoch [98/160], dis_loss: 9.507212, recon_loss:0.104960, adv_loss:0.651311, ae_loss: 0.117986
+[2026-03-27 11:30:21,201][main.py][line:596][INFO] epoch [99/160], dis_loss: 9.536659, recon_loss:0.103948, adv_loss:0.564791, ae_loss: 0.115243
+[2026-03-27 11:30:48,169][main.py][line:596][INFO] epoch [100/160], dis_loss: 9.522837, recon_loss:0.105406, adv_loss:0.584811, ae_loss: 0.117102
+[2026-03-27 11:31:13,356][main.py][line:596][INFO] epoch [101/160], dis_loss: 9.493389, recon_loss:0.103403, adv_loss:0.635968, ae_loss: 0.116124
+[2026-03-27 11:31:39,277][main.py][line:596][INFO] epoch [102/160], dis_loss: 9.471755, recon_loss:0.102893, adv_loss:0.684721, ae_loss: 0.116588
+[2026-03-27 11:32:04,507][main.py][line:596][INFO] epoch [103/160], dis_loss: 9.468750, recon_loss:0.102741, adv_loss:0.653264, ae_loss: 0.115807
+[2026-03-27 11:32:30,175][main.py][line:596][INFO] epoch [104/160], dis_loss: 9.471154, recon_loss:0.101026, adv_loss:0.600586, ae_loss: 0.113037
+[2026-03-27 11:33:19,955][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984700 Pixel_PRO: 0.947778 Image_AUROC: 0.920622 Image_F1: 0.960352 Image_ACC: 0.931818 
+[2026-03-27 11:33:19,958][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 104
+[2026-03-27 11:33:21,690][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0104.pth
+[2026-03-27 11:33:24,820][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:33:51,901][main.py][line:596][INFO] epoch [105/160], dis_loss: 9.433293, recon_loss:0.101716, adv_loss:0.615873, ae_loss: 0.114034
+[2026-03-27 11:34:18,125][main.py][line:596][INFO] epoch [106/160], dis_loss: 9.431490, recon_loss:0.101631, adv_loss:0.578914, ae_loss: 0.113209
+[2026-03-27 11:34:44,801][main.py][line:596][INFO] epoch [107/160], dis_loss: 9.434495, recon_loss:0.102094, adv_loss:0.619009, ae_loss: 0.114474
+[2026-03-27 11:35:11,607][main.py][line:596][INFO] epoch [108/160], dis_loss: 9.409856, recon_loss:0.102782, adv_loss:0.665753, ae_loss: 0.116097
+[2026-03-27 11:35:38,378][main.py][line:596][INFO] epoch [109/160], dis_loss: 9.414663, recon_loss:0.101033, adv_loss:0.648569, ae_loss: 0.114006
+[2026-03-27 11:36:05,015][main.py][line:596][INFO] epoch [110/160], dis_loss: 9.424279, recon_loss:0.098901, adv_loss:0.700158, ae_loss: 0.112905
+[2026-03-27 11:36:32,024][main.py][line:596][INFO] epoch [111/160], dis_loss: 9.437500, recon_loss:0.098820, adv_loss:0.551720, ae_loss: 0.109856
+[2026-03-27 11:36:59,754][main.py][line:596][INFO] epoch [112/160], dis_loss: 9.412260, recon_loss:0.099091, adv_loss:0.628343, ae_loss: 0.111658
+[2026-03-27 11:37:55,209][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984262 Pixel_PRO: 0.946319 Image_AUROC: 0.919824 Image_F1: 0.968889 Image_ACC: 0.946970 
+[2026-03-27 11:37:55,212][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 112
+[2026-03-27 11:37:57,073][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0112.pth
+[2026-03-27 11:38:24,588][main.py][line:596][INFO] epoch [113/160], dis_loss: 9.425481, recon_loss:0.098689, adv_loss:0.595928, ae_loss: 0.110607
+[2026-03-27 11:38:51,183][main.py][line:596][INFO] epoch [114/160], dis_loss: 9.373798, recon_loss:0.097582, adv_loss:0.632249, ae_loss: 0.110227
+[2026-03-27 11:39:17,995][main.py][line:596][INFO] epoch [115/160], dis_loss: 9.368389, recon_loss:0.096731, adv_loss:0.573054, ae_loss: 0.108192
+[2026-03-27 11:39:44,815][main.py][line:596][INFO] epoch [116/160], dis_loss: 9.394832, recon_loss:0.099193, adv_loss:0.561279, ae_loss: 0.110418
+[2026-03-27 11:40:11,815][main.py][line:596][INFO] epoch [117/160], dis_loss: 9.380409, recon_loss:0.097331, adv_loss:0.565017, ae_loss: 0.108631
+[2026-03-27 11:40:40,056][main.py][line:596][INFO] epoch [118/160], dis_loss: 9.386418, recon_loss:0.096308, adv_loss:0.518573, ae_loss: 0.106680
+[2026-03-27 11:41:08,251][main.py][line:596][INFO] epoch [119/160], dis_loss: 9.356370, recon_loss:0.097881, adv_loss:0.580867, ae_loss: 0.109498
+[2026-03-27 11:41:35,823][main.py][line:596][INFO] epoch [120/160], dis_loss: 9.354567, recon_loss:0.096297, adv_loss:0.524508, ae_loss: 0.106787
+[2026-03-27 11:42:29,536][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984810 Pixel_PRO: 0.948709 Image_AUROC: 0.918628 Image_F1: 0.968889 Image_ACC: 0.946970 
+[2026-03-27 11:42:29,540][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 120
+[2026-03-27 11:42:31,219][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0120.pth
+[2026-03-27 11:42:58,626][main.py][line:596][INFO] epoch [121/160], dis_loss: 9.359375, recon_loss:0.095142, adv_loss:0.508808, ae_loss: 0.105318
+[2026-03-27 11:43:25,951][main.py][line:596][INFO] epoch [122/160], dis_loss: 9.313702, recon_loss:0.094163, adv_loss:0.577843, ae_loss: 0.105719
+[2026-03-27 11:43:53,260][main.py][line:596][INFO] epoch [123/160], dis_loss: 9.323918, recon_loss:0.093630, adv_loss:0.578688, ae_loss: 0.105203
+[2026-03-27 11:44:20,312][main.py][line:596][INFO] epoch [124/160], dis_loss: 9.298678, recon_loss:0.093788, adv_loss:0.565599, ae_loss: 0.105101
+[2026-03-27 11:44:47,096][main.py][line:596][INFO] epoch [125/160], dis_loss: 9.314904, recon_loss:0.092995, adv_loss:0.573730, ae_loss: 0.104472
+[2026-03-27 11:45:14,601][main.py][line:596][INFO] epoch [126/160], dis_loss: 9.310697, recon_loss:0.094270, adv_loss:0.674730, ae_loss: 0.107764
+[2026-03-27 11:45:41,697][main.py][line:596][INFO] epoch [127/160], dis_loss: 9.304688, recon_loss:0.092763, adv_loss:0.598745, ae_loss: 0.104739
+[2026-03-27 11:46:08,371][main.py][line:596][INFO] epoch [128/160], dis_loss: 9.303486, recon_loss:0.094016, adv_loss:0.489821, ae_loss: 0.103812
+[2026-03-27 11:46:58,924][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984697 Pixel_PRO: 0.947601 Image_AUROC: 0.929797 Image_F1: 0.973214 Image_ACC: 0.954545 
+[2026-03-27 11:46:58,926][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 128
+[2026-03-27 11:47:00,817][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0128.pth
+[2026-03-27 11:47:03,800][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 11:47:32,198][main.py][line:596][INFO] epoch [129/160], dis_loss: 9.266226, recon_loss:0.092418, adv_loss:0.501953, ae_loss: 0.102458
+[2026-03-27 11:48:00,589][main.py][line:596][INFO] epoch [130/160], dis_loss: 9.286058, recon_loss:0.092284, adv_loss:0.497052, ae_loss: 0.102225
+[2026-03-27 11:48:28,407][main.py][line:596][INFO] epoch [131/160], dis_loss: 9.283654, recon_loss:0.090450, adv_loss:0.520658, ae_loss: 0.100863
+[2026-03-27 11:48:56,254][main.py][line:596][INFO] epoch [132/160], dis_loss: 9.237981, recon_loss:0.090737, adv_loss:0.590276, ae_loss: 0.102543
+[2026-03-27 11:49:24,667][main.py][line:596][INFO] epoch [133/160], dis_loss: 9.280649, recon_loss:0.090593, adv_loss:0.621732, ae_loss: 0.103027
+[2026-03-27 11:49:53,200][main.py][line:596][INFO] epoch [134/160], dis_loss: 9.249399, recon_loss:0.090870, adv_loss:0.545166, ae_loss: 0.101774
+[2026-03-27 11:50:21,493][main.py][line:596][INFO] epoch [135/160], dis_loss: 9.249399, recon_loss:0.089902, adv_loss:0.477201, ae_loss: 0.099447
+[2026-03-27 11:50:49,571][main.py][line:596][INFO] epoch [136/160], dis_loss: 9.242788, recon_loss:0.089087, adv_loss:0.486647, ae_loss: 0.098820
+[2026-03-27 11:51:39,948][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984867 Pixel_PRO: 0.949234 Image_AUROC: 0.928201 Image_F1: 0.968889 Image_ACC: 0.946970 
+[2026-03-27 11:51:39,950][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 136
+[2026-03-27 11:51:41,775][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0136.pth
+[2026-03-27 11:52:09,907][main.py][line:596][INFO] epoch [137/160], dis_loss: 9.231370, recon_loss:0.091577, adv_loss:0.544659, ae_loss: 0.102471
+[2026-03-27 11:52:37,000][main.py][line:596][INFO] epoch [138/160], dis_loss: 9.217548, recon_loss:0.090631, adv_loss:0.562631, ae_loss: 0.101884
+[2026-03-27 11:53:03,407][main.py][line:596][INFO] epoch [139/160], dis_loss: 9.235577, recon_loss:0.089350, adv_loss:0.576810, ae_loss: 0.100887
+[2026-03-27 11:53:31,253][main.py][line:596][INFO] epoch [140/160], dis_loss: 9.210337, recon_loss:0.087678, adv_loss:0.537053, ae_loss: 0.098420
+[2026-03-27 11:53:58,542][main.py][line:596][INFO] epoch [141/160], dis_loss: 9.213341, recon_loss:0.087740, adv_loss:0.504432, ae_loss: 0.097828
+[2026-03-27 11:54:24,984][main.py][line:596][INFO] epoch [142/160], dis_loss: 9.206731, recon_loss:0.088756, adv_loss:0.496244, ae_loss: 0.098682
+[2026-03-27 11:54:51,100][main.py][line:596][INFO] epoch [143/160], dis_loss: 9.199519, recon_loss:0.087223, adv_loss:0.501634, ae_loss: 0.097256
+[2026-03-27 11:55:18,664][main.py][line:596][INFO] epoch [144/160], dis_loss: 9.200120, recon_loss:0.086700, adv_loss:0.500000, ae_loss: 0.096700
+[2026-03-27 11:56:10,856][main.py][line:287][INFO] Test: Pixel_AUROC: 0.985076 Pixel_PRO: 0.946553 Image_AUROC: 0.929398 Image_F1: 0.973214 Image_ACC: 0.954545 
+[2026-03-27 11:56:10,859][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 144
+[2026-03-27 11:56:12,567][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0144.pth
+[2026-03-27 11:56:41,304][main.py][line:596][INFO] epoch [145/160], dis_loss: 9.196514, recon_loss:0.086859, adv_loss:0.490009, ae_loss: 0.096659
+[2026-03-27 11:57:10,397][main.py][line:596][INFO] epoch [146/160], dis_loss: 9.178486, recon_loss:0.086251, adv_loss:0.543476, ae_loss: 0.097120
+[2026-03-27 11:57:36,383][main.py][line:596][INFO] epoch [147/160], dis_loss: 9.180288, recon_loss:0.085323, adv_loss:0.586877, ae_loss: 0.097060
+[2026-03-27 11:57:59,413][main.py][line:596][INFO] epoch [148/160], dis_loss: 9.194712, recon_loss:0.087364, adv_loss:0.537917, ae_loss: 0.098123
+[2026-03-27 11:58:24,670][main.py][line:596][INFO] epoch [149/160], dis_loss: 9.169471, recon_loss:0.090261, adv_loss:0.445651, ae_loss: 0.099174
+[2026-03-27 11:58:50,304][main.py][line:596][INFO] epoch [150/160], dis_loss: 9.157452, recon_loss:0.087261, adv_loss:0.434514, ae_loss: 0.095951
+[2026-03-27 11:59:16,812][main.py][line:596][INFO] epoch [151/160], dis_loss: 9.150841, recon_loss:0.084747, adv_loss:0.492807, ae_loss: 0.094603
+[2026-03-27 11:59:43,600][main.py][line:596][INFO] epoch [152/160], dis_loss: 9.191106, recon_loss:0.084651, adv_loss:0.543814, ae_loss: 0.095528
+[2026-03-27 12:00:35,058][main.py][line:287][INFO] Test: Pixel_AUROC: 0.983989 Pixel_PRO: 0.945833 Image_AUROC: 0.917830 Image_F1: 0.968889 Image_ACC: 0.946970 
+[2026-03-27 12:00:35,062][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 152
+[2026-03-27 12:00:36,804][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0152.pth
+[2026-03-27 12:01:01,482][main.py][line:596][INFO] epoch [153/160], dis_loss: 9.171274, recon_loss:0.083496, adv_loss:0.474234, ae_loss: 0.092981
+[2026-03-27 12:01:26,958][main.py][line:596][INFO] epoch [154/160], dis_loss: 9.164062, recon_loss:0.083006, adv_loss:0.449106, ae_loss: 0.091987
+[2026-03-27 12:01:51,205][main.py][line:596][INFO] epoch [155/160], dis_loss: 9.129207, recon_loss:0.083036, adv_loss:0.461313, ae_loss: 0.092262
+[2026-03-27 12:02:17,177][main.py][line:596][INFO] epoch [156/160], dis_loss: 9.089543, recon_loss:0.084058, adv_loss:0.567308, ae_loss: 0.095404
+[2026-03-27 12:02:42,490][main.py][line:596][INFO] epoch [157/160], dis_loss: 9.118389, recon_loss:0.082817, adv_loss:0.454421, ae_loss: 0.091906
+[2026-03-27 12:03:07,473][main.py][line:596][INFO] epoch [158/160], dis_loss: 9.129808, recon_loss:0.082765, adv_loss:0.445087, ae_loss: 0.091666
+[2026-03-27 12:03:33,159][main.py][line:596][INFO] epoch [159/160], dis_loss: 9.123197, recon_loss:0.082420, adv_loss:0.479793, ae_loss: 0.092015
+[2026-03-27 12:03:58,513][main.py][line:596][INFO] epoch [160/160], dis_loss: 9.166466, recon_loss:0.082700, adv_loss:0.532058, ae_loss: 0.093341
+[2026-03-27 12:04:53,528][main.py][line:287][INFO] Test: Pixel_AUROC: 0.984344 Pixel_PRO: 0.946468 Image_AUROC: 0.932190 Image_F1: 0.973214 Image_ACC: 0.954545 
+[2026-03-27 12:04:53,533][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 160
+[2026-03-27 12:04:55,230][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0160.pth
+[2026-03-27 12:04:58,029][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/best.pth
+[2026-03-27 12:05:01,356][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/epoch_0160.pth
+[2026-03-27 12:05:03,639][checkpoint.py][line:187][INFO] Final checkpoint saved to: /hy-tmp/checkpoints/mvtec/capsule/n_capsule_a_0_s_111/final.pth
+[2026-03-27 12:05:04,893][main.py][line:698][INFO] Final loss curve saved to: ./pic/loss_curve_final_n_capsule_a_0_s_111.jpg
+[2026-03-27 12:05:04,893][main.py][line:706][INFO] Starting post-training visualization...
+[2026-03-27 12:05:04,893][main.py][line:724][INFO] Generating anomaly map visualization...
+[2026-03-27 12:05:11,634][main.py][line:753][INFO] Selected 3 samples for type 'crack'
+[2026-03-27 12:05:11,634][main.py][line:753][INFO] Selected 3 samples for type 'faulty_imprint'
+[2026-03-27 12:05:11,634][main.py][line:753][INFO] Selected 3 samples for type 'good'
+[2026-03-27 12:05:11,634][main.py][line:753][INFO] Selected 3 samples for type 'poke'
+[2026-03-27 12:05:11,634][main.py][line:753][INFO] Selected 3 samples for type 'scratch'
+[2026-03-27 12:05:11,634][main.py][line:753][INFO] Selected 3 samples for type 'squeeze'
+[2026-03-27 12:05:11,634][main.py][line:755][INFO] Total selected 18 samples for visualization
+[2026-03-27 12:05:11,635][main.py][line:765][INFO] Running evaluation for visualizations (single forward pass)...
+[2026-03-27 12:05:19,010][main.py][line:776][INFO] Test: Pixel_AUROC: 0.983162 Pixel_PRO: 0.940470 Image_AUROC: 1.000000 Image_F1: 1.000000 Image_ACC: 1.000000 
+[2026-03-27 12:05:19,010][main.py][line:797][INFO] Generating anomaly map visualization...
+[2026-03-27 12:05:35,177][main.py][line:803][INFO] Anomaly map visualization completed. Results saved to: /hy-tmp/results/mvtec_capsule_final_epoch_160
+[2026-03-27 12:05:35,177][main.py][line:808][INFO] Generating recon vs energy visualizations (using cached maps)...
+[2026-03-27 12:05:35,180][main.py][line:828][INFO] Energy visualization completed. Results saved to: /hy-tmp/results/mvtec_capsule_recon_vs_energy_final_epoch_160
+[2026-03-27 12:05:35,180][main.py][line:833][INFO] All post-training visualizations completed successfully!

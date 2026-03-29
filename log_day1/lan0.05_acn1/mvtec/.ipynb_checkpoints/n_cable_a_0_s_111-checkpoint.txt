@@ -1,0 +1,60 @@
+[2026-03-28 01:50:09,308][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_cable_a_0_s_111.txt
+[2026-03-28 01:50:09,308][main.py][line:345][INFO] class: cable
+[2026-03-28 01:50:09,308][main.py][line:840][INFO] --------args----------
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] dataset: mvtec
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] batch_size: 16
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] lr: 0.0015
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] epochs: 160
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] img_size: 256
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] normal: cable
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] seed: 111
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] topk: 100
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] use_amp: True
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] compile: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] resume: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] skip_training: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] viz_interval: 0
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_only: True
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-28 01:50:09,310][main.py][line:843][INFO] --------args----------
+
+[2026-03-28 01:50:09,444][main.py][line:352][INFO] device: cuda
+[2026-03-28 01:50:09,445][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/cable/n_cable_a_0_s_111  (will train from scratch)
+[2026-03-28 01:50:34,891][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+[2026-03-28 01:51:07,857][main.py][line:596][INFO] epoch [1/160], dis_loss: 14.941406, recon_loss:1.709841, adv_loss:0.137297, ae_loss: 1.712587
+[2026-03-28 01:51:38,732][main.py][line:596][INFO] epoch [2/160], dis_loss: 14.370536, recon_loss:1.203219, adv_loss:1.095686, ae_loss: 1.225131
+[2026-03-28 01:52:09,585][main.py][line:596][INFO] epoch [3/160], dis_loss: 13.152344, recon_loss:0.963533, adv_loss:2.870815, ae_loss: 1.020948
+[2026-03-28 01:52:40,048][main.py][line:596][INFO] epoch [4/160], dis_loss: 11.779018, recon_loss:0.839466, adv_loss:4.711635, ae_loss: 0.933700
+[2026-03-28 01:53:10,724][main.py][line:596][INFO] epoch [5/160], dis_loss: 10.683594, recon_loss:0.751803, adv_loss:6.046038, ae_loss: 0.872718
+[2026-03-28 01:53:40,937][main.py][line:596][INFO] epoch [6/160], dis_loss: 10.457031, recon_loss:0.697068, adv_loss:6.468192, ae_loss: 0.826427
+[2026-03-28 01:54:10,735][main.py][line:596][INFO] epoch [7/160], dis_loss: 10.755580, recon_loss:0.667864, adv_loss:5.689453, ae_loss: 0.781660
+[2026-03-28 01:54:42,183][main.py][line:596][INFO] epoch [8/160], dis_loss: 10.989397, recon_loss:0.631981, adv_loss:4.338449, ae_loss: 0.718751
+[2026-03-28 01:55:46,648][main.py][line:287][INFO] Test: Pixel_AUROC: 0.976561 Pixel_PRO: 0.914625 Image_AUROC: 0.964205 Image_F1: 0.918919 Image_ACC: 0.900000 
+[2026-03-28 01:55:46,651][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8

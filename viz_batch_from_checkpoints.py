@@ -39,7 +39,7 @@ from typing import List, Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from util.checkpoint import load_trained_model, build_checkpoint_dir, list_checkpoints
-from util.test import evaluation
+from util.test import evaluation, evaluation_per_layer
 from util.visualize_comparison import visualize_recon_energy_unified
 from dataset.dataset import OODDataSet
 
@@ -91,8 +91,8 @@ def parse_args():
                         default=True)
 
     # ---------- Checkpoint 目录 ----------
-    # 需要与训练时 --checkpoint_dir 一致
-    parser.add_argument('--checkpoint_dir', type=str, default='/hy-tmp/grid/checkpoints',
+    # 需要与训练时 --checkpoint_dir 一致（这里是根目录，build_checkpoint_dir 会自动拼接完整路径）
+    parser.add_argument('--checkpoint_dir', type=str, default='/hy-tmp/checkpoints',
                         help='checkpoint 根目录，需与训练时 --checkpoint_dir 一致')
 
     # ---------- 日志与输出 ----------
@@ -100,6 +100,8 @@ def parse_args():
                         help='日志目录，需与训练时 --log_dir 一致')
     parser.add_argument('--viz_output_root', type=str, default='./viz_results/grid',
                         help='可视化结果输出根目录')
+    parser.add_argument('--load_test_only', action='store_true', default=True,
+                        help='只加载测试集（跳过 ./data/mvtec/xxx/train 目录）')
 
     # ---------- 批量处理选项 ----------
     parser.add_argument('--max_checkpoints', type=int, default=0,
@@ -220,10 +222,14 @@ def run_batch_for_category(
     print('=' * 70)
 
     # ---------- 构建 checkpoint 目录 ----------
+    # build_checkpoint_dir 期望 args.normal（单数），但命令行参数是 --normals
+    original_normal = getattr(args, 'normal', None)
     original_log_dir = args.log_dir
+    args.normal = normal  # 设置 normal 属性
     args.log_dir = args.checkpoint_dir
     ckpt_dir = build_checkpoint_dir(args)
     args.log_dir = original_log_dir
+    args.normal = original_normal
 
     print(f"  Checkpoint directory: {ckpt_dir}")
 
@@ -288,7 +294,18 @@ def run_batch_for_category(
             img_auc = metrics.get('Image', {}).get('AUROC', None)
             pix_auc = metrics.get('Pixel', {}).get('AUROC', None)
             if img_auc is not None:
-                print(f"    Metrics: Image_AUROC={img_auc:.4f}, Pixel_AUROC={pix_auc:.4f if pix_auc else 'N/A'}")
+                pix_str = f"{pix_auc:.4f}" if pix_auc is not None else 'N/A'
+                print(f"    Metrics: Image_AUROC={img_auc:.4f}, Pixel_AUROC={pix_str}")
+
+            # ---------- 按层级评估能量图 ----------
+            print(f"    Evaluating per-layer energy maps...", end=" ", flush=True)
+            layer_metrics = evaluation_per_layer(
+                pfe, ae, discriminator, test_loader, device, args
+            )
+            print("done")
+            for layer_idx, m in layer_metrics.items():
+                print(f"      Layer {layer_idx}: Image_AUROC={m['Image_AUROC']:.4f}, "
+                      f"Pixel_AUROC={m['Pixel_AUROC']:.4f}, Pixel_PRO={m['Pixel_PRO']:.4f}")
 
             # ---------- 可视化 ----------
             print(f"    Generating visualization...", end=" ", flush=True)
@@ -315,6 +332,7 @@ def run_batch_for_category(
                 epochs=ckpt_info.epoch,
                 cached_maps=cached_maps,
                 enable_stats=False,   # 批量处理时关闭详细统计输出
+                output_root=args.viz_output_root,  # 传递自定义输出根目录
             )
 
             print("done")
@@ -365,8 +383,13 @@ def main():
                 labeled_anomaly_ratio=args.labeled_anomaly_ratio,
                 labeled_anomaly_class_num=args.labeled_anomaly_class_num,
                 labeled_anomaly_class=args.labeled_anomaly_class,
+                load_test_only=args.load_test_only,
             )
-            _, _, test_loader, _ = dataset.get_data_loader(batch_size=args.batch_size)
+            # get_data_loader 返回顺序: (train, valid, anomaly, test)
+            if args.load_test_only:
+                test_loader = dataset.get_data_loader(batch_size=args.batch_size)
+            else:
+                _, _, _, test_loader = dataset.get_data_loader(batch_size=args.batch_size)
             print(f"  Test samples: {len(test_loader.dataset)}")
         except Exception as e:
             print(f"  [SKIP] Failed to load dataset: {e}")

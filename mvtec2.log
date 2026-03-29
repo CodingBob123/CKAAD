@@ -1,0 +1,483 @@
+nohup: ignoring input
+[Day1 Baseline] Training: bottle
+>>> CMD: python main.py --dataset mvtec --batch_size 16 --lr 15e-04 --d_lr 1e-04 --adv_conf 0.02 --epochs 160 --normal bottle --seed 111 --img_size 256 --labeled_anomaly_class_num 1 --labeled_anomaly_class 0 --labeled_anomaly_ratio 0.05 --log_dir ./log_day1 --model wide_resnet50_2 --eval_epoch 8 --layer 1 2 3 --enable_enhancement False --recon_only --checkpoint_interval 8 --checkpoint_mode latest --checkpoint_dir /hy-tmp/checkpoints --use_amp
+[2026-03-28 01:45:22,697][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_bottle_a_0_s_111.txt
+[2026-03-28 01:45:22,697][main.py][line:345][INFO] class: bottle
+[2026-03-28 01:45:22,697][main.py][line:840][INFO] --------args----------
+[2026-03-28 01:45:22,697][main.py][line:842][INFO] dataset: mvtec
+[2026-03-28 01:45:22,697][main.py][line:842][INFO] batch_size: 16
+[2026-03-28 01:45:22,697][main.py][line:842][INFO] lr: 0.0015
+[2026-03-28 01:45:22,697][main.py][line:842][INFO] epochs: 160
+[2026-03-28 01:45:22,697][main.py][line:842][INFO] img_size: 256
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] normal: bottle
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] seed: 111
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] topk: 100
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] use_amp: True
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] compile: False
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] resume: False
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] skip_training: False
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] viz_interval: 0
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-28 01:45:22,698][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] recon_only: True
+[2026-03-28 01:45:22,699][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-28 01:45:22,699][main.py][line:843][INFO] --------args----------
+
+[2026-03-28 01:45:22,873][main.py][line:352][INFO] device: cuda
+[2026-03-28 01:45:22,874][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/bottle/n_bottle_a_0_s_111  (will train from scratch)
+/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/functional.py:504: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3190.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+[2026-03-28 01:45:37,021][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+load data...
+0it [00:00, ?it/s]1it [00:03,  3.74s/it]2it [00:06,  2.89s/it]3it [00:08,  2.57s/it]4it [00:10,  2.49s/it]5it [00:12,  2.35s/it]6it [00:14,  2.33s/it]7it [00:17,  2.27s/it]8it [00:19,  2.29s/it]9it [00:21,  2.21s/it]10it [00:23,  2.23s/it]11it [00:25,  2.18s/it]12it [00:28,  2.23s/it]13it [00:30,  2.19s/it]13it [00:30,  2.33s/it]
+[2026-03-28 01:46:07,316][main.py][line:596][INFO] epoch [1/160], dis_loss: 14.961538, recon_loss:1.621574, adv_loss:0.088347, ae_loss: 1.623341
+0it [00:00, ?it/s]1it [00:02,  2.17s/it]2it [00:04,  2.07s/it]3it [00:06,  2.09s/it]4it [00:08,  2.13s/it]5it [00:10,  2.11s/it]6it [00:12,  2.04s/it]7it [00:14,  1.99s/it]8it [00:16,  2.04s/it]9it [00:18,  2.09s/it]10it [00:20,  2.08s/it]11it [00:22,  2.10s/it]12it [00:24,  2.06s/it]13it [00:26,  2.07s/it]13it [00:26,  2.07s/it]
+[2026-03-28 01:46:34,285][main.py][line:596][INFO] epoch [2/160], dis_loss: 14.686298, recon_loss:0.914188, adv_loss:0.615047, ae_loss: 0.926488
+0it [00:00, ?it/s]1it [00:02,  2.25s/it]2it [00:04,  2.27s/it]3it [00:06,  2.28s/it]4it [00:09,  2.30s/it]5it [00:11,  2.29s/it]6it [00:13,  2.26s/it]7it [00:15,  2.28s/it]8it [00:18,  2.22s/it]9it [00:20,  2.21s/it]10it [00:22,  2.23s/it]11it [00:24,  2.29s/it]12it [00:27,  2.25s/it]13it [00:29,  2.26s/it]13it [00:29,  2.26s/it]
+[2026-03-28 01:47:03,660][main.py][line:596][INFO] epoch [3/160], dis_loss: 13.884615, recon_loss:0.630457, adv_loss:1.968224, ae_loss: 0.669820
+0it [00:00, ?it/s]1it [00:02,  2.16s/it]2it [00:04,  2.18s/it]3it [00:06,  2.14s/it]4it [00:08,  2.22s/it]5it [00:10,  2.20s/it]6it [00:13,  2.21s/it]7it [00:15,  2.22s/it]8it [00:17,  2.24s/it]9it [00:19,  2.21s/it]10it [00:21,  2.18s/it]11it [00:24,  2.18s/it]12it [00:26,  2.21s/it]13it [00:28,  2.21s/it]13it [00:28,  2.20s/it]
+[2026-03-28 01:47:32,311][main.py][line:596][INFO] epoch [4/160], dis_loss: 12.795072, recon_loss:0.498013, adv_loss:3.627554, ae_loss: 0.570556
+0it [00:00, ?it/s]1it [00:02,  2.27s/it]2it [00:04,  2.14s/it]3it [00:06,  2.18s/it]4it [00:08,  2.14s/it]5it [00:10,  2.19s/it]6it [00:13,  2.22s/it]7it [00:15,  2.19s/it]8it [00:17,  2.20s/it]9it [00:19,  2.20s/it]10it [00:22,  2.23s/it]11it [00:24,  2.19s/it]12it [00:26,  2.23s/it]13it [00:28,  2.27s/it]13it [00:28,  2.22s/it]
+[2026-03-28 01:48:01,116][main.py][line:596][INFO] epoch [5/160], dis_loss: 11.387620, recon_loss:0.404627, adv_loss:5.287260, ae_loss: 0.510373
+0it [00:00, ?it/s]1it [00:02,  2.21s/it]2it [00:04,  2.35s/it]3it [00:06,  2.23s/it]4it [00:08,  2.19s/it]5it [00:11,  2.27s/it]6it [00:13,  2.18s/it]7it [00:15,  2.22s/it]8it [00:17,  2.19s/it]9it [00:19,  2.18s/it]10it [00:21,  2.13s/it]11it [00:24,  2.22s/it]12it [00:26,  2.24s/it]13it [00:29,  2.35s/it]13it [00:29,  2.25s/it]
+[2026-03-28 01:48:30,312][main.py][line:596][INFO] epoch [6/160], dis_loss: 10.096755, recon_loss:0.349238, adv_loss:6.438401, ae_loss: 0.478018
+0it [00:00, ?it/s]1it [00:02,  2.90s/it]2it [00:05,  2.49s/it]3it [00:07,  2.39s/it]4it [00:09,  2.30s/it]5it [00:11,  2.28s/it]6it [00:14,  2.28s/it]7it [00:16,  2.25s/it]8it [00:18,  2.30s/it]9it [00:20,  2.21s/it]10it [00:22,  2.17s/it]11it [00:24,  2.18s/it]12it [00:27,  2.29s/it]13it [00:29,  2.29s/it]13it [00:29,  2.29s/it]
+[2026-03-28 01:49:00,115][main.py][line:596][INFO] epoch [7/160], dis_loss: 9.544471, recon_loss:0.310832, adv_loss:6.546575, ae_loss: 0.441767
+0it [00:00, ?it/s]1it [00:02,  2.31s/it]2it [00:04,  2.14s/it]3it [00:06,  2.10s/it]4it [00:08,  2.12s/it]5it [00:10,  2.18s/it]6it [00:13,  2.25s/it]7it [00:15,  2.22s/it]8it [00:17,  2.22s/it]9it [00:19,  2.24s/it]10it [00:22,  2.27s/it]11it [00:24,  2.24s/it]12it [00:26,  2.21s/it]13it [00:28,  2.18s/it]13it [00:28,  2.20s/it]
+[2026-03-28 01:49:28,767][main.py][line:596][INFO] epoch [8/160], dis_loss: 9.735577, recon_loss:0.284702, adv_loss:5.594050, ae_loss: 0.396579
+[2026-03-28 01:50:05,553][main.py][line:287][INFO] Test: Pixel_AUROC: 0.986999 Pixel_PRO: 0.966442 Image_AUROC: 0.997619 Image_F1: 0.992126 Image_ACC: 0.987952 
+[2026-03-28 01:50:05,556][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8
+[visualize_recon_energy_unified] energy_maps is None (recon_only mode), skipping visualization.
+Traceback (most recent call last):
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 423, in save
+    _save(obj, opened_zipfile, pickle_module, pickle_protocol)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 650, in _save
+    zip_file.write_record(name, storage.data_ptr(), num_bytes)
+RuntimeError: [enforce fail at inline_container.cc:445] . PytorchStreamWriter failed writing file data/0: file write failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "main.py", line 850, in <module>
+    train(args)
+  File "main.py", line 664, in train
+    save_best=save_best,
+  File "/CKAAD/util/checkpoint.py", line 176, in save_checkpoint
+    torch.save(ckpt, ckpt_path, pickle_protocol=4)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 424, in save
+    return
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 290, in __exit__
+    self.file_like.write_end_of_file()
+RuntimeError: [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88072
+terminate called after throwing an instance of 'c10::Error'
+  what():  [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88072
+frame #0: c10::ThrowEnforceNotMet(char const*, int, char const*, std::string const&, void const*) + 0x55 (0x7f91042c1725 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x3cbbf7c (0x7f91345b3f7c in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: mz_zip_writer_add_mem_ex_v2 + 0x567 (0x7f91345ae367 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: caffe2::serialize::PyTorchStreamWriter::writeRecord(std::string const&, void const*, unsigned long, bool) + 0xb9 (0x7f91345b5569 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: caffe2::serialize::PyTorchStreamWriter::writeEndOfFile() + 0x2c3 (0x7f91345b5a33 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: caffe2::serialize::PyTorchStreamWriter::~PyTorchStreamWriter() + 0x125 (0x7f91345b5ca5 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x835c65 (0x7f915c3bac65 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x3edddf (0x7f915bf72ddf in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #8: <unknown function> + 0x3eed3f (0x7f915bf73d3f in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #9: python() [0x4b0858]
+frame #10: python() [0x4c5b50]
+frame #11: python() [0x4c5b66]
+frame #12: python() [0x4c5b66]
+frame #13: python() [0x4c5b66]
+frame #14: python() [0x4946f7]
+<omitting python frames>
+frame #18: python() [0x53fc79]
+frame #20: __libc_start_main + 0xf3 (0x7f917f9ce083 in /usr/lib/x86_64-linux-gnu/libc.so.6)
+frame #21: python() [0x53f9ee]
+
+./mvtec_day1.sh: line 12: 45482 Aborted                 (core dumped) CUDA_VISIBLE_DEVICES=0 python main.py "${base_args[@]}"
+[Day1 Baseline] Done: bottle
+======================================
+[Day1 Baseline] Training: cable
+>>> CMD: python main.py --dataset mvtec --batch_size 16 --lr 15e-04 --d_lr 1e-04 --adv_conf 0.02 --epochs 160 --normal cable --seed 111 --img_size 256 --labeled_anomaly_class_num 1 --labeled_anomaly_class 0 --labeled_anomaly_ratio 0.05 --log_dir ./log_day1 --model wide_resnet50_2 --eval_epoch 8 --layer 1 2 3 --enable_enhancement False --recon_only --checkpoint_interval 8 --checkpoint_mode latest --checkpoint_dir /hy-tmp/checkpoints --use_amp
+[2026-03-28 01:50:09,308][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_cable_a_0_s_111.txt
+[2026-03-28 01:50:09,308][main.py][line:345][INFO] class: cable
+[2026-03-28 01:50:09,308][main.py][line:840][INFO] --------args----------
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] dataset: mvtec
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] batch_size: 16
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] lr: 0.0015
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] epochs: 160
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] img_size: 256
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] normal: cable
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] seed: 111
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-28 01:50:09,308][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] topk: 100
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] use_amp: True
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] compile: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] resume: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] skip_training: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] viz_interval: 0
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-28 01:50:09,309][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] recon_only: True
+[2026-03-28 01:50:09,310][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-28 01:50:09,310][main.py][line:843][INFO] --------args----------
+
+[2026-03-28 01:50:09,444][main.py][line:352][INFO] device: cuda
+[2026-03-28 01:50:09,445][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/cable/n_cable_a_0_s_111  (will train from scratch)
+/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/functional.py:504: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3190.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+[2026-03-28 01:50:34,891][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+load data...
+0it [00:00, ?it/s]1it [00:03,  3.85s/it]2it [00:06,  2.86s/it]3it [00:08,  2.58s/it]4it [00:10,  2.47s/it]5it [00:12,  2.36s/it]6it [00:14,  2.31s/it]7it [00:17,  2.30s/it]8it [00:19,  2.28s/it]9it [00:21,  2.24s/it]10it [00:23,  2.28s/it]11it [00:26,  2.27s/it]12it [00:28,  2.27s/it]13it [00:30,  2.25s/it]14it [00:32,  2.25s/it]14it [00:32,  2.35s/it]
+[2026-03-28 01:51:07,857][main.py][line:596][INFO] epoch [1/160], dis_loss: 14.941406, recon_loss:1.709841, adv_loss:0.137297, ae_loss: 1.712587
+0it [00:00, ?it/s]1it [00:02,  2.06s/it]2it [00:04,  2.17s/it]3it [00:06,  2.03s/it]4it [00:08,  2.08s/it]5it [00:10,  2.14s/it]6it [00:12,  2.16s/it]7it [00:15,  2.23s/it]8it [00:17,  2.27s/it]9it [00:19,  2.26s/it]10it [00:21,  2.23s/it]11it [00:24,  2.24s/it]12it [00:26,  2.22s/it]13it [00:28,  2.25s/it]14it [00:30,  2.24s/it]14it [00:30,  2.21s/it]
+[2026-03-28 01:51:38,732][main.py][line:596][INFO] epoch [2/160], dis_loss: 14.370536, recon_loss:1.203219, adv_loss:1.095686, ae_loss: 1.225131
+0it [00:00, ?it/s]1it [00:02,  2.07s/it]2it [00:04,  2.10s/it]3it [00:06,  2.19s/it]4it [00:08,  2.15s/it]5it [00:10,  2.14s/it]6it [00:12,  2.19s/it]7it [00:15,  2.20s/it]8it [00:17,  2.26s/it]9it [00:19,  2.28s/it]10it [00:21,  2.22s/it]11it [00:24,  2.27s/it]12it [00:26,  2.26s/it]13it [00:28,  2.20s/it]14it [00:30,  2.19s/it]14it [00:30,  2.20s/it]
+[2026-03-28 01:52:09,585][main.py][line:596][INFO] epoch [3/160], dis_loss: 13.152344, recon_loss:0.963533, adv_loss:2.870815, ae_loss: 1.020948
+0it [00:00, ?it/s]1it [00:01,  1.99s/it]2it [00:04,  2.01s/it]3it [00:06,  2.15s/it]4it [00:08,  2.12s/it]5it [00:10,  2.12s/it]6it [00:12,  2.08s/it]7it [00:14,  2.15s/it]8it [00:17,  2.17s/it]9it [00:19,  2.21s/it]10it [00:21,  2.26s/it]11it [00:23,  2.22s/it]12it [00:26,  2.21s/it]13it [00:28,  2.24s/it]14it [00:30,  2.21s/it]14it [00:30,  2.18s/it]
+[2026-03-28 01:52:40,048][main.py][line:596][INFO] epoch [4/160], dis_loss: 11.779018, recon_loss:0.839466, adv_loss:4.711635, ae_loss: 0.933700
+0it [00:00, ?it/s]1it [00:02,  2.07s/it]2it [00:04,  2.14s/it]3it [00:06,  2.20s/it]4it [00:08,  2.19s/it]5it [00:10,  2.14s/it]6it [00:12,  2.15s/it]7it [00:15,  2.25s/it]8it [00:17,  2.22s/it]9it [00:19,  2.18s/it]10it [00:21,  2.16s/it]11it [00:24,  2.21s/it]12it [00:26,  2.24s/it]13it [00:28,  2.22s/it]14it [00:30,  2.19s/it]14it [00:30,  2.19s/it]
+[2026-03-28 01:53:10,724][main.py][line:596][INFO] epoch [5/160], dis_loss: 10.683594, recon_loss:0.751803, adv_loss:6.046038, ae_loss: 0.872718
+0it [00:00, ?it/s]1it [00:02,  2.32s/it]2it [00:04,  2.16s/it]3it [00:06,  2.19s/it]4it [00:08,  2.15s/it]5it [00:10,  2.15s/it]6it [00:12,  2.12s/it]7it [00:15,  2.17s/it]8it [00:17,  2.15s/it]9it [00:19,  2.17s/it]10it [00:21,  2.14s/it]11it [00:23,  2.18s/it]12it [00:26,  2.18s/it]13it [00:28,  2.16s/it]14it [00:30,  2.14s/it]14it [00:30,  2.16s/it]
+[2026-03-28 01:53:40,937][main.py][line:596][INFO] epoch [6/160], dis_loss: 10.457031, recon_loss:0.697068, adv_loss:6.468192, ae_loss: 0.826427
+0it [00:00, ?it/s]1it [00:01,  1.95s/it]2it [00:04,  2.09s/it]3it [00:06,  2.11s/it]4it [00:08,  2.11s/it]5it [00:10,  2.15s/it]6it [00:12,  2.13s/it]7it [00:14,  2.12s/it]8it [00:16,  2.15s/it]9it [00:18,  2.09s/it]10it [00:21,  2.11s/it]11it [00:23,  2.12s/it]12it [00:25,  2.12s/it]13it [00:27,  2.18s/it]14it [00:29,  2.16s/it]14it [00:29,  2.13s/it]
+[2026-03-28 01:54:10,735][main.py][line:596][INFO] epoch [7/160], dis_loss: 10.755580, recon_loss:0.667864, adv_loss:5.689453, ae_loss: 0.781660
+0it [00:00, ?it/s]1it [00:02,  2.26s/it]2it [00:04,  2.19s/it]3it [00:07,  2.38s/it]4it [00:09,  2.43s/it]5it [00:11,  2.36s/it]6it [00:13,  2.32s/it]7it [00:16,  2.28s/it]8it [00:18,  2.22s/it]9it [00:20,  2.21s/it]10it [00:22,  2.24s/it]11it [00:25,  2.25s/it]12it [00:27,  2.29s/it]13it [00:29,  2.20s/it]14it [00:31,  2.14s/it]14it [00:31,  2.25s/it]
+[2026-03-28 01:54:42,183][main.py][line:596][INFO] epoch [8/160], dis_loss: 10.989397, recon_loss:0.631981, adv_loss:4.338449, ae_loss: 0.718751
+[2026-03-28 01:55:46,648][main.py][line:287][INFO] Test: Pixel_AUROC: 0.976561 Pixel_PRO: 0.914625 Image_AUROC: 0.964205 Image_F1: 0.918919 Image_ACC: 0.900000 
+[2026-03-28 01:55:46,651][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8
+[visualize_recon_energy_unified] energy_maps is None (recon_only mode), skipping visualization.
+Traceback (most recent call last):
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 423, in save
+    _save(obj, opened_zipfile, pickle_module, pickle_protocol)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 650, in _save
+    zip_file.write_record(name, storage.data_ptr(), num_bytes)
+RuntimeError: [enforce fail at inline_container.cc:445] . PytorchStreamWriter failed writing file data/0: file write failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "main.py", line 850, in <module>
+    train(args)
+  File "main.py", line 664, in train
+    save_best=save_best,
+  File "/CKAAD/util/checkpoint.py", line 176, in save_checkpoint
+    torch.save(ckpt, ckpt_path, pickle_protocol=4)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 424, in save
+    return
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 290, in __exit__
+    self.file_like.write_end_of_file()
+RuntimeError: [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88071
+terminate called after throwing an instance of 'c10::Error'
+  what():  [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88071
+frame #0: c10::ThrowEnforceNotMet(char const*, int, char const*, std::string const&, void const*) + 0x55 (0x7f0b61ff3725 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x3cbbf7c (0x7f0b922e5f7c in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: mz_zip_writer_add_mem_ex_v2 + 0x567 (0x7f0b922e0367 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: caffe2::serialize::PyTorchStreamWriter::writeRecord(std::string const&, void const*, unsigned long, bool) + 0xb9 (0x7f0b922e7569 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: caffe2::serialize::PyTorchStreamWriter::writeEndOfFile() + 0x2c3 (0x7f0b922e7a33 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: caffe2::serialize::PyTorchStreamWriter::~PyTorchStreamWriter() + 0x125 (0x7f0b922e7ca5 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x835c65 (0x7f0bba0ecc65 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x3edddf (0x7f0bb9ca4ddf in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #8: <unknown function> + 0x3eed3f (0x7f0bb9ca5d3f in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #9: python() [0x4b0858]
+frame #10: python() [0x4c5b50]
+frame #11: python() [0x4c5b66]
+frame #12: python() [0x4c5b66]
+frame #13: python() [0x4c5b66]
+frame #14: python() [0x4946f7]
+<omitting python frames>
+frame #18: python() [0x53fc79]
+frame #20: __libc_start_main + 0xf3 (0x7f0bdd700083 in /usr/lib/x86_64-linux-gnu/libc.so.6)
+frame #21: python() [0x53f9ee]
+
+./mvtec_day1.sh: line 12: 45626 Aborted                 (core dumped) CUDA_VISIBLE_DEVICES=0 python main.py "${base_args[@]}"
+[Day1 Baseline] Done: cable
+======================================
+[Day1 Baseline] Training: hazelnut
+>>> CMD: python main.py --dataset mvtec --batch_size 16 --lr 5e-03 --d_lr 1e-04 --adv_conf 0.02 --epochs 160 --normal hazelnut --seed 111 --img_size 256 --labeled_anomaly_class_num 1 --labeled_anomaly_class 0 --labeled_anomaly_ratio 0.05 --log_dir ./log_day1 --model wide_resnet50_2 --eval_epoch 8 --layer 1 2 3 --enable_enhancement False --recon_only --checkpoint_interval 8 --checkpoint_mode latest --checkpoint_dir /hy-tmp/checkpoints --use_amp
+[2026-03-28 01:55:50,407][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_hazelnut_a_0_s_111.txt
+[2026-03-28 01:55:50,407][main.py][line:345][INFO] class: hazelnut
+[2026-03-28 01:55:50,407][main.py][line:840][INFO] --------args----------
+[2026-03-28 01:55:50,407][main.py][line:842][INFO] dataset: mvtec
+[2026-03-28 01:55:50,407][main.py][line:842][INFO] batch_size: 16
+[2026-03-28 01:55:50,407][main.py][line:842][INFO] lr: 0.005
+[2026-03-28 01:55:50,407][main.py][line:842][INFO] epochs: 160
+[2026-03-28 01:55:50,407][main.py][line:842][INFO] img_size: 256
+[2026-03-28 01:55:50,407][main.py][line:842][INFO] normal: hazelnut
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] seed: 111
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] topk: 100
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] use_amp: True
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] compile: False
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] resume: False
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] skip_training: False
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] viz_interval: 0
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-28 01:55:50,408][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] recon_only: True
+[2026-03-28 01:55:50,409][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-28 01:55:50,409][main.py][line:843][INFO] --------args----------
+
+[2026-03-28 01:55:50,536][main.py][line:352][INFO] device: cuda
+[2026-03-28 01:55:50,536][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/hazelnut/n_hazelnut_a_0_s_111  (will train from scratch)
+/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/functional.py:504: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3190.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+[2026-03-28 01:56:19,077][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+load data...
+0it [00:00, ?it/s]1it [00:03,  3.72s/it]2it [00:06,  2.93s/it]3it [00:08,  2.56s/it]4it [00:10,  2.34s/it]5it [00:12,  2.36s/it]6it [00:14,  2.35s/it]7it [00:17,  2.42s/it]8it [00:20,  2.45s/it]9it [00:22,  2.41s/it]10it [00:24,  2.42s/it]11it [00:26,  2.32s/it]12it [00:29,  2.32s/it]13it [00:31,  2.26s/it]14it [00:33,  2.30s/it]15it [00:35,  2.20s/it]16it [00:37,  2.18s/it]17it [00:39,  2.14s/it]18it [00:41,  2.12s/it]19it [00:44,  2.21s/it]20it [00:46,  2.20s/it]21it [00:48,  2.24s/it]22it [00:51,  2.27s/it]23it [00:53,  2.22s/it]24it [00:55,  2.18s/it]24it [00:55,  2.31s/it]
+[2026-03-28 01:57:14,476][main.py][line:596][INFO] epoch [1/160], dis_loss: 14.786133, recon_loss:1.190017, adv_loss:0.388013, ae_loss: 1.197778
+0it [00:00, ?it/s]1it [00:02,  2.00s/it]2it [00:04,  2.19s/it]3it [00:06,  2.22s/it]4it [00:08,  2.18s/it]5it [00:10,  2.16s/it]6it [00:12,  2.13s/it]7it [00:14,  2.10s/it]8it [00:16,  2.07s/it]9it [00:18,  2.06s/it]10it [00:21,  2.11s/it]11it [00:23,  2.16s/it]12it [00:25,  2.12s/it]13it [00:27,  2.13s/it]14it [00:29,  2.11s/it]15it [00:31,  2.04s/it]16it [00:33,  2.03s/it]17it [00:35,  2.13s/it]18it [00:38,  2.15s/it]19it [00:40,  2.20s/it]20it [00:42,  2.20s/it]21it [00:44,  2.17s/it]22it [00:46,  2.17s/it]23it [00:49,  2.25s/it]24it [00:51,  2.23s/it]24it [00:51,  2.15s/it]
+[2026-03-28 01:58:06,012][main.py][line:596][INFO] epoch [2/160], dis_loss: 13.588542, recon_loss:0.602193, adv_loss:1.961711, ae_loss: 0.641431
+0it [00:00, ?it/s]1it [00:02,  2.71s/it]2it [00:04,  2.44s/it]3it [00:07,  2.29s/it]4it [00:08,  2.11s/it]5it [00:11,  2.17s/it]6it [00:13,  2.18s/it]7it [00:15,  2.23s/it]8it [00:18,  2.26s/it]9it [00:20,  2.23s/it]10it [00:22,  2.23s/it]11it [00:24,  2.15s/it]12it [00:26,  2.14s/it]13it [00:28,  2.12s/it]14it [00:30,  2.17s/it]15it [00:33,  2.18s/it]16it [00:35,  2.22s/it]17it [00:37,  2.18s/it]18it [00:39,  2.10s/it]19it [00:41,  2.11s/it]20it [00:43,  2.15s/it]21it [00:45,  2.17s/it]22it [00:48,  2.19s/it]23it [00:50,  2.22s/it]24it [00:52,  2.28s/it]24it [00:52,  2.21s/it]
+[2026-03-28 01:58:58,949][main.py][line:596][INFO] epoch [3/160], dis_loss: 13.015625, recon_loss:0.493254, adv_loss:1.386475, ae_loss: 0.520985
+0it [00:00, ?it/s]1it [00:02,  2.16s/it]2it [00:04,  2.30s/it]3it [00:06,  2.26s/it]4it [00:08,  2.20s/it]5it [00:11,  2.23s/it]6it [00:13,  2.19s/it]7it [00:15,  2.19s/it]8it [00:17,  2.12s/it]9it [00:19,  2.14s/it]10it [00:21,  2.17s/it]11it [00:24,  2.17s/it]12it [00:26,  2.15s/it]13it [00:28,  2.23s/it]14it [00:30,  2.25s/it]15it [00:33,  2.25s/it]16it [00:35,  2.19s/it]17it [00:37,  2.20s/it]18it [00:39,  2.20s/it]19it [00:41,  2.10s/it]20it [00:43,  2.10s/it]21it [00:45,  2.10s/it]22it [00:47,  2.14s/it]23it [00:49,  2.10s/it]24it [00:52,  2.17s/it]24it [00:52,  2.18s/it]
+[2026-03-28 01:59:51,163][main.py][line:596][INFO] epoch [4/160], dis_loss: 12.514323, recon_loss:0.443850, adv_loss:0.941162, ae_loss: 0.462675
+0it [00:00, ?it/s]1it [00:02,  2.20s/it]2it [00:04,  2.27s/it]3it [00:06,  2.20s/it]4it [00:08,  2.17s/it]5it [00:10,  2.18s/it]6it [00:13,  2.22s/it]7it [00:15,  2.21s/it]8it [00:17,  2.15s/it]9it [00:19,  2.19s/it]10it [00:22,  2.23s/it]11it [00:24,  2.21s/it]12it [00:26,  2.18s/it]13it [00:28,  2.12s/it]14it [00:30,  2.15s/it]15it [00:32,  2.20s/it]16it [00:34,  2.18s/it]17it [00:37,  2.18s/it]18it [00:39,  2.25s/it]19it [00:41,  2.24s/it]20it [00:43,  2.22s/it]21it [00:46,  2.18s/it]22it [00:48,  2.13s/it]23it [00:50,  2.13s/it]24it [00:52,  2.14s/it]24it [00:52,  2.18s/it]
+[2026-03-28 02:00:43,489][main.py][line:596][INFO] epoch [5/160], dis_loss: 12.030599, recon_loss:0.416610, adv_loss:0.923930, ae_loss: 0.435089
+0it [00:00, ?it/s]1it [00:02,  2.09s/it]2it [00:04,  2.04s/it]3it [00:06,  2.22s/it]4it [00:08,  2.20s/it]5it [00:11,  2.24s/it]6it [00:13,  2.22s/it]7it [00:15,  2.17s/it]8it [00:17,  2.19s/it]9it [00:19,  2.19s/it]10it [00:21,  2.19s/it]11it [00:24,  2.20s/it]12it [00:26,  2.21s/it]13it [00:28,  2.20s/it]14it [00:30,  2.18s/it]15it [00:32,  2.15s/it]16it [00:34,  2.12s/it]17it [00:37,  2.16s/it]18it [00:39,  2.14s/it]19it [00:41,  2.15s/it]20it [00:43,  2.12s/it]21it [00:45,  2.15s/it]22it [00:47,  2.17s/it]23it [00:50,  2.19s/it]24it [00:51,  2.12s/it]24it [00:51,  2.17s/it]
+[2026-03-28 02:01:35,468][main.py][line:596][INFO] epoch [6/160], dis_loss: 11.542969, recon_loss:0.396028, adv_loss:1.039490, ae_loss: 0.416818
+0it [00:00, ?it/s]1it [00:02,  2.16s/it]2it [00:04,  2.19s/it]3it [00:06,  2.26s/it]4it [00:08,  2.21s/it]5it [00:11,  2.28s/it]6it [00:13,  2.21s/it]7it [00:15,  2.16s/it]8it [00:17,  2.16s/it]9it [00:19,  2.11s/it]10it [00:21,  2.13s/it]11it [00:23,  2.16s/it]12it [00:26,  2.16s/it]13it [00:28,  2.12s/it]14it [00:30,  2.10s/it]15it [00:32,  2.08s/it]16it [00:34,  2.19s/it]17it [00:36,  2.12s/it]18it [00:38,  2.14s/it]19it [00:41,  2.19s/it]20it [00:43,  2.19s/it]21it [00:45,  2.17s/it]22it [00:47,  2.16s/it]23it [00:49,  2.20s/it]24it [00:52,  2.26s/it]24it [00:52,  2.18s/it]
+[2026-03-28 02:02:27,762][main.py][line:596][INFO] epoch [7/160], dis_loss: 11.321289, recon_loss:0.381546, adv_loss:1.074565, ae_loss: 0.403037
+0it [00:00, ?it/s]1it [00:02,  2.29s/it]2it [00:04,  2.32s/it]3it [00:06,  2.33s/it]4it [00:09,  2.35s/it]5it [00:11,  2.25s/it]6it [00:13,  2.25s/it]7it [00:15,  2.25s/it]8it [00:18,  2.24s/it]9it [00:20,  2.25s/it]10it [00:22,  2.19s/it]11it [00:24,  2.19s/it]12it [00:26,  2.19s/it]13it [00:29,  2.21s/it]14it [00:31,  2.18s/it]15it [00:33,  2.16s/it]16it [00:35,  2.18s/it]17it [00:37,  2.19s/it]18it [00:40,  2.25s/it]19it [00:42,  2.26s/it]20it [00:44,  2.21s/it]21it [00:46,  2.22s/it]22it [00:48,  2.17s/it]23it [00:50,  2.12s/it]24it [00:53,  2.18s/it]24it [00:53,  2.21s/it]
+[2026-03-28 02:03:20,897][main.py][line:596][INFO] epoch [8/160], dis_loss: 11.234701, recon_loss:0.369941, adv_loss:1.206421, ae_loss: 0.394069
+[2026-03-28 02:04:00,607][main.py][line:287][INFO] Test: Pixel_AUROC: 0.989820 Pixel_PRO: 0.953660 Image_AUROC: 0.988929 Image_F1: 0.972222 Image_ACC: 0.963636 
+[2026-03-28 02:04:00,610][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8
+[visualize_recon_energy_unified] energy_maps is None (recon_only mode), skipping visualization.
+Traceback (most recent call last):
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 423, in save
+    _save(obj, opened_zipfile, pickle_module, pickle_protocol)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 650, in _save
+    zip_file.write_record(name, storage.data_ptr(), num_bytes)
+RuntimeError: [enforce fail at inline_container.cc:445] . PytorchStreamWriter failed writing file data/0: file write failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "main.py", line 850, in <module>
+    train(args)
+  File "main.py", line 664, in train
+    save_best=save_best,
+  File "/CKAAD/util/checkpoint.py", line 176, in save_checkpoint
+    torch.save(ckpt, ckpt_path, pickle_protocol=4)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 424, in save
+    return
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 290, in __exit__
+    self.file_like.write_end_of_file()
+RuntimeError: [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88074
+terminate called after throwing an instance of 'c10::Error'
+  what():  [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88074
+frame #0: c10::ThrowEnforceNotMet(char const*, int, char const*, std::string const&, void const*) + 0x55 (0x7fb384be4725 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x3cbbf7c (0x7fb3b4ed6f7c in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: mz_zip_writer_add_mem_ex_v2 + 0x567 (0x7fb3b4ed1367 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: caffe2::serialize::PyTorchStreamWriter::writeRecord(std::string const&, void const*, unsigned long, bool) + 0xb9 (0x7fb3b4ed8569 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: caffe2::serialize::PyTorchStreamWriter::writeEndOfFile() + 0x2c3 (0x7fb3b4ed8a33 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: caffe2::serialize::PyTorchStreamWriter::~PyTorchStreamWriter() + 0x125 (0x7fb3b4ed8ca5 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x835c65 (0x7fb3dccddc65 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x3edddf (0x7fb3dc895ddf in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #8: <unknown function> + 0x3eed3f (0x7fb3dc896d3f in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #9: python() [0x4b0858]
+frame #10: python() [0x4c5b50]
+frame #11: python() [0x4c5b66]
+frame #12: python() [0x4c5b66]
+frame #13: python() [0x4c5b66]
+frame #14: python() [0x4946f7]
+<omitting python frames>
+frame #18: python() [0x53fc79]
+frame #20: __libc_start_main + 0xf3 (0x7fb4002f1083 in /usr/lib/x86_64-linux-gnu/libc.so.6)
+frame #21: python() [0x53f9ee]
+
+./mvtec_day1.sh: line 12: 45780 Aborted                 (core dumped) CUDA_VISIBLE_DEVICES=0 python main.py "${base_args[@]}"
+[Day1 Baseline] Done: hazelnut
+======================================
+[Day1 Baseline] Training: leather
+>>> CMD: python main.py --dataset mvtec --batch_size 16 --lr 5e-03 --d_lr 1e-04 --adv_conf 0.02 --epochs 160 --normal leather --seed 111 --img_size 256 --labeled_anomaly_class_num 1 --labeled_anomaly_class 0 --labeled_anomaly_ratio 0.05 --log_dir ./log_day1 --model wide_resnet50_2 --eval_epoch 8 --layer 1 2 3 --enable_enhancement False --recon_only --checkpoint_interval 8 --checkpoint_mode latest --checkpoint_dir /hy-tmp/checkpoints --use_amp
+[2026-03-28 02:04:05,444][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_leather_a_0_s_111.txt
+[2026-03-28 02:04:05,445][main.py][line:345][INFO] class: leather
+[2026-03-28 02:04:05,445][main.py][line:840][INFO] --------args----------
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] dataset: mvtec
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] batch_size: 16
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] lr: 0.005
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] epochs: 160
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] img_size: 256
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] normal: leather
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] seed: 111
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-28 02:04:05,445][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] topk: 100
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] use_amp: True
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] compile: False
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] resume: False
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] skip_training: False
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] viz_interval: 0
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-28 02:04:05,446][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] recon_only: True
+[2026-03-28 02:04:05,447][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-28 02:04:05,447][main.py][line:843][INFO] --------args----------
+
+[2026-03-28 02:04:05,574][main.py][line:352][INFO] device: cuda
+[2026-03-28 02:04:05,574][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/leather/n_leather_a_0_s_111  (will train from scratch)
+/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/functional.py:504: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3190.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+[2026-03-28 02:04:27,857][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+load data...
+0it [00:00, ?it/s]1it [00:03,  3.58s/it]2it [00:05,  2.84s/it]3it [00:07,  2.48s/it]4it [00:10,  2.44s/it]5it [00:12,  2.40s/it]6it [00:14,  2.33s/it]7it [00:17,  2.30s/it]8it [00:19,  2.26s/it]9it [00:21,  2.24s/it]10it [00:23,  2.23s/it]11it [00:25,  2.21s/it]12it [00:28,  2.24s/it]13it [00:30,  2.34s/it]14it [00:33,  2.34s/it]15it [00:35,  2.39s/it]15it [00:35,  2.37s/it]
+[2026-03-28 02:05:03,411][main.py][line:596][INFO] epoch [1/160], dis_loss: 14.910937, recon_loss:1.440712, adv_loss:0.171391, ae_loss: 1.444140
+0it [00:00, ?it/s]1it [00:02,  2.51s/it]2it [00:04,  2.37s/it]3it [00:07,  2.30s/it]4it [00:09,  2.26s/it]5it [00:11,  2.28s/it]6it [00:13,  2.26s/it]7it [00:16,  2.32s/it]8it [00:18,  2.25s/it]9it [00:20,  2.20s/it]10it [00:22,  2.17s/it]11it [00:24,  2.19s/it]12it [00:26,  2.13s/it]13it [00:28,  2.17s/it]14it [00:31,  2.22s/it]15it [00:33,  2.19s/it]15it [00:33,  2.23s/it]
+[2026-03-28 02:05:36,837][main.py][line:596][INFO] epoch [2/160], dis_loss: 14.280208, recon_loss:0.729552, adv_loss:1.101530, ae_loss: 0.751584
+0it [00:00, ?it/s]1it [00:02,  2.13s/it]2it [00:04,  2.22s/it]3it [00:06,  2.27s/it]4it [00:08,  2.22s/it]5it [00:10,  2.18s/it]6it [00:13,  2.21s/it]7it [00:15,  2.30s/it]8it [00:17,  2.27s/it]9it [00:20,  2.28s/it]10it [00:22,  2.26s/it]11it [00:24,  2.30s/it]12it [00:27,  2.28s/it]13it [00:29,  2.29s/it]14it [00:31,  2.30s/it]15it [00:33,  2.23s/it]15it [00:33,  2.25s/it]
+[2026-03-28 02:06:10,626][main.py][line:596][INFO] epoch [3/160], dis_loss: 13.529167, recon_loss:0.528370, adv_loss:1.743099, ae_loss: 0.563235
+0it [00:00, ?it/s]1it [00:02,  2.30s/it]2it [00:04,  2.25s/it]3it [00:06,  2.27s/it]4it [00:08,  2.16s/it]5it [00:10,  2.13s/it]6it [00:13,  2.14s/it]7it [00:14,  2.08s/it]8it [00:17,  2.07s/it]9it [00:19,  2.13s/it]10it [00:21,  2.20s/it]11it [00:24,  2.34s/it]12it [00:26,  2.31s/it]13it [00:28,  2.20s/it]14it [00:30,  2.23s/it]15it [00:33,  2.22s/it]15it [00:33,  2.20s/it]
+[2026-03-28 02:06:43,635][main.py][line:596][INFO] epoch [4/160], dis_loss: 13.209375, recon_loss:0.451396, adv_loss:1.055176, ae_loss: 0.472501
+0it [00:00, ?it/s]1it [00:02,  2.28s/it]2it [00:04,  2.34s/it]3it [00:06,  2.28s/it]4it [00:08,  2.22s/it]5it [00:11,  2.21s/it]6it [00:13,  2.16s/it]7it [00:15,  2.14s/it]8it [00:17,  2.11s/it]9it [00:19,  2.17s/it]10it [00:21,  2.14s/it]11it [00:23,  2.15s/it]12it [00:25,  2.11s/it]13it [00:28,  2.17s/it]14it [00:30,  2.15s/it]15it [00:32,  2.23s/it]15it [00:32,  2.19s/it]
+[2026-03-28 02:07:16,434][main.py][line:596][INFO] epoch [5/160], dis_loss: 12.611979, recon_loss:0.414089, adv_loss:0.804525, ae_loss: 0.430180
+0it [00:00, ?it/s]1it [00:02,  2.07s/it]2it [00:04,  2.19s/it]3it [00:06,  2.26s/it]4it [00:08,  2.28s/it]5it [00:11,  2.20s/it]6it [00:13,  2.38s/it]7it [00:16,  2.36s/it]8it [00:18,  2.28s/it]9it [00:20,  2.36s/it]10it [00:22,  2.30s/it]11it [00:25,  2.32s/it]12it [00:27,  2.31s/it]13it [00:29,  2.31s/it]14it [00:32,  2.29s/it]15it [00:34,  2.25s/it]15it [00:34,  2.29s/it]
+[2026-03-28 02:07:50,715][main.py][line:596][INFO] epoch [6/160], dis_loss: 12.148958, recon_loss:0.392916, adv_loss:0.939421, ae_loss: 0.411705
+0it [00:00, ?it/s]1it [00:02,  2.01s/it]2it [00:04,  2.09s/it]3it [00:06,  2.15s/it]4it [00:08,  2.05s/it]5it [00:10,  2.01s/it]6it [00:12,  2.10s/it]7it [00:14,  2.19s/it]8it [00:16,  2.17s/it]9it [00:19,  2.14s/it]10it [00:21,  2.08s/it]11it [00:23,  2.11s/it]12it [00:25,  2.13s/it]13it [00:27,  2.13s/it]14it [00:29,  2.07s/it]15it [00:31,  2.10s/it]15it [00:31,  2.11s/it]
+[2026-03-28 02:08:22,338][main.py][line:596][INFO] epoch [7/160], dis_loss: 11.765625, recon_loss:0.377806, adv_loss:0.999284, ae_loss: 0.397791
+0it [00:00, ?it/s]1it [00:02,  2.18s/it]2it [00:04,  2.31s/it]3it [00:06,  2.24s/it]4it [00:09,  2.28s/it]5it [00:11,  2.21s/it]6it [00:13,  2.17s/it]7it [00:15,  2.16s/it]8it [00:17,  2.20s/it]9it [00:19,  2.22s/it]10it [00:22,  2.23s/it]11it [00:24,  2.22s/it]12it [00:26,  2.12s/it]13it [00:28,  2.10s/it]14it [00:30,  2.07s/it]15it [00:32,  2.09s/it]15it [00:32,  2.17s/it]
+[2026-03-28 02:08:54,817][main.py][line:596][INFO] epoch [8/160], dis_loss: 11.344792, recon_loss:0.370365, adv_loss:1.202441, ae_loss: 0.394415
+[2026-03-28 02:09:48,524][main.py][line:287][INFO] Test: Pixel_AUROC: 0.994665 Pixel_PRO: 0.991432 Image_AUROC: 1.000000 Image_F1: 1.000000 Image_ACC: 1.000000 
+[2026-03-28 02:09:48,527][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8
+[visualize_recon_energy_unified] energy_maps is None (recon_only mode), skipping visualization.
+Traceback (most recent call last):
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 423, in save
+    _save(obj, opened_zipfile, pickle_module, pickle_protocol)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 650, in _save
+    zip_file.write_record(name, storage.data_ptr(), num_bytes)
+RuntimeError: [enforce fail at inline_container.cc:445] . PytorchStreamWriter failed writing file data/0: file write failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "main.py", line 850, in <module>
+    train(args)
+  File "main.py", line 664, in train
+    save_best=save_best,
+  File "/CKAAD/util/checkpoint.py", line 176, in save_checkpoint
+    torch.save(ckpt, ckpt_path, pickle_protocol=4)
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 424, in save
+    return
+  File "/usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/serialization.py", line 290, in __exit__
+    self.file_like.write_end_of_file()
+RuntimeError: [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88073
+terminate called after throwing an instance of 'c10::Error'
+  what():  [enforce fail at inline_container.cc:325] . unexpected pos 88128 vs 88073
+frame #0: c10::ThrowEnforceNotMet(char const*, int, char const*, std::string const&, void const*) + 0x55 (0x7fd515557725 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x3cbbf7c (0x7fd545849f7c in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: mz_zip_writer_add_mem_ex_v2 + 0x567 (0x7fd545844367 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: caffe2::serialize::PyTorchStreamWriter::writeRecord(std::string const&, void const*, unsigned long, bool) + 0xb9 (0x7fd54584b569 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: caffe2::serialize::PyTorchStreamWriter::writeEndOfFile() + 0x2c3 (0x7fd54584ba33 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: caffe2::serialize::PyTorchStreamWriter::~PyTorchStreamWriter() + 0x125 (0x7fd54584bca5 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_cpu.so)
+frame #6: <unknown function> + 0x835c65 (0x7fd56d650c65 in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #7: <unknown function> + 0x3edddf (0x7fd56d208ddf in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #8: <unknown function> + 0x3eed3f (0x7fd56d209d3f in /usr/local/miniconda3/envs/ckaad/lib/python3.7/site-packages/torch/lib/libtorch_python.so)
+frame #9: python() [0x4b0858]
+frame #10: python() [0x4c5b50]
+frame #11: python() [0x4c5b66]
+frame #12: python() [0x4c5b66]
+frame #13: python() [0x4c5b66]
+frame #14: python() [0x4946f7]
+<omitting python frames>
+frame #18: python() [0x53fc79]
+frame #20: __libc_start_main + 0xf3 (0x7fd590c64083 in /usr/lib/x86_64-linux-gnu/libc.so.6)
+frame #21: python() [0x53f9ee]
+
+./mvtec_day1.sh: line 12: 45954 Aborted                 (core dumped) CUDA_VISIBLE_DEVICES=0 python main.py "${base_args[@]}"
+[Day1 Baseline] Done: leather
+======================================
+[Day1] All categories completed!
+Checkpoints saved in: ./log_day1/

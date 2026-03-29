@@ -781,3 +781,90 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs,
                 cnt += 1
             # 每个 batch 结束后更新全局偏移量
             global_offset += batch_size
+
+
+# =============================================================================
+# 按层级分别评估能量图
+# =============================================================================
+def evaluation_per_layer(encoder, ed, discriminator, dataloader, device, args):
+    """
+    分别评估每一层能量图的 Image_AUROC, Pixel_AUROC, Pixel_PRO
+
+    参数:
+        encoder: 预训练特征提取器
+        ed: 编码器-解码器模型
+        discriminator: 训练好的判别器模型
+        dataloader: 数据加载器
+        device: 计算设备
+        args: 命令行参数
+
+    返回:
+        metrics_per_layer: dict，每层一个子字典，包含:
+            - Image_AUROC, Pixel_AUROC, Pixel_PRO
+    """
+    encoder.eval()
+    ed.eval()
+    discriminator.eval()
+
+    num_layers = 3
+    metrics_per_layer = {}
+
+    for layer_idx in range(num_layers):
+        pixel_gt_list = []
+        pixel_score_list = []
+        sample_gt_list = []
+        sample_score_list = []
+        all_gts_list = []
+        all_maps_list = []
+
+        with torch.no_grad():
+            for img, gt, label in dataloader:
+                img = img.to(device)
+                inputs = encoder(img)
+                outputs = ed(inputs)
+
+                # 计算能量图
+                energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
+                layer_map = energy_maps[layer_idx].cpu().numpy().squeeze(1)  # [N, H, W]
+
+                gt = gt.squeeze(1).cpu().numpy()
+                gt[gt > 0.5] = 1
+                gt[gt <= 0.5] = 0
+
+                for i in range(layer_map.shape[0]):
+                    pixel_gt_list.append(gt[i].reshape(-1).astype(int))
+                    pixel_score_list.append(layer_map[i].reshape(-1))
+
+                    sample_gt_list.append(np.array([np.max(gt[i].astype(int))]))
+                    # 取 top-k 像素计算图像级分数
+                    flat_score = layer_map[i].reshape(-1)
+                    topk = min(args.topk, len(flat_score))
+                    topk_scores = np.partition(flat_score, -topk)[-topk:]
+                    sample_score_list.append(np.array([np.mean(topk_scores)]))
+
+                    all_gts_list.append(gt[i])
+                    all_maps_list.append(layer_map[i])
+
+        pixel_gt_list = np.concatenate(pixel_gt_list).reshape(-1)
+        pixel_score_list = np.concatenate(pixel_score_list).reshape(-1)
+        sample_gt_list = np.concatenate(sample_gt_list)
+        sample_score_list = np.concatenate(sample_score_list)
+        all_gts_arr = np.stack(all_gts_list)
+        all_maps_arr = np.stack(all_maps_list)
+
+        # 计算 Pixel_PRO
+        pro_scores = []
+        for i in range(len(all_gts_arr)):
+            if all_gts_arr[i].max() > 0:
+                pro_scores.append(compute_pro(
+                    all_gts_arr[i].reshape(1, *all_gts_arr[i].shape).astype(int),
+                    all_maps_arr[i].reshape(1, *all_maps_arr[i].shape)
+                ))
+
+        metrics_per_layer[layer_idx + 1] = {
+            'Image_AUROC': round(roc_auc_score(sample_gt_list, sample_score_list), 4),
+            'Pixel_AUROC': round(roc_auc_score(pixel_gt_list, pixel_score_list), 4),
+            'Pixel_PRO': round(np.mean(pro_scores), 4) if pro_scores else 0.0,
+        }
+
+    return metrics_per_layer

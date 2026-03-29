@@ -1,0 +1,96 @@
+[2026-03-27 12:05:40,013][main.py][line:344][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_carpet_a_0_s_111.txt
+[2026-03-27 12:05:40,013][main.py][line:345][INFO] class: carpet
+[2026-03-27 12:05:40,013][main.py][line:840][INFO] --------args----------
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] dataset: mvtec
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] batch_size: 16
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] lr: 0.005
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] epochs: 20
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] img_size: 256
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] normal: carpet
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] seed: 111
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] labeled_anomaly_class_num: 1
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] labeled_anomaly_class: 0
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] log_dir: ./log_day1
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] eval_epoch: 8
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] layer: [1, 2, 3]
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] d_lr: 0.0001
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] topk: 100
+[2026-03-27 12:05:40,014][main.py][line:842][INFO] use_amp: True
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] compile: False
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] checkpoint_interval: 8
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] checkpoint_mode: latest
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] resume: False
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] skip_training: False
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] viz_interval: 0
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] enable_enhancement: [False]
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-27 12:05:40,015][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-27 12:05:40,016][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-27 12:05:40,016][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-27 12:05:40,016][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-27 12:05:40,016][main.py][line:842][INFO] recon_only: True
+[2026-03-27 12:05:40,016][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-27 12:05:40,016][main.py][line:843][INFO] --------args----------
+
+[2026-03-27 12:05:40,194][main.py][line:352][INFO] device: cuda
+[2026-03-27 12:05:40,194][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/carpet/n_carpet_a_0_s_111  (will train from scratch)
+[2026-03-27 12:06:05,480][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+[2026-03-27 12:06:41,317][main.py][line:596][INFO] epoch [1/20], dis_loss: 14.923254, recon_loss:1.383620, adv_loss:0.146641, ae_loss: 1.386553
+[2026-03-27 12:07:13,561][main.py][line:596][INFO] epoch [2/20], dis_loss: 14.428768, recon_loss:0.678662, adv_loss:0.898222, ae_loss: 0.696627
+[2026-03-27 12:07:45,975][main.py][line:596][INFO] epoch [3/20], dis_loss: 13.904871, recon_loss:0.527054, adv_loss:1.022920, ae_loss: 0.547515
+[2026-03-27 12:08:21,001][main.py][line:596][INFO] epoch [4/20], dis_loss: 13.176471, recon_loss:0.462046, adv_loss:0.692412, ae_loss: 0.475894
+[2026-03-27 12:08:54,616][main.py][line:596][INFO] epoch [5/20], dis_loss: 12.168199, recon_loss:0.425230, adv_loss:0.777889, ae_loss: 0.440787
+[2026-03-27 12:09:28,593][main.py][line:596][INFO] epoch [6/20], dis_loss: 11.494485, recon_loss:0.410621, adv_loss:0.888844, ae_loss: 0.428398
+[2026-03-27 12:10:03,270][main.py][line:596][INFO] epoch [7/20], dis_loss: 10.815257, recon_loss:0.403905, adv_loss:1.011690, ae_loss: 0.424140
+[2026-03-27 12:10:37,109][main.py][line:596][INFO] epoch [8/20], dis_loss: 10.383272, recon_loss:0.398981, adv_loss:1.021255, ae_loss: 0.419405
+[2026-03-27 12:11:23,957][main.py][line:287][INFO] Test: Pixel_AUROC: 0.993477 Pixel_PRO: 0.978892 Image_AUROC: 1.000000 Image_F1: 1.000000 Image_ACC: 1.000000 
+[2026-03-27 12:11:23,959][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 8
+[2026-03-27 12:11:25,818][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/carpet/n_carpet_a_0_s_111/epoch_0008.pth
+[2026-03-27 12:11:27,988][checkpoint.py][line:182][INFO] Best checkpoint saved to: /hy-tmp/checkpoints/mvtec/carpet/n_carpet_a_0_s_111/best.pth
+[2026-03-27 12:12:02,180][main.py][line:596][INFO] epoch [9/20], dis_loss: 10.135570, recon_loss:0.395420, adv_loss:1.044261, ae_loss: 0.416304
+[2026-03-27 12:12:35,650][main.py][line:596][INFO] epoch [10/20], dis_loss: 9.943934, recon_loss:0.389237, adv_loss:1.022001, ae_loss: 0.409676
+[2026-03-27 12:13:08,591][main.py][line:596][INFO] epoch [11/20], dis_loss: 9.695772, recon_loss:0.385330, adv_loss:1.072151, ae_loss: 0.406772
+[2026-03-27 12:13:43,161][main.py][line:596][INFO] epoch [12/20], dis_loss: 9.495404, recon_loss:0.382441, adv_loss:1.064740, ae_loss: 0.403735
+[2026-03-27 12:14:16,287][main.py][line:596][INFO] epoch [13/20], dis_loss: 9.324449, recon_loss:0.377401, adv_loss:1.014160, ae_loss: 0.397684
+[2026-03-27 12:14:49,478][main.py][line:596][INFO] epoch [14/20], dis_loss: 9.096967, recon_loss:0.371505, adv_loss:0.997501, ae_loss: 0.391454
+[2026-03-27 12:15:21,501][main.py][line:596][INFO] epoch [15/20], dis_loss: 8.907629, recon_loss:0.368859, adv_loss:1.038976, ae_loss: 0.389638
+[2026-03-27 12:15:56,002][main.py][line:596][INFO] epoch [16/20], dis_loss: 8.806066, recon_loss:0.366057, adv_loss:0.997903, ae_loss: 0.386015
+[2026-03-27 12:16:38,400][main.py][line:287][INFO] Test: Pixel_AUROC: 0.993573 Pixel_PRO: 0.979447 Image_AUROC: 1.000000 Image_F1: 1.000000 Image_ACC: 1.000000 
+[2026-03-27 12:16:38,403][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 16
+[2026-03-27 12:16:40,326][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/carpet/n_carpet_a_0_s_111/epoch_0016.pth
+[2026-03-27 12:17:14,205][main.py][line:596][INFO] epoch [17/20], dis_loss: 8.744485, recon_loss:0.363571, adv_loss:1.091538, ae_loss: 0.385401
+[2026-03-27 12:17:48,361][main.py][line:596][INFO] epoch [18/20], dis_loss: 8.687500, recon_loss:0.361697, adv_loss:0.947725, ae_loss: 0.380650
+[2026-03-27 12:18:22,170][main.py][line:596][INFO] epoch [19/20], dis_loss: 8.658088, recon_loss:0.361524, adv_loss:1.006692, ae_loss: 0.381657
+[2026-03-27 12:18:56,002][main.py][line:596][INFO] epoch [20/20], dis_loss: 8.631434, recon_loss:0.359909, adv_loss:1.012006, ae_loss: 0.380150
+[2026-03-27 12:18:58,045][checkpoint.py][line:177][INFO] Checkpoint saved to: /hy-tmp/checkpoints/mvtec/carpet/n_carpet_a_0_s_111/epoch_0020.pth
+[2026-03-27 12:19:00,099][checkpoint.py][line:187][INFO] Final checkpoint saved to: /hy-tmp/checkpoints/mvtec/carpet/n_carpet_a_0_s_111/final.pth
+[2026-03-27 12:19:01,137][main.py][line:698][INFO] Final loss curve saved to: ./pic/loss_curve_final_n_carpet_a_0_s_111.jpg
+[2026-03-27 12:19:01,137][main.py][line:706][INFO] Starting post-training visualization...
+[2026-03-27 12:19:01,137][main.py][line:724][INFO] Generating anomaly map visualization...
+[2026-03-27 12:19:06,705][main.py][line:753][INFO] Selected 3 samples for type 'color'
+[2026-03-27 12:19:06,705][main.py][line:753][INFO] Selected 3 samples for type 'cut'
+[2026-03-27 12:19:06,705][main.py][line:753][INFO] Selected 3 samples for type 'good'
+[2026-03-27 12:19:06,705][main.py][line:753][INFO] Selected 3 samples for type 'hole'
+[2026-03-27 12:19:06,705][main.py][line:753][INFO] Selected 3 samples for type 'metal_contamination'
+[2026-03-27 12:19:06,705][main.py][line:753][INFO] Selected 3 samples for type 'thread'
+[2026-03-27 12:19:06,705][main.py][line:755][INFO] Total selected 18 samples for visualization
+[2026-03-27 12:19:06,706][main.py][line:765][INFO] Running evaluation for visualizations (single forward pass)...
+[2026-03-27 12:19:13,737][main.py][line:776][INFO] Test: Pixel_AUROC: 0.996906 Pixel_PRO: 0.989760 Image_AUROC: 1.000000 Image_F1: 1.000000 Image_ACC: 1.000000 
+[2026-03-27 12:19:13,738][main.py][line:797][INFO] Generating anomaly map visualization...
+[2026-03-27 12:19:28,383][main.py][line:803][INFO] Anomaly map visualization completed. Results saved to: /hy-tmp/results/mvtec_carpet_final_epoch_20
+[2026-03-27 12:19:28,383][main.py][line:808][INFO] Generating recon vs energy visualizations (using cached maps)...
+[2026-03-27 12:19:28,385][main.py][line:828][INFO] Energy visualization completed. Results saved to: /hy-tmp/results/mvtec_carpet_recon_vs_energy_final_epoch_20
+[2026-03-27 12:19:28,385][main.py][line:833][INFO] All post-training visualizations completed successfully!

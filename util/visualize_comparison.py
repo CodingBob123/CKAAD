@@ -16,7 +16,8 @@ from scipy.ndimage import gaussian_filter
 def visualize_recon_energy_unified(encoder, ed, discriminator, dataloader,
                                     args, device, epochs,
                                     cached_maps=None, cached_imgs_denorm=None,
-                                    enable_stats=True):
+                                    enable_stats=True,
+                                    output_root=None):
     """
     统一可视化：统计对比 + 重建误差 vs 能量图对比
     所有输出共享同一次数据前向传递（通过 cached_maps 传入），
@@ -37,6 +38,8 @@ def visualize_recon_energy_unified(encoder, ed, discriminator, dataloader,
         cached_imgs_denorm: torch.Tensor 或 None，[N,3,H,W] 反归一化后的图像
             若为 None，则在函数内部重新计算
         enable_stats: bool，是否打印统计信息
+        output_root: str 或 None，可视化结果输出根目录
+            若为 None，则使用默认路径 './results/{dataset}_{normal}_recon_vs_energy_epoch_{epoch}'
     """
     encoder.eval()
     ed.eval()
@@ -119,9 +122,12 @@ def visualize_recon_energy_unified(encoder, ed, discriminator, dataloader,
     # ---------------------------------------------------------------
     # 生成可视化图像（遍历 dataloader 获取图像 / 标签 / GT）
     # ---------------------------------------------------------------
-    # result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
-    result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
-        args.dataset, args.normal, epochs)
+    # 支持自定义 output_root
+    if output_root is not None:
+        result_path = os.path.join(output_root, f'{args.dataset}_{args.normal}_recon_vs_energy_epoch_{epochs}')
+    else:
+        result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
+            args.dataset, args.normal, epochs)
     os.makedirs(result_path, exist_ok=True)
 
     # 若传入预拼接的图像缓存，则可以按索引切片取出当前 batch
@@ -273,7 +279,8 @@ def visualize_recon_energy_unified(encoder, ed, discriminator, dataloader,
 def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
                                    args, device, epochs,
                                    cached_maps=None, cached_imgs_denorm=None,
-                                   enable_stats=True):
+                                   enable_stats=True,
+                                   output_root=None):
     """
     能量差模式可视化：重建误差 vs 输入/输出/差值能量图对比
     用于 V3-V6 的能量差模式可视化
@@ -300,6 +307,8 @@ def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
             - final_maps: np.ndarray [N, H, W] 融合后的异常图
         cached_imgs_denorm: torch.Tensor 或 None，[N,3,H,W] 反归一化后的图像
         enable_stats: bool，是否打印统计信息
+        output_root: str 或 None，可视化结果输出根目录
+            若为 None，则使用默认路径 './results/{dataset}_{normal}_energy_diff_epoch_{epoch}'
     """
     encoder.eval()
     ed.eval()
@@ -395,9 +404,12 @@ def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
     # ---------------------------------------------------------------
     # 生成可视化图像
     # ---------------------------------------------------------------
-    # result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
-    result_path = './results/{}_{}_energy_diff_epoch_{}'.format(
-        args.dataset, args.normal, epochs)
+    # 支持自定义 output_root
+    if output_root is not None:
+        result_path = os.path.join(output_root, f'{args.dataset}_{args.normal}_energy_diff_epoch_{epochs}')
+    else:
+        result_path = './results/{}_{}_energy_diff_epoch_{}'.format(
+            args.dataset, args.normal, epochs)
     os.makedirs(result_path, exist_ok=True)
 
     use_cached_imgs = cached_imgs_denorm is not None
@@ -691,9 +703,12 @@ def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
     # ---------------------------------------------------------------
     # 生成可视化图像（遍历 dataloader 获取图像 / 标签 / GT）
     # ---------------------------------------------------------------
-    # result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
-    result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
-        args.dataset, args.normal, epochs)
+    # 支持自定义 output_root
+    if output_root is not None:
+        result_path = os.path.join(output_root, f'{args.dataset}_{args.normal}_recon_vs_energy_epoch_{epochs}')
+    else:
+        result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
+            args.dataset, args.normal, epochs)
     os.makedirs(result_path, exist_ok=True)
 
     # 若传入预拼接的图像缓存，则可以按索引切片取出当前 batch

@@ -1,0 +1,53 @@
+[2026-03-29 08:02:51,282][main.py][line:344][INFO] log file: ./log_test/lan0.00_acn0/mvtec/n_bottle_a_1_s_111.txt
+[2026-03-29 08:02:51,282][main.py][line:345][INFO] class: bottle
+[2026-03-29 08:02:51,282][main.py][line:840][INFO] --------args----------
+[2026-03-29 08:02:51,282][main.py][line:842][INFO] dataset: mvtec
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] batch_size: 16
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] lr: 0.005
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] epochs: 16
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] img_size: 32
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] normal: bottle
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] seed: 111
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] labeled_anomaly_class_num: 0
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] labeled_anomaly_class: 1
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] labeled_anomaly_ratio: 0.0
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] log_dir: ./log_test
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] model: wide_resnet50_2
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] eval_epoch: 1
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] layer: [2]
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] d_lr: 1e-05
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] adv_conf: 0.02
+[2026-03-29 08:02:51,283][main.py][line:842][INFO] topk: 100
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] use_amp: True
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] compile: False
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] checkpoint_interval: 4
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] checkpoint_mode: best
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] resume: False
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] checkpoint_path: None
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] checkpoint_dir: /hy-tmp/checkpoints
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] skip_training: False
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] list_checkpoints: False
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] enable_epoch_viz: False
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] viz_interval: 0
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] viz_samples_per_type: 3
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] enable_recon_energy_viz: True
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] viz_eval_interval: 0
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] enable_enhancement: [False, False, False]
+[2026-03-29 08:02:51,284][main.py][line:842][INFO] feature2_fusion_weight: 0.5
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] gate_k: 0.45
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] gate_te: 0.6
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] gate_sigma: 0.0
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] recon_norm_quantile_low: 0.0
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] recon_norm_quantile_high: 0.98
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] recon_compress: sqrt
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] fuse_output_norm: True
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] recon_only: False
+[2026-03-29 08:02:51,285][main.py][line:842][INFO] energy_diff_mode: False
+[2026-03-29 08:02:51,285][main.py][line:843][INFO] --------args----------
+
+[2026-03-29 08:02:51,456][main.py][line:352][INFO] device: cuda
+[2026-03-29 08:02:51,456][main.py][line:378][INFO] No checkpoint found in: /hy-tmp/checkpoints/mvtec/bottle/n_bottle_a_1_s_111  (will train from scratch)
+[2026-03-29 08:03:02,739][main.py][line:456][INFO] AMP enabled (autocast + GradScaler)
+[2026-03-29 08:03:05,299][main.py][line:596][INFO] epoch [1/16], dis_loss: 0.000000, recon_loss:0.372692, adv_loss:0.000000, ae_loss: 0.372692
+[2026-03-29 08:03:22,209][main.py][line:287][INFO] Test: Pixel_AUROC: 0.772274 Pixel_PRO: 0.537620 Image_AUROC: 0.335637 Image_F1: 0.855172 Image_ACC: 0.746988 
+[2026-03-29 08:03:30,951][main.py][line:320][INFO] Recon vs Energy viz saved at epoch 1

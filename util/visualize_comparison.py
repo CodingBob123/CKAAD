@@ -119,7 +119,8 @@ def visualize_recon_energy_unified(encoder, ed, discriminator, dataloader,
     # ---------------------------------------------------------------
     # 生成可视化图像（遍历 dataloader 获取图像 / 标签 / GT）
     # ---------------------------------------------------------------
-    result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
+    # result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
+    result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
         args.dataset, args.normal, epochs)
     os.makedirs(result_path, exist_ok=True)
 
@@ -394,7 +395,8 @@ def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
     # ---------------------------------------------------------------
     # 生成可视化图像
     # ---------------------------------------------------------------
-    result_path = '/hy-tmp/results/{}_{}_energy_diff_epoch_{}'.format(
+    # result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
+    result_path = './results/{}_{}_energy_diff_epoch_{}'.format(
         args.dataset, args.normal, epochs)
     os.makedirs(result_path, exist_ok=True)
 
@@ -689,7 +691,8 @@ def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
     # ---------------------------------------------------------------
     # 生成可视化图像（遍历 dataloader 获取图像 / 标签 / GT）
     # ---------------------------------------------------------------
-    result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
+    # result_path = '/hy-tmp/results/{}_{}_recon_vs_energy_epoch_{}'.format(
+    result_path = './results/{}_{}_recon_vs_energy_epoch_{}'.format(
         args.dataset, args.normal, epochs)
     os.makedirs(result_path, exist_ok=True)
 

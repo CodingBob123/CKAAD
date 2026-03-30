@@ -343,69 +343,6 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
-
-def calculate_single_map_metrics(map_np, gt_np, topk=100):
-    """
-    计算单个 map（重建误差图/能量图/融合图）的 Image-AUROC、Pixel-AUROC 和 PRO。
-
-    参数:
-        map_np: np.ndarray [N, H, W] 异常得分图
-        gt_np:  np.ndarray [N, H, W] ground truth mask (0 或 1)
-        topk:   int，计算 image-level score 时取 topk 像素的均值
-
-    返回:
-        metrics: dict，包含:
-            - 'Image-AUROC': 图像级 AUROC
-            - 'Pixel-AUROC': 像素级 AUROC
-            - 'PRO':         per-region overlap
-    """
-    # 确保 gt 是二值的
-    gt_binary = gt_np.copy()
-    gt_binary[gt_binary > 0.5] = 1
-    gt_binary[gt_binary <= 0.5] = 0
-
-    # ---------- Pixel-level AUROC ----------
-    pixel_gt_flat = gt_binary.astype(int).reshape(-1)
-    pixel_score_flat = map_np.reshape(-1)
-    pixel_auroc = roc_auc_score(pixel_gt_flat, pixel_score_flat)
-
-    # ---------- PRO ----------
-    # 只对有异常区域的样本计算 PRO
-    sample_has_anomaly = gt_binary.max(axis=(1, 2)) > 0
-    if sample_has_anomaly.sum() > 0:
-        pro_list = []
-        for i in range(map_np.shape[0]):
-            if sample_has_anomaly[i]:
-                am = map_np[i]
-                g = gt_binary[i]
-                pro_list.append(compute_pro(
-                    g.astype(int).reshape(1, *g.shape),
-                    am.reshape(1, *am.shape)
-                ))
-        pro_score = round(np.mean(pro_list), 6) if pro_list else 0.0
-    else:
-        pro_score = 0.0
-
-    # ---------- Image-level AUROC ----------
-    # 每张图取 topk 像素均值作为图像得分
-    N = map_np.shape[0]
-    sample_scores = []
-    for i in range(N):
-        flat_map = map_np[i].reshape(-1)
-        topk_val = np.sort(flat_map)[-topk:].mean() if topk <= len(flat_map) else flat_map.mean()
-        sample_scores.append(topk_val)
-    sample_scores = np.array(sample_scores)
-
-    # 图像级标签：有异常则为 1
-    sample_labels = sample_has_anomaly.astype(int)
-    image_auroc = roc_auc_score(sample_labels, sample_scores)
-
-    return {
-        'Image-AUROC': round(image_auroc, 6),
-        'Pixel-AUROC': round(pixel_auroc, 6),
-        'PRO': pro_score,
-    }
-
 def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
              recon_only=False, energy_diff_mode=False):
     """
@@ -513,25 +450,6 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         all_energy_in_maps = []
         all_energy_out_maps = []
 
-    # ---------- 层级指标收集 ----------
-    # 每个 layer 单独收集用于计算指标
-    per_layer_pixel_gt = []
-    per_layer_pixel_score = []
-    per_layer_sample_gt = []
-    per_layer_sample_score = []
-    per_layer_aupro = []
-    per_layer_maps = []  # list of list: per_layer_maps[j][i] = batch_i's layer_j map
-
-    # 先初始化 3 层
-    n_layers = len(args.layer) if hasattr(args, 'layer') else 3
-    for _ in range(n_layers):
-        per_layer_pixel_gt.append([])
-        per_layer_pixel_score.append([])
-        per_layer_sample_gt.append([])
-        per_layer_sample_score.append([])
-        per_layer_aupro.append([])
-        per_layer_maps.append([])
-
     with torch.no_grad():
         for img, gt, label in dataloader:
             img = img.to(device)
@@ -585,46 +503,6 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
 
-            # ---------- 收集每层能量图数据用于计算指标 ----------
-            if not recon_only and energy_maps is not None:
-                for j, em in enumerate(energy_maps):
-                    if j < n_layers:
-                        em_np = em.cpu().numpy().squeeze(1)  # [N, H, W]
-                        gt_cpu = gt.cpu().numpy()
-
-                        # 保存原始 map
-                        per_layer_maps[j].append(em_np)
-
-                        # 收集 pixel-level 数据
-                        per_layer_pixel_gt[j].append(gt_cpu.astype(int).reshape(-1))
-                        per_layer_pixel_score[j].append(em_np.reshape(-1))
-
-                        # 收集 image-level 数据
-                        sample_has_anomaly = gt_cpu.max(axis=(1, 2)) > 0
-                        per_layer_sample_gt[j].append(sample_has_anomaly.astype(int))
-
-                        # topk 图像得分
-                        batch_img_scores = []
-                        for b in range(em_np.shape[0]):
-                            flat = em_np[b].reshape(-1)
-                            topk_val = np.sort(flat)[-args.topk:].mean() if args.topk <= len(flat) else flat.mean()
-                            batch_img_scores.append(topk_val)
-                        per_layer_sample_score[j].append(np.array(batch_img_scores))
-
-                        # PRO：只对有异常的样本
-                        # 取每张图的最大值并构造布尔掩码（避免使用浮点数组作为索引）
-                        gt_vals, _ = gt.reshape(gt.shape[0], -1).max(dim=-1)   # torch tensor [N]
-                        gt_mask = gt_vals > 0
-                        if gt_mask.any():
-                            idx = gt_mask.cpu().numpy().astype(bool)
-                            em_filtered = em_np[idx]
-                            gt_filtered = gt_cpu[idx]
-                            for em_b, g_b in zip(em_filtered, gt_filtered):
-                                per_layer_aupro[j].append(
-                                    compute_pro(g_b.astype(int).reshape(1, *g_b.shape),
-                                               em_b.reshape(1, *em_b.shape))
-                                )
-
             # 收集用于返回 map
             if return_maps:
                 all_recon_maps.append(recon_map)
@@ -659,12 +537,10 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
             sample_gt_list.append(np.max(gt.reshape(gt.size(0), -1).cpu().numpy().astype(int), axis=-1))
             sample_score = torch.topk(torch.from_numpy(anomaly_map.reshape(img.size(0), -1)), args.topk, dim=-1)[0].numpy().mean(axis=-1)
             sample_score_list.append(sample_score)
-            label_vals, _ = gt.reshape(gt.shape[0], -1).max(dim=-1)
-            label_mask = label_vals > 0
-            if label_mask.any():
-                idx = label_mask.cpu().numpy().astype(bool)
-                anomaly_map_filtered = anomaly_map[idx]
-                gt_filtered = gt[label_mask]
+            label = gt.reshape(gt.shape[0], -1).max(axis=-1)[0]
+            if len(gt[label.bool()]) > 0:
+                anomaly_map_filtered = anomaly_map[label.bool()]
+                gt_filtered = gt[label.bool()]
                 for am, g in zip(anomaly_map_filtered, gt_filtered):
                     aupro_list.append(compute_pro(g.unsqueeze(dim=0).cpu().numpy().astype(int), am.reshape(1, *am.shape)))
 
@@ -679,65 +555,6 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         metrics['Pixel'] = calculate_metrics(pixel_score_list, pixel_gt_list, False)
         metrics['Pixel']['PRO'] = pixel_aupro
         metrics['Image'] = calculate_metrics(sample_score_list, sample_gt_list, True)
-
-        # ---------- 计算 Final 融合图的完整指标 ----------
-        final_metrics = calculate_single_map_metrics(all_maps, all_gts, topk=args.topk)
-        metrics['Final'] = final_metrics
-
-        # ---------- 计算 Recon 重建误差图的完整指标 ----------
-        all_recon = np.concatenate(all_recon_maps) if all_recon_maps else None
-        if all_recon is not None:
-            recon_metrics = calculate_single_map_metrics(all_recon, all_gts, topk=args.topk)
-            metrics['Recon'] = recon_metrics
-
-        # ---------- 计算各层能量图的完整指标 ----------
-        for j in range(n_layers):
-            if per_layer_maps[j]:
-                layer_maps = np.concatenate(per_layer_maps[j])  # [N_total, H, W]
-                layer_pixel_gt = np.concatenate(per_layer_pixel_gt[j])
-                layer_pixel_score = np.concatenate(per_layer_pixel_score[j])
-                layer_pixel_auroc = roc_auc_score(layer_pixel_gt, layer_pixel_score)
-
-                layer_sample_gt = np.concatenate(per_layer_sample_gt[j])
-                layer_sample_score = np.concatenate(per_layer_sample_score[j])
-                layer_image_auroc = roc_auc_score(layer_sample_gt, layer_sample_score)
-
-                layer_pro = round(np.mean(per_layer_aupro[j]), 6) if per_layer_aupro[j] else 0.0
-
-                metrics[f'Energy_Layer{j+1}'] = {
-                    'Image-AUROC': round(layer_image_auroc, 6),
-                    'Pixel-AUROC': round(layer_pixel_auroc, 6),
-                    'PRO': layer_pro,
-                }
-
-        # ---------- 计算能量图融合（多尺度平均并做 per-sample min-max 归一化）的完整指标 ----------
-        try:
-            layer_maps_list = [np.concatenate(per_layer_maps[j]) for j in range(n_layers) if per_layer_maps[j]]
-            if len(layer_maps_list) == n_layers:
-                # layer_maps_list: list of [N_total, H, W]
-                # 按尺度堆叠并对尺度维取平均，得到 [N_total, H, W]
-                energy_stack = np.stack(layer_maps_list, axis=1)  # [N, n_layers, H, W]
-                energy_avg = energy_stack.mean(axis=1)  # [N, H, W]
-
-                # per-sample min-max 归一化（与 soft_gate_fuse 中对能量分支的处理保持一致）
-                energy_norm = np.zeros_like(energy_avg)
-                for i in range(energy_avg.shape[0]):
-                    e = energy_avg[i]
-                    e_min, e_max = e.min(), e.max()
-                    if e_max - e_min > 1e-12:
-                        energy_norm[i] = (e - e_min) / (e_max - e_min)
-                    else:
-                        energy_norm[i] = np.zeros_like(e)
-
-                energy_fusion_metrics = calculate_single_map_metrics(energy_norm, all_gts, topk=args.topk)
-                metrics['Energy_Fusion'] = energy_fusion_metrics
-        except Exception:
-            # 若任一尺度缺失或其他错误，忽略并继续
-            pass
-
-        # 将最终融合（recon + energy）以更可读的键名复制一份（保持向后兼容的 'Final' 键）
-        if 'Final' in metrics:
-            metrics['Recon+Energy'] = metrics['Final']
 
     if return_maps:
         recon_maps = np.concatenate(all_recon_maps, axis=0)

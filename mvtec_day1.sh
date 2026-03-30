@@ -5,12 +5,12 @@
 
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
-checkpoint_interval=80          # 每 多少 个 epoch 保存一次 checkpoint
-checkpoint_mode=best         # 加载最新保存的 checkpoint
-# checkpoint_dir=./hy-tmp/checkpoints  # checkpoint 存储根目录；设为空或不设置则默认保存在项目根目录的 ./checkpoints 下
+checkpoint_interval=8          # 每 8 个 epoch 保存一次 checkpoint
+checkpoint_mode=latest         # 加载最新保存的 checkpoint
+checkpoint_dir=/hy-tmp/checkpoints  # checkpoint 存储根目录；设为空或不设置则默认保存在项目根目录的 ./checkpoints 下
 
-for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
-# for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+# for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
 do
     echo "[Day1 Baseline] Training: $normal"
 
@@ -47,7 +47,7 @@ do
     # 基础命令：关闭能量图融合，使用 --recon_only 跳过 D(input) 能量图融合
     base_args=(
         --dataset mvtec
-        --batch_size 8
+        --batch_size 16
         --lr ${lr}
         --d_lr 1e-04
         --adv_conf 0.02
@@ -63,11 +63,11 @@ do
         --eval_epoch ${eval_epoch}
         --layer 1 2 3
         --enable_enhancement ${enable_enhancement}
-        # --recon_only                    # 核心：跳过能量图融合，使用纯重建误差图
+        --recon_only                    # 核心：跳过能量图融合，使用纯重建误差图
         --checkpoint_interval ${checkpoint_interval}
         --checkpoint_mode ${checkpoint_mode}
+        --checkpoint_dir ${checkpoint_dir}
         --use_amp
-        --energy_diff_mode
     )
 
     echo ">>> CMD: python main.py ${base_args[*]}"

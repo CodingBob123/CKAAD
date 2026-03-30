@@ -70,6 +70,8 @@ def parse_args():
     parser.add_argument('--compile', action='store_true', help='enable torch.compile for models if available')
 
     # Checkpoint 相关参数
+    parser.add_argument('--checkpoint_dir', type=str, default=None,
+                       help='checkpoint root directory; if None, defaults to ./checkpoints')
     parser.add_argument('--checkpoint_interval', type=int, default=10,
                        help='save checkpoint every N epochs (0 means only save final and best)')
     parser.add_argument('--checkpoint_mode', type=str, default='best',
@@ -169,8 +171,114 @@ def get_res_str(metrics):
     score_res_str = ""
     for key, value in metrics.items():
         for item, v in value.items():
-            score_res_str += "{}_{}: {:.6f} ".format(key, item, v) 
+            score_res_str += "{}_{}: {:.6f} ".format(key, item, v)
     return score_res_str
+
+
+def save_level_metrics(metrics, epoch, args, logger):
+    """
+    将各层级的评估指标保存到文本文件中。
+
+    存储路径: ./metrics_per_epoch/{dataset}/{category}/n_{category}_a_{anomaly_class}_s_{seed}/
+    文件名: epoch_{epoch:04d}_metrics.txt
+
+    参数:
+        metrics: dict，各层级指标字典
+        epoch: int，当前 epoch
+        args: 命令行参数
+        logger: 日志记录器
+    """
+    import os
+
+    # 构建目录路径
+    metrics_root = './metrics_per_epoch'
+    category_dir = os.path.join(
+        metrics_root,
+        args.dataset,
+        args.normal,
+        f"n_{args.normal}_a_{args.labeled_anomaly_class}_s_{args.seed}"
+    )
+    os.makedirs(category_dir, exist_ok=True)
+
+    # 构建文件名
+    filename = f"epoch_{epoch:04d}_metrics.txt"
+    filepath = os.path.join(category_dir, filename)
+
+    # 构建文本内容（保留原有格式）
+    lines = []
+    lines.append("=" * 40)
+    lines.append(f"Epoch: {epoch:04d} | Category: {args.normal} | Dataset: {args.dataset}")
+    lines.append("=" * 40)
+
+    for key, value in metrics.items():
+        lines.append(f"\n{key}:")
+        if isinstance(value, dict):
+            for metric_name, metric_val in value.items():
+                lines.append(f"  {metric_name}: {metric_val}")
+        else:
+            lines.append(f"  {value}")
+
+    lines.append("-" * 40)
+
+    content = "\n".join(lines)
+
+    # 写入文本文件
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    logger.info(f"Level metrics saved to: {filepath}")
+
+    # ---------- 追加/保存 CSV 汇总，便于后续分析（每个类别一个 CSV） ----------
+    try:
+        # 扁平化 metrics 为字典：键示例 'Recon_Image-AUROC', 'Energy_Layer1_PRO', ...
+        def flatten_metrics(mdict):
+            flat = {}
+            for k, v in mdict.items():
+                if isinstance(v, dict):
+                    for mk, mv in v.items():
+                        flat[f"{k}_{mk}"] = mv
+                else:
+                    flat[str(k)] = v
+            return flat
+
+        flat = flatten_metrics(metrics)
+
+        import csv
+
+        csv_path = os.path.join(category_dir, 'metrics_summary.csv')
+        write_header = not os.path.exists(csv_path)
+
+        # 按固定列顺序：epoch, category, 然后按排序的 keys
+        fieldnames = ['epoch', 'category'] + sorted(flat.keys())
+
+        # 如果已有文件但列不一致，简单地追加缺失列为空（保持兼容性）
+        if write_header:
+            with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+
+        # 读取已有 header（若有），并按其列写入，避免新旧列顺序冲突
+        if not write_header:
+            with open(csv_path, 'r', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                existing_header = next(reader)
+        else:
+            existing_header = fieldnames
+
+        row = {col: '' for col in existing_header}
+        row['epoch'] = f"{epoch:04d}"
+        row['category'] = args.normal
+        for k, v in flat.items():
+            if k in row:
+                row[k] = v
+
+        with open(csv_path, 'a', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([row.get(col, '') for col in existing_header])
+
+        logger.info(f"Metrics CSV updated: {csv_path}")
+    except Exception as e:
+        logger.error(f"Failed to write metrics CSV: {e}")
 
 def loss_function(a, b):
     cos_loss = torch.nn.CosineSimilarity()
@@ -618,9 +726,12 @@ def train(args):
                 need_cached_maps=need_cached_maps,
                 epochs=epoch, logger=logger,
                 enable_stats=False,
-                recon_only=args.recon_only,
+                recon_only=False,  # 强制计算能量图，用于层级指标评估
                 energy_diff_mode=getattr(args, 'energy_diff_mode', False),
             )
+
+            # 保存各层级指标到文件
+            save_level_metrics(metrics, epoch, args, logger)
 
             # 可选：在定期评估时绘制异常热力图（独立计算，与 cached_maps 无关）
             if args.enable_epoch_viz and epoch % args.viz_interval == 0:

@@ -1,0 +1,83 @@
+[2026-03-30 19:30:14,247][main.py][line:397][INFO] log file: ./log_day1/lan0.05_acn1/mvtec/n_wood_a_0_s_111.txt
+[2026-03-30 19:30:14,247][main.py][line:398][INFO] class: wood
+[2026-03-30 19:30:14,247][main.py][line:896][INFO] --------args----------
+[2026-03-30 19:30:14,247][main.py][line:898][INFO] dataset: mvtec
+[2026-03-30 19:30:14,247][main.py][line:898][INFO] batch_size: 8
+[2026-03-30 19:30:14,247][main.py][line:898][INFO] lr: 0.005
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] epochs: 6
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] img_size: 256
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] normal: wood
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] seed: 111
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] labeled_anomaly_class_num: 1
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] labeled_anomaly_class: 0
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] labeled_anomaly_ratio: 0.05
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] log_dir: ./log_day1
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] model: wide_resnet50_2
+[2026-03-30 19:30:14,248][main.py][line:898][INFO] eval_epoch: 3
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] layer: [1]
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] d_lr: 0.0001
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] adv_conf: 0.02
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] topk: 100
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] use_amp: True
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] compile: False
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] checkpoint_dir: None
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] checkpoint_interval: 6
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] checkpoint_mode: latest
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] resume: False
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] checkpoint_path: None
+[2026-03-30 19:30:14,249][main.py][line:898][INFO] skip_training: False
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] list_checkpoints: False
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] enable_epoch_viz: False
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] viz_interval: 0
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] viz_samples_per_type: 3
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] enable_recon_energy_viz: True
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] viz_eval_interval: 0
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] enable_enhancement: [False]
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] feature2_fusion_weight: 0.5
+[2026-03-30 19:30:14,250][main.py][line:898][INFO] gate_k: 0.45
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] gate_te: 0.6
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] gate_sigma: 0.0
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] recon_norm_quantile_low: 0.0
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] recon_norm_quantile_high: 0.98
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] recon_compress: sqrt
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] fuse_output_norm: True
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] recon_only: True
+[2026-03-30 19:30:14,251][main.py][line:898][INFO] energy_diff_mode: False
+[2026-03-30 19:30:14,251][main.py][line:899][INFO] --------args----------
+
+[2026-03-30 19:30:14,309][main.py][line:405][INFO] device: cuda
+[2026-03-30 19:30:14,310][main.py][line:431][INFO] No checkpoint found in: checkpoints/mvtec/wood/n_wood_a_0_s_111  (will train from scratch)
+[2026-03-30 19:30:31,268][main.py][line:509][INFO] AMP enabled (autocast + GradScaler)
+[2026-03-30 19:30:58,260][main.py][line:649][INFO] epoch [1/6], dis_loss: 4.994010, recon_loss:0.226380, adv_loss:0.012904, ae_loss: 0.226638
+[2026-03-30 19:31:20,108][main.py][line:649][INFO] epoch [2/6], dis_loss: 4.972526, recon_loss:0.082178, adv_loss:0.034340, ae_loss: 0.082865
+[2026-03-30 19:31:46,423][main.py][line:649][INFO] epoch [3/6], dis_loss: 4.906380, recon_loss:0.062173, adv_loss:0.064851, ae_loss: 0.063470
+[2026-03-30 19:34:23,396][main.py][line:340][INFO] Test: Pixel_AUROC: 0.826060 Pixel_PRO: 0.573883 Image_AUROC: 0.521930 Image_F1: 0.867647 Image_ACC: 0.772152 Final_Image-AUROC: 0.521930 Final_Pixel-AUROC: 0.826060 Final_PRO: 0.573883 Recon_Image-AUROC: 0.604386 Recon_Pixel-AUROC: 0.821335 Recon_PRO: 0.532659 Energy_Layer1_Image-AUROC: 0.758772 Energy_Layer1_Pixel-AUROC: 0.782217 Energy_Layer1_PRO: 0.696775 
+[2026-03-30 19:34:50,757][main.py][line:373][INFO] Recon vs Energy viz saved at epoch 3
+[2026-03-30 19:34:50,759][main.py][line:229][INFO] Level metrics saved to: ./metrics_per_epoch/mvtec/wood/n_wood_a_0_s_111/epoch_0003_metrics.txt
+[2026-03-30 19:34:50,947][checkpoint.py][line:177][INFO] Checkpoint saved to: checkpoints/mvtec/wood/n_wood_a_0_s_111/epoch_0003.pth
+[2026-03-30 19:34:51,120][checkpoint.py][line:182][INFO] Best checkpoint saved to: checkpoints/mvtec/wood/n_wood_a_0_s_111/best.pth
+[2026-03-30 19:35:26,686][main.py][line:649][INFO] epoch [4/6], dis_loss: 4.780339, recon_loss:0.052971, adv_loss:0.102504, ae_loss: 0.055021
+[2026-03-30 19:36:23,329][main.py][line:649][INFO] epoch [5/6], dis_loss: 4.609245, recon_loss:0.044432, adv_loss:0.149375, ae_loss: 0.047420
+[2026-03-30 19:37:21,609][main.py][line:649][INFO] epoch [6/6], dis_loss: 4.400391, recon_loss:0.039730, adv_loss:0.205334, ae_loss: 0.043837
+[2026-03-30 19:40:18,033][main.py][line:340][INFO] Test: Pixel_AUROC: 0.841939 Pixel_PRO: 0.601581 Image_AUROC: 0.549561 Image_F1: 0.867647 Image_ACC: 0.772152 Final_Image-AUROC: 0.549561 Final_Pixel-AUROC: 0.841939 Final_PRO: 0.601581 Recon_Image-AUROC: 0.531579 Recon_Pixel-AUROC: 0.836626 Recon_PRO: 0.562300 Energy_Layer1_Image-AUROC: 0.724123 Energy_Layer1_Pixel-AUROC: 0.778605 Energy_Layer1_PRO: 0.701461 
+[2026-03-30 19:40:42,655][main.py][line:373][INFO] Recon vs Energy viz saved at epoch 6
+[2026-03-30 19:40:42,656][main.py][line:229][INFO] Level metrics saved to: ./metrics_per_epoch/mvtec/wood/n_wood_a_0_s_111/epoch_0006_metrics.txt
+[2026-03-30 19:40:42,824][checkpoint.py][line:177][INFO] Checkpoint saved to: checkpoints/mvtec/wood/n_wood_a_0_s_111/epoch_0006.pth
+[2026-03-30 19:40:43,016][checkpoint.py][line:182][INFO] Best checkpoint saved to: checkpoints/mvtec/wood/n_wood_a_0_s_111/best.pth
+[2026-03-30 19:40:43,238][checkpoint.py][line:177][INFO] Checkpoint saved to: checkpoints/mvtec/wood/n_wood_a_0_s_111/epoch_0006.pth
+[2026-03-30 19:40:43,405][checkpoint.py][line:187][INFO] Final checkpoint saved to: checkpoints/mvtec/wood/n_wood_a_0_s_111/final.pth
+[2026-03-30 19:40:44,438][main.py][line:754][INFO] Final loss curve saved to: ./pic/loss_curve_final_n_wood_a_0_s_111.jpg
+[2026-03-30 19:40:44,438][main.py][line:762][INFO] Starting post-training visualization...
+[2026-03-30 19:40:44,438][main.py][line:780][INFO] Generating anomaly map visualization...
+[2026-03-30 19:40:50,673][main.py][line:809][INFO] Selected 3 samples for type 'liquid'
+[2026-03-30 19:40:50,673][main.py][line:809][INFO] Selected 3 samples for type 'color'
+[2026-03-30 19:40:50,673][main.py][line:809][INFO] Selected 3 samples for type 'combined'
+[2026-03-30 19:40:50,673][main.py][line:809][INFO] Selected 3 samples for type 'hole'
+[2026-03-30 19:40:50,673][main.py][line:809][INFO] Selected 3 samples for type 'scratch'
+[2026-03-30 19:40:50,673][main.py][line:809][INFO] Selected 3 samples for type 'good'
+[2026-03-30 19:40:50,673][main.py][line:811][INFO] Total selected 18 samples for visualization
+[2026-03-30 19:40:50,674][main.py][line:821][INFO] Running evaluation for visualizations (single forward pass)...
+[2026-03-30 19:41:16,240][main.py][line:832][INFO] Test: Pixel_AUROC: 0.845278 Pixel_PRO: 0.598423 Image_AUROC: 0.555556 Image_F1: 0.909091 Image_ACC: 0.833333 Final_Image-AUROC: 0.555556 Final_Pixel-AUROC: 0.845278 Final_PRO: 0.598423 Recon_Image-AUROC: 0.555556 Recon_Pixel-AUROC: 0.845278 Recon_PRO: 0.598423 
+[2026-03-30 19:41:16,240][main.py][line:853][INFO] Generating anomaly map visualization...
+[2026-03-30 19:41:16,247][main.py][line:892][ERROR] Failed to generate post-training visualizations: [Errno 13] Permission denied: '/hy-tmp'
+[2026-03-30 19:41:16,247][main.py][line:893][ERROR] This might be due to missing visualization dependencies

@@ -4,7 +4,7 @@ from contextlib import nullcontext
 import numpy as np
 import random
 import os
-from util.test import evaluation, visualize_anomaly_maps_simple
+from util.test import evaluation, visualize_anomaly_maps_simple, cal_anomaly_map, cal_energy_map
 from util.visualize_comparison import (
     # visualize_recon_vs_energy,
     # visualize_multi_scale_energy,
@@ -13,7 +13,7 @@ from util.visualize_comparison import (
 )
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 from util.checkpoint import (
-    build_checkpoint_dir, get_checkpoint_path, save_checkpoint,
+    build_checkpoint_dir, build_eerm_checkpoint_dir, get_checkpoint_path, save_checkpoint,
     load_checkpoint, load_weights_only, check_config_compatibility,
     list_checkpoints
 )
@@ -26,7 +26,7 @@ import matplotlib
 matplotlib.use('Agg')  # 设置非GUI后端，避免WSL图形界面问题
 import matplotlib.pyplot as plt
 from torchvision import transforms
-
+from model.error_reliability_modulation import ErrorReliabilityModulation
 
 def parse_args():
     
@@ -133,6 +133,28 @@ def parse_args():
     parser.add_argument('--energy_diff_mode', action='store_true',
                        help='use energy difference mode (D(input) - D(output)) for V3-V6. '
                             'Default is False (uses D(input) only).')
+
+    # EERM 模块训练模式
+    parser.add_argument('--eerm_mode', type=str, default='ckaad', choices=['ckaad', 'eerm'],
+                       help='training mode: ckaad (train CKAAD only), eerm (freeze CKAAD and train EERM only)')
+    parser.add_argument('--enable_eerm_training', action='store_true',
+                       help='enable EERM modulation loss during training (only effective when eerm_mode=eerm)')
+    parser.add_argument('--fusion_mode', type=str, default='soft_gate', choices=['soft_gate', 'eerm'],
+                       help='fusion mode: soft_gate (original gating), eerm (reliability modulation)')
+    parser.add_argument('--eerm_extra_channels', type=int, default=3,
+                       help='number of extra channels for EERM module (for additional discrepancy maps)')
+    parser.add_argument('--eerm_hidden_channels', type=int, default=32,
+                       help='hidden channels for EERM fusion network')
+    parser.add_argument('--eerm_lr', type=float, default=1e-4,
+                       help='learning rate for EERM module')
+    parser.add_argument('--lambda_good', type=float, default=1.0,
+                       help='weight for EERM good-sample suppression loss')
+    parser.add_argument('--lambda_keep', type=float, default=1.0,
+                       help='weight for EERM peak-retention loss')
+    parser.add_argument('--eerm_tau', type=float, default=0.7,
+                       help='EERM peak-retention threshold tau')
+    parser.add_argument('--eerm_k_ratio', type=float, default=0.01,
+                       help='EERM top-k ratio for peak-retention loss')
 
     return parser.parse_args()
 
@@ -352,7 +374,8 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
                      need_cached_maps, epochs, logger,
                      enable_stats=True,
                      recon_only=False,
-                     energy_diff_mode=False):
+                     energy_diff_mode=False,
+                     eerm_module=None):
     """
     执行一次完整评估（metrics + 可选缓存 map），并生成重建误差/能量图可视化。
 
@@ -376,24 +399,40 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
     with amp_ctx():
         if need_cached_maps:
             if energy_diff_mode:
-                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps, weight_maps = evaluation(
                     pfe, ae, discriminator, test_dataloader, device, args, return_maps=True,
-                    recon_only=recon_only, energy_diff_mode=energy_diff_mode)
+                    recon_only=recon_only, energy_diff_mode=energy_diff_mode, eerm_module=eerm_module, fusion_mode=args.fusion_mode)
             else:
-                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = evaluation(
+                metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps, weight_maps = evaluation(
                     pfe, ae, discriminator, test_dataloader, device, args, return_maps=True,
-                    recon_only=recon_only, energy_diff_mode=energy_diff_mode)
+                    recon_only=recon_only, energy_diff_mode=energy_diff_mode, eerm_module=eerm_module, fusion_mode=args.fusion_mode)
         else:
             metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args,
-                              recon_only=recon_only, energy_diff_mode=energy_diff_mode)
-            recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps = None, None, None, None, None, None, None
+                              recon_only=recon_only, energy_diff_mode=energy_diff_mode, eerm_module=eerm_module, fusion_mode=args.fusion_mode)
+            recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps, weight_maps = None, None, None, None, None, None, None, None
 
     infostr = get_res_str(metrics)
     logger.info("Test: {}".format(infostr))
 
     if need_cached_maps:
         try:
-            if energy_diff_mode:
+            if args.fusion_mode == 'eerm':
+                # EERM 模式可视化
+                cached_maps = {
+                    'recon_maps': recon_maps,
+                    'energy_maps': energy_maps,
+                    'final_maps': final_maps,
+                    'anomaly_maps': anomaly_maps,
+                    'weight_maps': weight_maps,
+                }
+                from util.visualize_comparison import visualize_eerm_unified
+                visualize_eerm_unified(
+                    pfe, ae, discriminator, test_dataloader, args, device, epochs,
+                    cached_maps=cached_maps,
+                    enable_stats=enable_stats,
+                )
+                logger.info("EERM Visualization saved at epoch {}".format(epochs))
+            elif energy_diff_mode:
                 cached_maps = {
                     'recon_maps': recon_maps,
                     'energy_maps': energy_maps,
@@ -401,6 +440,7 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
                     'energy_out_maps': energy_out_maps,
                     'final_maps': final_maps,
                     'anomaly_maps': anomaly_maps,
+                    'weight_maps': weight_maps,
                 }
                 # 导入新的可视化函数
                 from util.visualize_comparison import visualize_energy_diff_unified
@@ -416,6 +456,7 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
                     'energy_maps': energy_maps,
                     'final_maps': final_maps,
                     'anomaly_maps': anomaly_maps,
+                    'weight_maps': weight_maps,
                 }
                 visualize_recon_energy_unified(
                     pfe, ae, discriminator, test_dataloader, args, device, epochs,
@@ -426,7 +467,7 @@ def run_eval_and_viz(pfe, ae, discriminator, test_dataloader,
         except Exception as e:
             logger.error("Failed to generate visualizations: {}".format(str(e)))
 
-    return metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps
+    return metrics, recon_maps, energy_maps, energy_in_maps, energy_out_maps, final_maps, all_gts, anomaly_maps, weight_maps
 
 
 def train(args):
@@ -457,7 +498,12 @@ def train(args):
     logger.info("device: {}".format(device))
 
     # 2.0 自动构建 checkpoint 目录并处理特殊模式
-    ckpt_dir = build_checkpoint_dir(args)
+    # EERM 模式使用独立目录
+    if getattr(args, 'eerm_mode', 'ckaad') == 'eerm':
+        ckpt_dir = build_eerm_checkpoint_dir(args)
+        logger.info(f"EERM mode: using checkpoint dir: {ckpt_dir}")
+    else:
+        ckpt_dir = build_checkpoint_dir(args)
 
     # 2.0.1 列出已有 checkpoint 并退出
     if args.list_checkpoints:
@@ -475,12 +521,22 @@ def train(args):
         return  # 直接退出
 
     # 2.0.2 自动查找 checkpoint 路径（如果未显式指定）
+    # EERM 模式：优先从 CKAAD 主干目录加载预训练权重
     if args.checkpoint_path is None:
-        found_path = get_checkpoint_path(ckpt_dir, mode=args.checkpoint_mode)
-        if found_path is not None:
-            logger.info(f"Auto-detected checkpoint: {found_path}")
+        if getattr(args, 'eerm_mode', 'ckaad') == 'eerm':
+            # EERM 模式：从 CKAAD 目录查找预训练模型
+            ckaad_ckpt_dir = build_checkpoint_dir(args)
+            found_path = get_checkpoint_path(ckaad_ckpt_dir, mode=args.checkpoint_mode)
+            if found_path is not None:
+                logger.info(f"EERM mode: auto-detected CKAAD checkpoint: {found_path}")
+            else:
+                logger.warning(f"EERM mode: no CKAAD checkpoint found in: {ckaad_ckpt_dir}")
         else:
-            logger.info(f"No checkpoint found in: {ckpt_dir}  (will train from scratch)")
+            found_path = get_checkpoint_path(ckpt_dir, mode=args.checkpoint_mode)
+            if found_path is not None:
+                logger.info(f"Auto-detected checkpoint: {found_path}")
+            else:
+                logger.info(f"No checkpoint found in: {ckpt_dir}  (will train from scratch)")
         args.checkpoint_path = found_path
 
     # 2.加载数据集，获取数据加载器
@@ -510,6 +566,12 @@ def train(args):
     # expansion: 通道扩展系数，ResNet18/34为1，ResNet50/101等为4
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
 
+    # 初始化误差分析头
+    eerm_module = ErrorReliabilityModulation(
+        extra_channels=args.eerm_extra_channels,
+        hidden_channels=args.eerm_hidden_channels
+    ).to(device)
+
     # 3.2.5 checkpoint 加载（优先级：显式路径 > 自动搜索 > 不加载）
     start_epoch = 1
     if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
@@ -533,7 +595,21 @@ def train(args):
     # 3.4 初始化优化器
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
-    
+    eerm_optimizer = torch.optim.Adam(eerm_module.parameters(), lr=args.eerm_lr)
+
+    # 根据训练模式设置模型冻结状态
+    if args.eerm_mode == 'eerm':
+        logger.info("EERM mode: freezing CKAAD backbone (ae and discriminator), training EERM module only")
+        # 冻结 ae 和 discriminator
+        for param in ae.parameters():
+            param.requires_grad = False
+        for param in discriminator.parameters():
+            param.requires_grad = False
+        ae.eval()
+        discriminator.eval()
+    else:
+        logger.info("CKAAD mode: training CKAAD backbone (ae and discriminator)")
+
     # 设置权重系数和标签
     gamma = 0.5  # 控制重建特征损失的权重
     true_label = 0  # 正常样本的标签
@@ -544,9 +620,10 @@ def train(args):
         logger.info("--skip_training: running evaluation only without training.")
         ae.eval()
         discriminator.eval()
+        eerm_module.eval()
         with amp_ctx():
             metrics = evaluation(pfe, ae, discriminator, test_dataloader, device, args,
-                              recon_only=args.recon_only)
+                              recon_only=args.recon_only, eerm_module=eerm_module, fusion_mode=args.fusion_mode)
         infostr = get_res_str(metrics)
         logger.info("Test (from checkpoint): {}".format(infostr))
         return
@@ -685,11 +762,120 @@ def train(args):
                 ae_loss.backward()
                 ae_optimizer.step()
 
-            # 5.8 记录各项损失值
+            # 5.8 EERM 调制损失计算（仅在 eerm_mode 时启用）
+            loss_eerm = torch.tensor(0.0).to(device)
+            loss_eerm_list = []
+
+            if args.eerm_mode == 'eerm' and args.enable_eerm_training:
+                # EERM 训练：冻结主干，只训练 EERM 模块
+                # 使用正常样本计算 L_good，使用异常样本计算 L_keep
+                with amp_ctx():
+                    # 计算当前批次的 base_error_map 和 refined_map
+                    # 由于 ae.eval() 冻结，我们使用 eval 模式下的输出
+                    ae.eval()
+                    pfe.eval()
+                    discriminator.eval()
+
+                    with torch.no_grad():
+                        # 重新计算特征（因为前面 ae 可能改变了状态）
+                        normal_inputs_eval = pfe(normal_img)
+                        normal_outputs_eval = ae(normal_inputs_eval)
+                        recon_map_normal = cal_anomaly_map(normal_inputs_eval, normal_outputs_eval, normal_img.shape[-1], amap_mode='add')
+                        energy_maps_normal = cal_energy_map(discriminator, normal_inputs_eval, normal_img.shape[-1])
+
+                    # 对于正常样本：使用 L_good 损失
+                    if anomaly_size > 0:
+                        with torch.no_grad():
+                            anomaly_inputs_eval = pfe(anomaly_img)
+                            anomaly_outputs_eval = ae(anomaly_inputs_eval)
+                            recon_map_anomaly = cal_anomaly_map(anomaly_inputs_eval, anomaly_outputs_eval, anomaly_img.shape[-1], amap_mode='add')
+                            energy_maps_anomaly = cal_energy_map(discriminator, anomaly_inputs_eval, anomaly_img.shape[-1])
+
+                        # 分别计算正常和异常样本的 refined map
+                        from util.test import eerm_fuse
+                        refined_normal, _ = eerm_fuse(
+                            eerm_module=eerm_module,
+                            recon_map=recon_map_normal,
+                            energy_maps_t=energy_maps_normal,
+                            inputs=normal_inputs_eval,
+                            outputs=normal_outputs_eval,
+                            device=device,
+                            extra_channels=args.eerm_extra_channels,
+                            recon_norm_quantile_low=args.recon_norm_quantile_low,
+                            recon_norm_quantile_high=args.recon_norm_quantile_high,
+                            recon_compress=args.recon_compress,
+                            fuse_output_norm=False
+                        )
+                        refined_anomaly, _ = eerm_fuse(
+                            eerm_module=eerm_module,
+                            recon_map=recon_map_anomaly,
+                            energy_maps_t=energy_maps_anomaly,
+                            inputs=anomaly_inputs_eval,
+                            outputs=anomaly_outputs_eval,
+                            device=device,
+                            extra_channels=args.eerm_extra_channels,
+                            recon_norm_quantile_low=args.recon_norm_quantile_low,
+                            recon_norm_quantile_high=args.recon_norm_quantile_high,
+                            recon_compress=args.recon_compress,
+                            fuse_output_norm=False
+                        )
+
+                        # 转换为 torch tensor
+                        refined_normal_t = torch.from_numpy(refined_normal).float().to(device).unsqueeze(1)
+                        refined_anomaly_t = torch.from_numpy(refined_anomaly).float().to(device).unsqueeze(1)
+                        recon_normal_t = torch.from_numpy(recon_map_normal).float().to(device).unsqueeze(1)
+                        recon_anomaly_t = torch.from_numpy(recon_map_anomaly).float().to(device).unsqueeze(1)
+
+                        # 计算 L_good（正常样本）和 L_keep（异常样本）
+                        loss_good = refined_normal_t.mean()
+                        loss_keep = eerm_module.loss_keep(
+                            refined_map=refined_anomaly_t,
+                            base_error_map=recon_anomaly_t,
+                            tau=args.eerm_tau,
+                            k_ratio=args.eerm_k_ratio
+                        )
+                        loss_eerm = args.lambda_good * loss_good + args.lambda_keep * loss_keep
+
+                        ae.train()
+                        discriminator.train()
+                    else:
+                        # 只有正常样本时，只计算 L_good
+                        with torch.no_grad():
+                            refined_normal, _ = eerm_fuse(
+                                eerm_module=eerm_module,
+                                recon_map=recon_map_normal,
+                                energy_maps_t=energy_maps_normal,
+                                inputs=normal_inputs_eval,
+                                outputs=normal_outputs_eval,
+                                device=device,
+                                extra_channels=args.eerm_extra_channels,
+                                recon_norm_quantile_low=args.recon_norm_quantile_low,
+                                recon_norm_quantile_high=args.recon_norm_quantile_high,
+                                recon_compress=args.recon_compress,
+                                fuse_output_norm=False
+                            )
+                        refined_normal_t = torch.from_numpy(refined_normal).float().to(device).unsqueeze(1)
+                        loss_eerm = args.lambda_good * refined_normal_t.mean()
+
+                        ae.train()
+                        discriminator.train()
+
+                # 反向传播 EERM 损失
+                if loss_eerm > 0:
+                    eerm_optimizer.zero_grad()
+                    loss_eerm.backward()
+                    eerm_optimizer.step()
+
+                ae.train()
+                discriminator.train()
+
+            # 5.9 记录各项损失值
             dis_loss_list.append(dis_loss.item())
             ae_loss_list.append(ae_loss.item())
             recon_loss_list.append(recon_loss.item())
             adv_loss_list.append(adv_loss.item())
+            if args.eerm_mode == 'eerm':
+                loss_eerm_list.append(loss_eerm.item())
 
         # 6. 打印当前epoch的训练损失并记录到历史
         epoch_dis = np.mean(dis_loss_list)
@@ -697,9 +883,17 @@ def train(args):
         epoch_adv = np.mean(adv_loss_list)
         epoch_ae = np.mean(ae_loss_list)
 
-        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, epoch_dis,
-                                                                                                                                 epoch_recon, epoch_adv, epoch_ae,
-                                                                                                                                 ))
+        if args.eerm_mode == 'eerm' and len(loss_eerm_list) > 0:
+            epoch_eerm = np.mean(loss_eerm_list)
+            logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}, eerm_loss: {:.6f}".format(
+                epoch, epochs, epoch_dis, epoch_recon, epoch_adv, epoch_ae, epoch_eerm
+            ))
+            loss_history["eerm_loss"] = loss_history.get("eerm_loss", [])
+            loss_history["eerm_loss"].append(epoch_eerm)
+        else:
+            logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(
+                epoch, epochs, epoch_dis, epoch_recon, epoch_adv, epoch_ae
+            ))
 
         # 记录损失历史用于绘图
         loss_history["dis_loss"].append(epoch_dis)
@@ -712,7 +906,7 @@ def train(args):
             if valid_dataloader is not None:
                 with amp_ctx():
                     valid_metrics = evaluation(pfe, ae, discriminator, valid_dataloader, device, args,
-                                            recon_only=args.recon_only)
+                                            recon_only=args.recon_only, eerm_module=eerm_module, fusion_mode=args.fusion_mode)
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
@@ -720,7 +914,7 @@ def train(args):
             need_viz = (args.enable_recon_energy_viz
                         and (args.viz_eval_interval == 0 or epoch % args.viz_eval_interval == 0))
             need_cached_maps = need_viz
-            metrics, _, _, _, _, _, _, _ = run_eval_and_viz(
+            metrics, _, _, _, _, _, _, _, _ = run_eval_and_viz(
                 pfe, ae, discriminator, test_dataloader,
                 device, args, amp_ctx,
                 need_cached_maps=need_cached_maps,
@@ -728,6 +922,7 @@ def train(args):
                 enable_stats=False,
                 recon_only=False,  # 强制计算能量图，用于层级指标评估
                 energy_diff_mode=getattr(args, 'energy_diff_mode', False),
+                eerm_module=eerm_module,
             )
 
             # 保存各层级指标到文件

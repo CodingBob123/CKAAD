@@ -352,6 +352,116 @@ def eval_mean_e_diff(encoder, ed, discriminator, dataloader, device, args):
 
 
 # ============================================================================
+# V7. EERM 可靠性调制融合
+# ============================================================================
+
+def eval_eerm_fusion(encoder, ed, discriminator, dataloader, device, args, eerm_module=None):
+    """
+    V7. EERM 可靠性调制融合
+
+    使用 ErrorReliabilityModulation 模块进行能量感知的误差可靠性调制：
+
+    EERM的5个输入通道：
+        通道1: base_error_map (recon_map)          - 原始重建误差图
+        通道2: energy_map_normed                   - 能量图（多尺度平均+归一化）
+        通道3: delta_l1                            - 特征级L1差异
+        通道4: delta_cos                           - 特征级余弦差异
+        通道5: delta_gap                           - 误差图与能量图的归一化差值
+
+    参数:
+        encoder: 预训练特征提取器
+        ed: 编码器-解码器模型
+        discriminator: 判别器模型
+        dataloader: 数据加载器
+        device: 计算设备
+        args: 命令行参数
+        eerm_module: ErrorReliabilityModulation 实例，若为 None 则跳过 EERM
+
+    返回:
+        metrics: 评估指标字典
+        anomaly_maps: np.ndarray 融合后的异常图
+    """
+    encoder.eval()
+    ed.eval()
+    if discriminator is not None:
+        discriminator.eval()
+    if eerm_module is not None:
+        eerm_module.eval()
+
+    pixel_gt_list, pixel_score_list = [], []
+    sample_gt_list, sample_score_list = [], []
+    all_maps = []
+
+    # 导入 EERM 相关函数
+    from model.error_reliability_modulation import ErrorReliabilityModulation
+    from util.test import eerm_fuse
+
+    # 获取 extra_channels（默认为3：delta_l1, delta_cos, delta_gap）
+    extra_channels = getattr(args, 'eerm_extra_channels', 3)
+
+    with torch.no_grad():
+        for img, gt, label in dataloader:
+            img = img.to(device)
+            inputs = encoder(img)
+            outputs = ed(inputs)
+            gt = gt.squeeze(1).cpu().numpy()
+
+            # 计算重建误差图
+            recon_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+
+            # 计算能量图
+            energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
+
+            # 如果有 EERM 模块，使用 EERM 融合
+            if eerm_module is not None:
+                final_map, _ = eerm_fuse(
+                    eerm_module=eerm_module,
+                    recon_map=recon_map,
+                    energy_maps_t=energy_maps,
+                    inputs=inputs,
+                    outputs=outputs,
+                    device=device,
+                    extra_channels=extra_channels,
+                    recon_norm_quantile_low=args.recon_norm_quantile_low,
+                    recon_norm_quantile_high=args.recon_norm_quantile_high,
+                    recon_compress=args.recon_compress,
+                    fuse_output_norm=args.fuse_output_norm
+                )
+            else:
+                # 没有 EERM 模块时，回退到 V2 软门控融合
+                final_map = soft_gate_fuse(
+                    recon_map=recon_map,
+                    energy_maps_t=energy_maps,
+                    k=args.gate_k,
+                    Te=args.gate_te,
+                    smooth_sigma=args.gate_sigma,
+                    recon_norm_quantile_low=args.recon_norm_quantile_low,
+                    recon_norm_quantile_high=args.recon_norm_quantile_high,
+                    recon_compress=args.recon_compress,
+                    fuse_output_norm=args.fuse_output_norm
+                )
+
+            all_maps.append(final_map)
+
+            gt_binary = (gt > 0.5).astype(int).reshape(-1)
+            pixel_gt_list.append(gt_binary)
+            pixel_score_list.append(final_map.reshape(-1))
+            sample_gt_list.append(np.max(gt.astype(int), axis=-1))
+            sample_score_list.append(
+                torch.topk(torch.from_numpy(final_map.reshape(img.size(0), -1)),
+                           args.topk, dim=-1)[0].mean(axis=-1).numpy())
+
+    gt_arr = np.concatenate(pixel_gt_list)
+    score_arr = np.concatenate(pixel_score_list)
+    from util.test import calculate_metrics
+    return {
+        'Pixel': calculate_metrics(score_arr, gt_arr, acc=False),
+        'Image': calculate_metrics(np.concatenate(sample_score_list),
+                                  np.concatenate(sample_gt_list), acc=True),
+    }, np.concatenate(all_maps)
+
+
+# ============================================================================
 # 汇总打印
 # ============================================================================
 
@@ -362,17 +472,22 @@ VERSIONS = [
     ('V4-E2-diff',          eval_e2_diff),
     ('V5-E3-diff',          eval_e3_diff),
     ('V6-Mean-E-diff',      eval_mean_e_diff),
+    ('V7-EERM',             eval_eerm_fusion),
 ]
 
 
-def run_all_versions(encoder, ed, discriminator, dataloader, device, args):
+def run_all_versions(encoder, ed, discriminator, dataloader, device, args, eerm_module=None):
     """
-    一次性跑全部 6 个版本，返回 results_dict
+    一次性跑全部 7 个版本，返回 results_dict
     results_dict: {name: {'Pixel': {...}, 'Image': {...}}}
     """
     results = {}
     for name, fn in VERSIONS:
-        metrics, _ = fn(encoder, ed, discriminator, dataloader, device, args)
+        # V7-EERM 需要传入 eerm_module
+        if name == 'V7-EERM':
+            metrics, _ = fn(encoder, ed, discriminator, dataloader, device, args, eerm_module=eerm_module)
+        else:
+            metrics, _ = fn(encoder, ed, discriminator, dataloader, device, args)
         results[name] = metrics
     return results
 

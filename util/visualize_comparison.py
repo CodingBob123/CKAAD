@@ -589,3 +589,244 @@ def visualize_energy_diff_unified(encoder, ed, discriminator, dataloader,
     print(f"Total samples visualized: {sum(type_to_count.values())} ({', '.join(sorted(type_to_count.keys()))})")
 
     return stats
+
+
+def visualize_eerm_unified(encoder, ed, discriminator, dataloader,
+                            args, device, epochs,
+                            cached_maps=None, cached_imgs_denorm=None,
+                            enable_stats=True):
+    """
+    EERM模式统一可视化：展示 Recon Error / Energy / Weight Map / Refined Map / Overlay
+
+    这是 EERM 模块的可视化入口，额外展示 EERM 的门控权重图，
+    用于分析模块如何调制重建误差的可信度。
+
+    参数:
+        encoder: 预训练特征提取器
+        ed: 编码器-解码器模型
+        discriminator: 判别器模型
+        dataloader: 数据加载器
+        args: 命令行参数
+        device: 计算设备
+        epochs: 当前 epoch 数
+        cached_maps: dict 或 None，包含以下键:
+            - recon_maps: np.ndarray [N, H, W] 重建误差图
+            - energy_maps: list of torch.Tensor [[N,1,H,W], ...] 多尺度能量图
+            - final_maps: np.ndarray [N, H, W] 融合后的异常图（EERM refined map）
+            - anomaly_maps: np.ndarray [N, H, W] 原始异常图
+            - weight_maps: np.ndarray [N, H, W] EERM门控权重图
+        cached_imgs_denorm: torch.Tensor 或 None，[N,3,H,W] 反归一化后的图像
+        enable_stats: bool，是否打印统计信息
+    """
+    encoder.eval()
+    ed.eval()
+    discriminator.eval()
+
+    # 获取空间尺寸
+    if hasattr(discriminator, 'get_spatial_sizes'):
+        spatial_sizes = discriminator.get_spatial_sizes()
+    else:
+        spatial_sizes = [64, 32, 16]
+    n_scales = len(spatial_sizes)
+
+    # 检查 cached_maps
+    if cached_maps is None:
+        print("Warning: cached_maps is None, cannot visualize EERM")
+        return
+
+    recon_maps = cached_maps.get('recon_maps')
+    energy_maps = cached_maps.get('energy_maps')
+    final_maps = cached_maps.get('final_maps')
+    weight_maps = cached_maps.get('weight_maps')
+
+    if recon_maps is None or final_maps is None or weight_maps is None:
+        print("Warning: EERM visualization requires recon_maps, final_maps, and weight_maps in cached_maps")
+        return
+
+    # 创建存储统计信息的字典
+    stats = {
+        'recon_mean': [],
+        'energy_mean': [],
+        'weight_mean': [],
+        'refined_mean': [],
+    }
+
+    # 创建结果保存路径
+    result_path = os.path.join('/hy-tmp/results', f'eerm_viz_{args.dataset}_{args.normal}_epoch_{epochs}')
+    os.makedirs(result_path, exist_ok=True)
+
+    use_cached_imgs = cached_imgs_denorm is not None
+
+    with torch.no_grad():
+        type_to_count = {}
+        sample_idx = 0
+
+        for data in dataloader:
+            imgs = data[0].to(device)
+            labels = data[-1]
+            gt_batch = data[1] if len(data) >= 3 else None
+            batch_size = imgs.size(0)
+
+            if use_cached_imgs:
+                imgs_denorm = cached_imgs_denorm[sample_idx:sample_idx + batch_size]
+            else:
+                imgs_denorm = img_transform(imgs)
+
+            for i in range(batch_size):
+                label = labels[i]
+                type_name = (dataloader.dataset.types_set[label.item()]
+                             if hasattr(dataloader.dataset, 'types_set')
+                             else f"label_{label.item()}")
+
+                # 每个异常类型各2张
+                if type_to_count.get(type_name, 0) >= 2:
+                    sample_idx += 1
+                    continue
+                type_to_count[type_name] = type_to_count.get(type_name, 0) + 1
+
+                img = imgs_denorm[i]
+                img_np = img.permute(1, 2, 0).cpu().numpy()
+                img_np = np.clip(img_np, 0, 1)
+
+                gt = (gt_batch[i].squeeze(0).cpu().numpy()
+                      if gt_batch is not None else None)
+
+                # 获取当前样本的各个 map
+                recon_vis = recon_maps[sample_idx]
+                final_vis = final_maps[sample_idx]
+                weight_vis = weight_maps[sample_idx]
+
+                # 收集统计信息
+                if enable_stats:
+                    stats['recon_mean'].append(recon_vis.mean())
+                    stats['weight_mean'].append(weight_vis.mean())
+                    stats['refined_mean'].append(final_vis.mean())
+
+                # ------------------------------------------------------------
+                # 布局设计（3行 x 7列）
+                # 行0（主图热力图）：Orig | GT | Recon | Energy | Weight | Refined | Overlay
+                # 行1（分布图）：Recon | Energy | Weight | Refined 的直方图
+                # 行2（行3）：预留或关闭
+                # ------------------------------------------------------------
+                num_cols = 7  # Orig, GT, Recon, Energy, Weight, Refined, Overlay
+                fig, axes = plt.subplots(3, num_cols, figsize=(4 * num_cols, 12))
+
+                # ---- 行0：主图热力图 ----
+                # 列0：原始图像
+                col = 0
+                axes[0, col].imshow(img_np)
+                axes[0, col].set_title(f'Original\n{type_name}', fontsize=9, fontweight='bold')
+                axes[0, col].axis('off')
+
+                # 列1：Ground Truth
+                col = 1
+                if gt is not None:
+                    axes[0, col].imshow(gt, cmap='gray')
+                    axes[0, col].set_title('Ground Truth', fontsize=9, fontweight='bold')
+                else:
+                    axes[0, col].text(0.5, 0.5, 'No GT', ha='center', va='center', fontsize=9)
+                axes[0, col].axis('off')
+
+                # 列2：重建误差图
+                col = 2
+                im_recon = axes[0, col].imshow(recon_vis, cmap='jet')
+                axes[0, col].set_title('Recon\nError', fontsize=9, fontweight='bold')
+                axes[0, col].axis('off')
+                plt.colorbar(im_recon, ax=axes[0, col], shrink=0.8)
+
+                # 列3：能量图（多尺度平均）
+                col = 3
+                energy_avg_np = None
+                if energy_maps is not None:
+                    # 对多尺度能量图取平均
+                    energy_list = [em[sample_idx, 0].cpu().numpy() for em in energy_maps]
+                    energy_avg_np = np.mean(energy_list, axis=0)
+                    im_energy = axes[0, col].imshow(energy_avg_np, cmap='jet')
+                    axes[0, col].set_title('Energy\n(D(input))', fontsize=9, fontweight='bold')
+                else:
+                    axes[0, col].text(0.5, 0.5, 'No Energy', ha='center', va='center', fontsize=9)
+                axes[0, col].axis('off')
+                if energy_avg_np is not None:
+                    plt.colorbar(im_energy, ax=axes[0, col], shrink=0.8)
+                    if enable_stats:
+                        stats['energy_mean'].append(energy_avg_np.mean())
+
+                # 列4：EERM 门控权重图（新增关键可视化）
+                col = 4
+                im_weight = axes[0, col].imshow(weight_vis, cmap='RdYlGn', vmin=0, vmax=1)
+                axes[0, col].set_title('EERM\nWeight Map', fontsize=9, fontweight='bold', color='green')
+                axes[0, col].axis('off')
+                plt.colorbar(im_weight, ax=axes[0, col], shrink=0.8)
+
+                # 列5：Refined 异常图（EERM 输出）
+                col = 5
+                im_refined = axes[0, col].imshow(final_vis, cmap='jet')
+                axes[0, col].set_title('Refined\n(EERM Output)', fontsize=9, fontweight='bold', color='blue')
+                axes[0, col].axis('off')
+                plt.colorbar(im_refined, ax=axes[0, col], shrink=0.8)
+
+                # 列6：Overlay（原始图 + Refined 热力图）
+                col = 6
+                axes[0, col].imshow(img_np)
+                axes[0, col].imshow(final_vis, cmap='jet', alpha=0.5)
+                axes[0, col].set_title('Overlay\n(Image + Refined)', fontsize=9, fontweight='bold')
+                axes[0, col].axis('off')
+
+                # ---- 行1：各通道分布直方图 ----
+                # Recon 分布
+                axes[1, 0].hist(recon_vis.flatten(), bins=50, color='red', alpha=0.7)
+                axes[1, 0].set_title('Recon\nDistribution', fontsize=8)
+                axes[1, 0].set_xlabel('Value')
+                axes[1, 0].set_ylabel('Frequency')
+
+                # Energy 分布
+                if energy_avg_np is not None:
+                    axes[1, 1].hist(energy_avg_np.flatten(), bins=50, color='orange', alpha=0.7)
+                    axes[1, 1].set_title('Energy\nDistribution', fontsize=8)
+                    axes[1, 1].set_xlabel('Value')
+                    axes[1, 1].set_ylabel('Frequency')
+                else:
+                    axes[1, 1].axis('off')
+
+                # Weight 分布
+                axes[1, 2].hist(weight_vis.flatten(), bins=50, color='green', alpha=0.7)
+                axes[1, 2].set_title('Weight\nDistribution', fontsize=8)
+                axes[1, 2].set_xlabel('Value')
+                axes[1, 2].set_ylabel('Frequency')
+                axes[1, 2].axvline(x=0.5, color='black', linestyle='--', alpha=0.5, label='threshold=0.5')
+
+                # Refined 分布
+                axes[1, 3].hist(final_vis.flatten(), bins=50, color='blue', alpha=0.7)
+                axes[1, 3].set_title('Refined\nDistribution', fontsize=8)
+                axes[1, 3].set_xlabel('Value')
+                axes[1, 3].set_ylabel('Frequency')
+
+                # 关闭剩余列
+                for col in range(4, num_cols):
+                    axes[1, col].axis('off')
+
+                # ---- 行2：关闭 ----
+                for col in range(num_cols):
+                    axes[2, col].axis('off')
+
+                plt.suptitle(f'EERM Visualization - {type_name} (Epoch {epochs})\n'
+                            f'Weight: mean={weight_vis.mean():.3f}, Refined: mean={final_vis.mean():.3f}',
+                            fontsize=11, fontweight='bold', y=1.02)
+                plt.tight_layout()
+                plt.savefig(os.path.join(result_path, f'{type_name}_eerm.png'),
+                            dpi=150, bbox_inches='tight')
+                plt.close()
+
+                sample_idx += 1
+
+    print(f"\nEERM Visualization saved to: {result_path}")
+    print(f"Total samples visualized: {sum(type_to_count.values())} ({', '.join(sorted(type_to_count.keys()))})")
+
+    if enable_stats and stats['recon_mean']:
+        print(f"\nEERM Statistics:")
+        print(f"  Recon mean: {np.mean(stats['recon_mean']):.4f}")
+        print(f"  Energy mean: {np.mean(stats['energy_mean']):.4f}")
+        print(f"  Weight mean: {np.mean(stats['weight_mean']):.4f}")
+        print(f"  Refined mean: {np.mean(stats['refined_mean']):.4f}")
+
+    return stats

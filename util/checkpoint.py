@@ -41,6 +41,35 @@ def build_checkpoint_dir(args) -> str:
     return ckpt_dir
 
 
+def build_eerm_checkpoint_dir(args) -> str:
+    """
+    Build the checkpoint directory path for EERM module.
+
+    EERM checkpoints are saved separately from CKAAD checkpoints:
+        /hy-tmp/checkpoints/eerm/{dataset}/{normal}/n_{normal}_a_{class}_s_{seed}/
+
+    Args:
+        args: argparse Namespace with dataset, normal, labeled_anomaly_class, seed,
+              and optionally checkpoint_dir for custom root.
+
+    Returns:
+        Absolute path to the EERM checkpoint directory, e.g.
+        /hy-tmp/checkpoints/eerm/mvtec/wood/n_wood_a_0_s_111/
+    """
+    # 获取 checkpoint 根目录
+    ckpt_root = getattr(args, "checkpoint_dir", None) or "checkpoints"
+    # EERM 专用子目录
+    ckpt_dir = os.path.join(
+        ckpt_root,
+        "eerm",                              # EERM 独立子目录
+        args.dataset,
+        args.normal,
+        f"n_{args.normal}_a_{args.labeled_anomaly_class}_s_{args.seed}"
+    )
+    os.makedirs(ckpt_dir, exist_ok=True)
+    return ckpt_dir
+
+
 def get_checkpoint_path(
     ckpt_dir: str,
     mode: str = "best",

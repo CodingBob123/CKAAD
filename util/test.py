@@ -1,4 +1,5 @@
 # utils/test.py
+from errno import EPERM
 import torch
 import numpy as np
 from dataset.mvtec import MVTecDataset
@@ -16,6 +17,107 @@ from torchvision import transforms
 from torchvision.utils import save_image
 import matplotlib.pyplot as plt
 from model.model import Discriminator
+from model.error_reliability_modulation import ErrorReliabilityModulation
+
+
+def eerm_fuse(eerm_module: ErrorReliabilityModulation,
+              recon_map: np.ndarray,
+              energy_maps_t: list,
+              inputs: list,
+              outputs: list,
+              device: torch.device,
+              extra_channels: int = 3,
+              recon_norm_quantile_low: float = 0.02,
+              recon_norm_quantile_high: float = 0.98,
+              recon_compress: str = 'sqrt',
+              fuse_output_norm: bool = False) -> tuple:
+    """
+    EERM融合函数：正确构造5通道输入，调用ErrorReliabilityModulation模块。
+
+    EERM的5个输入通道：
+        通道1: base_error_map (recon_map)          - 原始重建误差图
+        通道2: energy_map_normed                   - 能量图（多尺度平均+归一化）
+        通道3: delta_l1                            - 特征级L1差异
+        通道4: delta_cos                           - 特征级余弦差异
+        通道5: delta_gap                           - 误差图与能量图的归一化差值
+
+    参数:
+        eerm_module: ErrorReliabilityModulation 实例
+        recon_map: np.ndarray [B, H, W] 重建误差图（来自 cal_anomaly_map）
+        energy_maps_t: list of torch.Tensor [[B,1,H,W], ...] 多尺度能量图列表
+        inputs: list of torch.Tensor 输入特征列表 [feat1, feat2, feat3]
+        outputs: list of torch.Tensor 重建特征列表 [recon_feat1, recon_feat2, recon_feat3]
+        device: torch.device
+        extra_channels: int, 额外通道数（默认为3：delta_l1, delta_cos, delta_gap）
+        其他参数: 与 soft_gate_fuse 相同的归一化参数
+
+    返回:
+        final_map: np.ndarray [B, H, W] 融合后的异常图
+        weight_map: np.ndarray [B, H, W] 门控权重图（用于可视化）
+    """
+    # ---------- Step 1: 构造 base_error_map ----------
+    # recon_map 是 np.ndarray [B, H, W]，需要转为 torch.Tensor [B, 1, H, W]
+    B, H, W = recon_map.shape
+    base_error_map = torch.from_numpy(recon_map).float().unsqueeze(1).to(device)  # [B, 1, H, W]
+
+    # ---------- Step 2: 构造 energy_map ----------
+    # 多尺度能量图 -> 平均 -> 归一化
+    # energy_maps_t: list of [B, 1, H, W] x 3
+    energy_stack = torch.stack([e.squeeze(1) for e in energy_maps_t], dim=1)  # [B, 3, H, W]
+    energy_avg = energy_stack.mean(dim=1, keepdim=True)  # [B, 1, H, W]
+    energy_map = energy_avg  # 未归一化的能量图，会在 forward 中归一化
+
+    # ---------- Step 3: 构造 extra_maps ----------
+    extra_maps = []
+
+    # 选择一个参考层级（通常用第一层或融合层级）来计算特征差异
+    # 为了与 recon_map 空间尺寸一致，使用第一层特征
+    feat = inputs[0]  # [B, C, H1, W1]
+    recon_feat = outputs[0]  # [B, C, H1, W1]
+
+    # 如果空间尺寸不一致，需要上采样到与 recon_map 相同的尺寸
+    target_h, target_w = H, W
+    if feat.shape[-2:] != (target_h, target_w):
+        feat = F.interpolate(feat, size=(target_h, target_w), mode='bilinear', align_corners=True)
+        recon_feat = F.interpolate(recon_feat, size=(target_h, target_w), mode='bilinear', align_corners=True)
+
+    # 通道3: delta_l1 - 特征级L1差异
+    delta_l1 = ErrorReliabilityModulation.reduce_feature_diff_to_map(feat, recon_feat, mode="l1")
+    extra_maps.append(delta_l1)
+
+    # 通道4: delta_cos - 特征级余弦差异
+    delta_cos = ErrorReliabilityModulation.reduce_feature_diff_to_map(feat, recon_feat, mode="cos")
+    extra_maps.append(delta_cos)
+
+    # 通道5: delta_gap - 误差图与能量图的归一化差值
+    # 先对 recon_map 做与 soft_gate_fuse 相同的预处理
+    recon_clipped = quantile_clip(recon_map, quantile_low=recon_norm_quantile_low, quantile_high=recon_norm_quantile_high)
+    recon_compressed = high_tail_compress(recon_clipped, method=recon_compress)
+    recon_normed_np = minmax_norm_per_sample(recon_compressed)  # [B, H, W]
+    recon_normed = torch.from_numpy(recon_normed_np).float().unsqueeze(1).to(device)  # [B, 1, H, W]
+
+    # 能量图归一化
+    energy_normed = ErrorReliabilityModulation.minmax_normalize(energy_map)
+
+    # delta_gap = |recon_normed - energy_normed|
+    delta_gap = torch.abs(recon_normed - energy_normed)
+    extra_maps.append(delta_gap)
+
+    # ---------- Step 4: 调用 EERM forward ----------
+    out = eerm_module(
+        base_error_map=base_error_map,
+        energy_map=energy_map,
+        extra_maps=extra_maps
+    )
+
+    weight_map = out["weight_map"].cpu().numpy().squeeze(1)  # [B, H, W]
+    refined_map = out["refined_map"].cpu().numpy().squeeze(1)  # [B, H, W]
+
+    # ---------- Step 5: 可选的融合后归一化 ----------
+    if fuse_output_norm:
+        refined_map = minmax_norm_per_sample(refined_map)
+
+    return refined_map, weight_map
 
 def transform_invert(img_, transform_train):
     """
@@ -407,7 +509,7 @@ def calculate_single_map_metrics(map_np, gt_np, topk=100):
     }
 
 def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
-             recon_only=False, energy_diff_mode=False):
+             recon_only=False, energy_diff_mode=False, eerm_module=None, fusion_mode='soft_gate'):
     """
     统一评估接口
 
@@ -421,6 +523,8 @@ def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps
         return_maps: bool，是否返回中间 map（用于避免可视化时的重复计算）
         recon_only: bool，是否使用纯重建误差图（跳过能量图融合，用于 Recon baseline 训练）
         energy_diff_mode: bool，是否使用能量差模式（V3-V6：D(input) - D(output)，默认 False）
+        eerm_module: ErrorReliabilityModulation 实例，用于 EERM 融合模式
+        fusion_mode: str，融合模式选择 'soft_gate' 或 'eerm'
 
     返回:
         metrics: 评估指标字典
@@ -430,7 +534,7 @@ def evaluation(encoder, ed, discriminator, dataloader, device, args, return_maps
     """
     if args.dataset in ['mvtec', 'visa', 'btad']:
         return evaluation_pixel(encoder, ed, discriminator, dataloader, device, args,
-                                return_maps, recon_only, energy_diff_mode)
+                                return_maps, recon_only, energy_diff_mode, eerm_module, fusion_mode)
     else:
         # semantic 模式不使用判别器，仅返回 metrics（不支持 return_maps）
         result = evaluation_semantic(encoder, ed, dataloader, device, args)
@@ -463,7 +567,8 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
     return metric_dict
 
 def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, return_maps=False,
-                     recon_only=False, energy_diff_mode=False):
+                     recon_only=False, energy_diff_mode=False, eerm_module=None, fusion_mode='soft_gate',
+                     extra_channels: int = 3):
     """
     像素级异常检测评估
 
@@ -477,17 +582,21 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         return_maps: bool，是否返回所有批次的中间 map（避免可视化时重复计算）
         recon_only: bool，是否使用纯重建误差图（不做能量图融合，用于 Recon baseline 训练）
         energy_diff_mode: bool，是否使用能量差模式（V3-V6：D(input) - D(output)，默认 False）
+        eerm_module: ErrorReliabilityModulation 实例，用于 EERM 融合模式
+        fusion_mode: str，融合模式选择 'soft_gate' 或 'eerm'
+        extra_channels: int，EERM模块的额外通道数
 
     返回:
         metrics: 评估指标字典
         若 return_maps=True，额外返回 (recon_maps, energy_maps_list, final_maps, all_gts)
         - recon_maps: np.ndarray [N_total, H, W]，重建误差图
-        - energy_maps_list: list of torch.Tensor [[N,1,H,W], ...]，每尺度一个，共 3 个尺度
+        - energy_maps: list of torch.Tensor [[N,1,H,W], ...]，每尺度一个，共 3 个尺度
           当 energy_diff_mode=True 时，返回的是能量差图
         - energy_in_maps: list of torch.Tensor [[N,1,H,W], ...]，输入能量图（仅 energy_diff_mode=True 时有值）
         - energy_out_maps: list of torch.Tensor [[N,1,H,W], ...]，输出能量图（仅 energy_diff_mode=True 时有值）
         - final_maps: np.ndarray [N_total, H, W]，融合后的异常图
         - all_gts: np.ndarray [N_total, H, W]，ground truth mask
+        - weight_maps: np.ndarray [N_total, H, W]，EERM门控权重图（仅 EERM 模式有值）
     """
     encoder.eval()
     ed.eval()
@@ -509,6 +618,7 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         all_energy_maps = []   # 每 batch 一个 torch.Tensor [N, 1, H, W]
         all_final_maps = []
         all_anomaly_maps = []
+        all_weight_maps = []   # EERM 门控权重图
         # 能量差模式下额外保存输入/输出能量图用于可视化
         all_energy_in_maps = []
         all_energy_out_maps = []
@@ -543,32 +653,45 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
             # ---------- Recon-only 模式（Day 1 基线训练用）：跳过能量图融合 ----------
             if recon_only:
                 final_map = recon_map
+                weight_map = None
                 energy_maps = None
                 energy_in_maps = None
                 energy_out_maps = None
-            # ---------- 能量差模式（V3-V6）：使用 D(input) - D(output) ----------
-            elif energy_diff_mode:
-                # 分别计算输入和输出的能量图
+            # ---------- EERM 融合模式 ----------
+            elif fusion_mode == 'eerm' and eerm_module is not None:
+                # 计算输入能量图
                 energy_in_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
-                energy_out_maps = cal_energy_map(discriminator, outputs, img.shape[-1])
-                # 计算能量差
-                energy_maps = [energy_in_maps[i] - energy_out_maps[i] for i in range(len(energy_in_maps))]
-                final_map = soft_gate_fuse(
+                # 能量差模式下额外计算输出能量图
+                if energy_diff_mode:
+                    energy_out_maps = cal_energy_map(discriminator, outputs, img.shape[-1])
+                    energy_maps = [energy_in_maps[i] - energy_out_maps[i] for i in range(len(energy_in_maps))]
+                else:
+                    energy_out_maps = None
+                    energy_maps = energy_in_maps
+                # 调用 EERM 融合函数
+                final_map, weight_map = eerm_fuse(
+                    eerm_module=eerm_module,
                     recon_map=recon_map,
                     energy_maps_t=energy_maps,
-                    k=args.gate_k,
-                    Te=args.gate_te,
-                    smooth_sigma=args.gate_sigma,
+                    inputs=inputs,
+                    outputs=outputs,
+                    device=device,
+                    extra_channels=extra_channels,
                     recon_norm_quantile_low=args.recon_norm_quantile_low,
                     recon_norm_quantile_high=args.recon_norm_quantile_high,
                     recon_compress=args.recon_compress,
                     fuse_output_norm=args.fuse_output_norm
                 )
-            # ---------- 默认模式（V2）：使用 D(input) ----------
+            # ---------- 原版（软门控乘法融合机制） ----------
             else:
-                energy_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
-                energy_in_maps = None
+                energy_in_maps = cal_energy_map(discriminator, inputs, img.shape[-1])
                 energy_out_maps = None
+                if energy_diff_mode:
+                    energy_out_maps = cal_energy_map(discriminator, outputs, img.shape[-1])
+                    energy_maps = [energy_in_maps[i] - energy_out_maps[i] for i in range(len(energy_in_maps))]
+                else:
+                    energy_maps = energy_in_maps
+                weight_map = None
                 final_map = soft_gate_fuse(
                     recon_map=recon_map,
                     energy_maps_t=energy_maps,
@@ -651,6 +774,9 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
                     all_energy_maps = None
                 all_final_maps.append(final_map)
                 all_anomaly_maps.append(anomaly_map)
+                # EERM 门控权重图
+                if weight_map is not None:
+                    all_weight_maps.append(weight_map)
 
             all_gts.append(gt.cpu().numpy())
             all_maps.append(anomaly_map)
@@ -743,11 +869,12 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
         recon_maps = np.concatenate(all_recon_maps, axis=0)
         final_maps = np.concatenate(all_final_maps, axis=0)
         anomaly_maps = np.concatenate(all_anomaly_maps, axis=0)
+        weight_maps = np.concatenate(all_weight_maps, axis=0) if all_weight_maps else None
         # energy_maps 已在循环中拼接，all_energy_maps[j] 就是第 j 尺度的完整 torch.Tensor
         # 能量差模式下，额外返回输入/输出能量图用于可视化
         if energy_diff_mode:
-            return metrics, recon_maps, all_energy_maps, all_energy_in_maps, all_energy_out_maps, final_maps, all_gts, anomaly_maps
-        return metrics, recon_maps, all_energy_maps, None, None, final_maps, all_gts, anomaly_maps
+            return metrics, recon_maps, all_energy_maps, all_energy_in_maps, all_energy_out_maps, final_maps, all_gts, anomaly_maps, weight_maps
+        return metrics, recon_maps, all_energy_maps, None, None, final_maps, all_gts, anomaly_maps, weight_maps
 
     return metrics
 

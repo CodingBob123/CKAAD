@@ -5,12 +5,12 @@
 
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
-checkpoint_interval=80          # 每 多少 个 epoch 保存一次 checkpoint
+checkpoint_interval=160          # 每 多少 个 epoch 保存一次 checkpoint
 checkpoint_mode=best         # 加载最新保存的 checkpoint
 checkpoint_dir=/hy-tmp/checkpoints  # checkpoint 存储根目录；设为空或不设置则默认保存在项目根目录的 ./checkpoints 下
 
 # for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
-for normal in 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+for normal in  'toothbrush' 'transistor' 'wood' 'zipper' 'capsule'
 # for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
 do
     echo "[Day1 Baseline] Training: $normal"
@@ -29,11 +29,11 @@ do
 
     case $normal in 'carpet')
             epochs=20
-            eval_epoch=8
+            eval_epoch=10
             ;;
         *)
             epochs=160
-            eval_epoch=8
+            eval_epoch=16
             ;;
     esac
 
@@ -69,7 +69,7 @@ do
         --checkpoint_mode ${checkpoint_mode}
         --checkpoint_dir ${checkpoint_dir}
         --use_amp
-        # --energy_diff_mode
+        --energy_diff_mode
     )
 
     echo ">>> CMD: python main.py ${base_args[*]}"
@@ -80,4 +80,4 @@ do
 done
 
 echo "[Day1] All categories completed!"
-echo "Checkpoints saved in: ./log_day1/"
+echo "Checkpoints saved in: ./hy-tmp/checkpoints/"

@@ -6,7 +6,7 @@ normal='wood'
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
 checkpoint_dir=/hy-tmp/checkpoints
-ckpt_path="./checkpoints/mvtec/${normal}/n_${normal}_a_0_s_111/best.pth"
+ckpt_path="/hy-tmp/checkpoints/mvtec/${normal}/n_${normal}_a_0_s_111/best.pth"
 
 echo "============================================"
 echo "[EERM Debug] Testing on: $normal"

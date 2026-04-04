@@ -144,6 +144,8 @@ def save_checkpoint(
     filename: Optional[str] = None,
     save_best: bool = False,
     is_final: bool = False,
+    eerm_module: Optional[torch.nn.Module] = None,
+    eerm_optimizer: Optional[torch.optim.Optimizer] = None,
 ) -> str:
     """
     Save training state to disk.
@@ -181,6 +183,9 @@ def save_checkpoint(
         # Optimizer states (for resume training)
         "ae_optimizer_state_dict": ae_optimizer.state_dict(),
         "discriminator_optimizer_state_dict": discriminator_optimizer.state_dict(),
+        # EERM module (optional)
+        "eerm_state_dict": eerm_module.state_dict() if eerm_module is not None else None,
+        "eerm_optimizer_state_dict": eerm_optimizer.state_dict() if eerm_optimizer is not None else None,
         # Metadata
         "epoch": epoch,
         "best_epoch": metrics.get("best_epoch", epoch),
@@ -226,6 +231,8 @@ def load_checkpoint(
     checkpoint_path: str,
     device: str = "cuda",
     strict: bool = True,
+    eerm_module: Optional[torch.nn.Module] = None,
+    eerm_optimizer: Optional[torch.optim.Optimizer] = None,
 ) -> Dict[str, Any]:
     """
     Load training state from disk.
@@ -238,6 +245,8 @@ def load_checkpoint(
         checkpoint_path: Path to the .pth checkpoint file.
         device: Device to map tensors to.
         strict: Passed to load_state_dict (strict=True raises on key mismatch).
+        eerm_module: EERM module to load weights into (optional).
+        eerm_optimizer: EERM optimizer to load state into (optional).
 
     Returns:
         Checkpoint metadata dict (keys: epoch, best_epoch, best_metric, config, args, etc.)
@@ -255,6 +264,13 @@ def load_checkpoint(
     # Restore model weights
     ae.load_state_dict(ckpt["ae_state_dict"], strict=strict)
     discriminator.load_state_dict(ckpt["discriminator_state_dict"], strict=strict)
+
+    # Restore EERM module and optimizer (optional, for resume training)
+    if eerm_module is not None and "eerm_state_dict" in ckpt and ckpt["eerm_state_dict"] is not None:
+        eerm_module.load_state_dict(ckpt["eerm_state_dict"], strict=False)
+        logger.info("EERM module weights loaded from checkpoint.")
+    if eerm_optimizer is not None and "eerm_optimizer_state_dict" in ckpt and ckpt["eerm_optimizer_state_dict"] is not None:
+        eerm_optimizer.load_state_dict(ckpt["eerm_optimizer_state_dict"])
 
     # Restore optimizer states
     if ae_optimizer is not None and "ae_optimizer_state_dict" in ckpt:

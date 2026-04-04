@@ -14,14 +14,14 @@ checkpoint_mode=best
 checkpoint_dir=/hy-tmp/checkpoints
 
 # 实验类别（使用已有的 checkpoint）
-for normal in 'wood' 'zipper' 'carpet'
+for normal in 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper' 'carpet'
 do
     echo "============================================"
     echo "[EERM Exp] Processing: $normal"
     echo "============================================"
 
     # checkpoint 路径
-    ckpt_path="./checkpoints/mvtec/${normal}/n_${normal}_a_0_s_111/best.pth"
+    ckpt_path="/hy-tmp/checkpoints/mvtec/${normal}/n_${normal}_a_0_s_111/best.pth"
 
     if [ ! -f "$ckpt_path" ]; then
         echo "[Warning] Checkpoint not found: $ckpt_path"
@@ -52,7 +52,7 @@ do
         --layer 1 2 3
         --checkpoint_dir ${checkpoint_dir}
         --use_amp
-        --energy_diff_mode
+        # --energy_diff_mode
 
         # EERM 核心参数
         --eerm_mode ckaad                    # 不训练，只用 CKAAD 主干

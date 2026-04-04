@@ -110,8 +110,8 @@ def eerm_fuse(eerm_module: ErrorReliabilityModulation,
         extra_maps=extra_maps
     )
 
-    weight_map = out["weight_map"].cpu().numpy().squeeze(1)  # [B, H, W]
-    refined_map = out["refined_map"].cpu().numpy().squeeze(1)  # [B, H, W]
+    weight_map = out["weight_map"].detach().cpu().numpy().squeeze(1)  # [B, H, W]
+    refined_map = out["refined_map"].detach().cpu().numpy().squeeze(1)  # [B, H, W]
 
     # ---------- Step 5: 可选的融合后归一化 ----------
     if fuse_output_norm:
@@ -613,8 +613,8 @@ def evaluation_pixel(encoder, ed, discriminator, dataloader, device, args, retur
     all_maps = []
 
     # 仅在需要返回 map 时才收集
+    all_recon_maps = []   # 是否收集不影响后续指标计算
     if return_maps:
-        all_recon_maps = []
         all_energy_maps = []   # 每 batch 一个 torch.Tensor [N, 1, H, W]
         all_final_maps = []
         all_anomaly_maps = []

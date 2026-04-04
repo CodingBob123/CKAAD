@@ -629,6 +629,12 @@ def visualize_eerm_unified(encoder, ed, discriminator, dataloader,
         spatial_sizes = [64, 32, 16]
     n_scales = len(spatial_sizes)
 
+    # 图像反归一化 transform（用于生成可视化图像）
+    img_transform = transforms.Compose([
+        transforms.Normalize(mean=(-0.485/0.229, -0.456/0.224, -0.406/0.225),
+                           std=(1/0.229, 1/0.224, 1/0.225))
+    ])
+
     # 检查 cached_maps
     if cached_maps is None:
         print("Warning: cached_maps is None, cannot visualize EERM")

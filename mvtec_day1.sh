@@ -1,16 +1,15 @@
 #!/bin/bash
 # Day 1: Recon baseline 训练脚本
-# 目标：纯重建误差基线，每 8 轮测试并保存 checkpoint，不使用能量图融合
-# 用于验证"能量图引导与筛选"创新点是否有效
+# 目标：纯重建误差基线，仅保存 best.pth 和 final.pth，使用 --recon_only 跳过能量图融合
 
 labeled_anomaly_ratio=0.05
 labeled_anomaly_class_num=1
-checkpoint_interval=160          # 每 多少 个 epoch 保存一次 checkpoint
-checkpoint_mode=best         # 加载最新保存的 checkpoint
-checkpoint_dir=/hy-tmp/checkpoints  # checkpoint 存储根目录；设为空或不设置则默认保存在项目根目录的 ./checkpoints 下
+checkpoint_interval=0           # 0=仅保存 best.pth 和 final.pth，不保存中间 checkpoint
+checkpoint_mode=best            # 加载最新保存的 checkpoint
+checkpoint_dir=/hy-tmp/checkpoints
 
 # for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
-for normal in  'toothbrush' 'transistor' 'wood' 'zipper' 'capsule'
+for normal in 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper' 
 # for normal in 'capsule' 'carpet' 'grid' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
 do
     echo "[Day1 Baseline] Training: $normal"
@@ -64,12 +63,11 @@ do
         --eval_epoch ${eval_epoch}
         --layer 1 2 3
         --enable_enhancement ${enable_enhancement}
-        # --recon_only                    # 核心：跳过能量图融合，使用纯重建误差图
+        --recon_only                    # 核心：跳过能量图融合，使用纯重建误差图
         --checkpoint_interval ${checkpoint_interval}
         --checkpoint_mode ${checkpoint_mode}
         --checkpoint_dir ${checkpoint_dir}
         --use_amp
-        --energy_diff_mode
     )
 
     echo ">>> CMD: python main.py ${base_args[*]}"

@@ -577,7 +577,7 @@ def train(args):
     if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
         ckpt_meta = load_checkpoint(
             ae, discriminator,
-            ae_optimizer=None,
+            ae_optimizer=None,          # 先不传 optimizer，加载后再恢复
             discriminator_optimizer=None,
             checkpoint_path=args.checkpoint_path,
             device=device,
@@ -596,6 +596,19 @@ def train(args):
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
     eerm_optimizer = torch.optim.Adam(eerm_module.parameters(), lr=args.eerm_lr)
+
+    # 断点续训：checkpoint 中保存了 optimizer state，恢复它们
+    if args.checkpoint_path is not None and os.path.isfile(args.checkpoint_path):
+        try:
+            ckpt_resume = torch.load(args.checkpoint_path, map_location=device, weights_only=False)
+            if "ae_optimizer_state_dict" in ckpt_resume:
+                ae_optimizer.load_state_dict(ckpt_resume["ae_optimizer_state_dict"])
+                logger.info("Resumed ae_optimizer state from checkpoint")
+            if "discriminator_optimizer_state_dict" in ckpt_resume:
+                discriminator_optimizer.load_state_dict(ckpt_resume["discriminator_optimizer_state_dict"])
+                logger.info("Resumed discriminator_optimizer state from checkpoint")
+        except Exception as e:
+            logger.warning(f"Could not resume optimizer state: {e}")
 
     # 根据训练模式设置模型冻结状态
     if args.eerm_mode == 'eerm':

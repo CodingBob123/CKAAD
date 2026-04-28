@@ -3,7 +3,7 @@ import os
 import numpy as np
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from dataset.mvtec import MVTecDataset, AnomalyDataset
+from dataset.mvtec import MVTecDataset, AnomalyDataset, MVTecAnomalyWithMask
 from dataset.oct import OCTDataset
 from dataset.xray import XRayDataset
 from dataset.isic import ISICDataset
@@ -72,13 +72,16 @@ class OODDataSet(MyDataset):
                  root,
                  dataset='cifar10',
                  image_size=256,
-                 category=0, labeled_anomaly_ratio=0.0, labeled_anomaly_class_num=1, labeled_anomaly_class=1, load_test_only=False):
+                 category=0, labeled_anomaly_ratio=0.0, labeled_anomaly_class_num=1, labeled_anomaly_class=1, load_test_only=False,
+                 use_rrs=False, rrs_anomaly_samples=None):
         super(OODDataSet, self).__init__(root=root, dataset=dataset, category=category, image_size=image_size)
         self.labeled_anomaly_ratio = labeled_anomaly_ratio
         self.labeled_anomaly_class_num = labeled_anomaly_class_num
         self.labeled_anomaly_class = labeled_anomaly_class
         self.choose_split_idx = None
         self.load_test_only = load_test_only
+        self.use_rrs = use_rrs
+        self.rrs_anomaly_samples = rrs_anomaly_samples
         self.process_for_ood(category=self.category,
                              labeled_anomaly_ratio=self.labeled_anomaly_ratio, 
                              labeled_anomaly_class_num=labeled_anomaly_class_num,
@@ -181,5 +184,24 @@ class OODDataSet(MyDataset):
         if self.anomaly_dataset is not None:
             anomaly_batch_size = min(batch_size, len(self.anomaly_dataset))
             anomaly_loader = DataLoader(self.anomaly_dataset, batch_size=anomaly_batch_size, shuffle=True)
-        return train_loader, valid_loader, anomaly_loader, test_loader
+
+        # RRS dataloader: loads real anomaly images with GT masks from test set
+        rrs_loader = None
+        if self.use_rrs and self.dataset_name in ['mvtec', 'visa', 'btad']:
+            rds = MVTecAnomalyWithMask(
+                root=self.root,
+                category=self.category,
+                transform=self.img_transform,
+                gt_transform=self.gt_transform if hasattr(self, 'gt_transform') else transforms.Compose([transforms.ToTensor()]),
+                img_size=self.img_size,
+                max_samples=self.rrs_anomaly_samples,
+            )
+            if len(rds) > 0:
+                rrs_batch_size = min(batch_size, len(rds))
+                rrs_loader = DataLoader(rds, batch_size=rrs_batch_size, shuffle=True, drop_last=True)
+                print(f"RRS dataloader created with {len(rds)} samples, batch_size={rrs_batch_size}")
+            else:
+                print("Warning: RRS enabled but no anomaly images with masks found!")
+
+        return train_loader, valid_loader, anomaly_loader, test_loader, rrs_loader
         

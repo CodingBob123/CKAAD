@@ -4,6 +4,7 @@ import random
 import os
 from util.test import evaluation, evaluation_pixel, visualize
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
+from model.rrs import RRS
 import logging
 from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
@@ -60,6 +61,13 @@ def parse_args():
     parser.add_argument('--loss_alpha', type=float, default=0.7, help='weight for cosine loss in combined loss')
     parser.add_argument('--loss_beta', type=float, default=0.2, help='weight for pixel loss in combined loss')
     parser.add_argument('--loss_gamma', type=float, default=0.1, help='weight for structure loss in combined loss')
+
+    # RRS module arguments
+    parser.add_argument('--use_rrs', action='store_true', help='enable RRS module for anomaly segmentation')
+    parser.add_argument('--rrs_loss_weight', type=float, default=1.0, help='weight for RRS segmentation loss')
+    parser.add_argument('--rrs_anomaly_samples', type=int, default=None, help='max number of anomaly samples to use for RRS training (None=all)')
+    parser.add_argument('--rrs_stop_grad', action='store_true', help='stop gradient from RRS to AE')
+    parser.add_argument('--rrs_lr', type=float, default=1e-3, help='RRS learning rate')
     
     return parser.parse_args()
 
@@ -439,7 +447,7 @@ def loss_draw(loss_history, save_path=None):
     绘制损失曲线。
     - 横轴：epoch
     - 纵轴：不同损失值
-    - 布局：2x2网格，四个子图
+    - 布局：动态网格
     - 比例尺较大：调整为较大的画布和线宽
     """
     if not loss_history:
@@ -448,13 +456,19 @@ def loss_draw(loss_history, save_path=None):
 
     try:
         items = list(loss_history.items())
-        if len(items) != 4:
-            print(f"Warning: Expected 4 loss items, got {len(items)}")
+        n = len(items)
+        if n == 0:
             return
 
-        # 创建2x2子图布局
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))  # 更大的画布尺寸
-        axes = axes.ravel()  # 扁平化axes数组
+        # 动态计算子图布局
+        ncols = 2
+        nrows = (n + ncols - 1) // ncols
+
+        fig, axes = plt.subplots(nrows, ncols, figsize=(16, 6 * nrows))
+        if nrows * ncols == 1:
+            axes = [axes]
+        else:
+            axes = axes.ravel()
 
         for idx, (name, values) in enumerate(items):
             ax = axes[idx]
@@ -466,11 +480,14 @@ def loss_draw(loss_history, save_path=None):
                 ax.set_title(f'{name} vs Epoch', fontsize=14, fontweight='bold')
                 ax.grid(True, linestyle='--', alpha=0.7)
                 ax.tick_params(axis='both', which='major', labelsize=10)
-                # 设置更大的边距
                 ax.margins(x=0.05, y=0.1)
             else:
                 ax.set_title(f"{name}\n(No data)", fontsize=14)
                 ax.axis('off')
+
+        # 隐藏多余的子图
+        for idx in range(len(items), len(axes)):
+            axes[idx].axis('off')
 
         plt.tight_layout(pad=3.0)
 
@@ -524,8 +541,10 @@ def train(args):
     dataset = OODDataSet(root='./data', dataset=args.dataset, image_size=args.img_size, category=args.normal,
                          labeled_anomaly_ratio=args.labeled_anomaly_ratio,
                          labeled_anomaly_class_num=args.labeled_anomaly_class_num,
-                         labeled_anomaly_class=args.labeled_anomaly_class)
-    train_dataloader, valid_dataloader, anomaly_dataloader, test_dataloader = dataset.get_data_loader(batch_size=batch_size)
+                         labeled_anomaly_class=args.labeled_anomaly_class,
+                         use_rrs=args.use_rrs,
+                         rrs_anomaly_samples=args.rrs_anomaly_samples)
+    train_dataloader, valid_dataloader, anomaly_dataloader, test_dataloader, rrs_dataloader = dataset.get_data_loader(batch_size=batch_size)
 
     # 3.初始化模型
     # 3.1 初始化预训练特征提取器，冻结参数
@@ -544,6 +563,25 @@ def train(args):
     # input_channels: 各层特征图的通道数，例如[64,128,256]
     # expansion: 通道扩展系数，ResNet18/34为1，ResNet50/101等为4
     discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
+
+    # 3.4 初始化RRS模块（可选）
+    rrs = None
+    rrs_optimizer = None
+    if args.use_rrs:
+        # 计算各层的实际通道数和stride
+        rrs_layer_channels = [c * pfe.expansion for c in pfe.output_channels]
+        rrs_layer_strides = [args.img_size // s for s in pfe.output_sizes]
+        rrs = RRS(
+            layer_channels=rrs_layer_channels,
+            layer_strides=rrs_layer_strides,
+            modes=['max', 'mean'],
+            mode_numbers=None,  # auto: min(total//2, 256) per mode
+            num_residual_layers=2,
+            stop_grad=args.rrs_stop_grad,
+        ).to(device)
+        rrs_optimizer = torch.optim.Adam(rrs.parameters(), lr=args.rrs_lr, betas=(0.5, 0.999))
+        logger.info("RRS module initialized: channels={}, strides={}".format(rrs_layer_channels, rrs_layer_strides))
+        logger.info("RRS mode_numbers={}, total_select={}".format(rrs.mode_numbers, rrs.total_select_number))
     
     # 3.4 初始化优化器
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
@@ -560,16 +598,25 @@ def train(args):
         "recon_loss": [],
         "adv_loss": [],
         "ae_loss": [],
+        "seg_loss": [],
     }
     
     # 4.开始训练循环
+    # 准备 RRS 数据迭代器
+    rrs_data_iter = None
+    if rrs_dataloader is not None:
+        rrs_data_iter = cycle(rrs_dataloader)
+
     for epoch in range(1, epochs+1):
         ae.train()
         discriminator.train()
+        if rrs is not None:
+            rrs.train()
         dis_loss_list = []
         recon_loss_list = []
         adv_loss_list = []
         ae_loss_list = []
+        seg_loss_list = []
         
         # 使用zip和cycle将正常数据和异常数据配对
         # cycle确保异常数据可以循环使用，即使异常数据少于正常数据
@@ -663,27 +710,75 @@ def train(args):
             ae_loss.backward()
             ae_optimizer.step()
 
+            # 5.9 RRS训练：用异常图像+GT mask训练RRS分割
+            seg_loss = torch.tensor(0.0).to(device)
+            if rrs is not None and rrs_data_iter is not None:
+                try:
+                    rrs_batch = next(rrs_data_iter)
+                except StopIteration:
+                    rrs_data_iter = cycle(rrs_dataloader)
+                    rrs_batch = next(rrs_data_iter)
+
+                rrs_anomaly_img = rrs_batch[0].to(device)  # anomaly image
+                rrs_gt_mask = rrs_batch[1].to(device)       # GT mask: [B, 1, H, W]
+
+                # 异常图像通过 PFE → AE（detach，RRS独立训练不影响AE）
+                with torch.no_grad():
+                    rrs_inputs = pfe(rrs_anomaly_img)
+                    rrs_outputs = ae(rrs_inputs)
+
+                # RRS前向（异常图像）
+                rrs_out = rrs(rrs_inputs, rrs_outputs, image=rrs_anomaly_img)
+
+                # SegmentCrossEntropyLoss（异常区域）
+                logit = rrs_out['logit']  # [B, 2, H, W]
+                bsz = logit.size(0)
+                logit_flat = logit.view(bsz, 2, -1)  # [B, 2, H*W]
+                gt_flat = rrs_gt_mask.view(bsz, -1).long()  # [B, H*W]
+                seg_loss_anomaly = torch.nn.functional.cross_entropy(logit_flat, gt_flat)
+
+                # 正常图像的RRS损失（全0 mask，detach避免干扰AE训练）
+                normal_inputs_det = [ni.detach() for ni in normal_inputs]
+                normal_outputs_det = [no.detach() for no in normal_outputs]
+                normal_rrs_out = rrs(normal_inputs_det, normal_outputs_det, image=normal_img)
+                normal_logit = normal_rrs_out['logit']
+                normal_bsz = normal_logit.size(0)
+                normal_logit_flat = normal_logit.view(normal_bsz, 2, -1)
+                normal_gt_flat = torch.zeros(normal_bsz, normal_logit_flat.size(-1),
+                                             dtype=torch.long, device=device)
+                seg_loss_normal = torch.nn.functional.cross_entropy(normal_logit_flat, normal_gt_flat)
+
+                seg_loss = seg_loss_anomaly + seg_loss_normal
+
+                # 更新RRS参数
+                rrs_optimizer.zero_grad()
+                seg_loss.backward()
+                torch.nn.utils.clip_grad_norm_(rrs.parameters(), 1.0)
+                rrs_optimizer.step()
+
             # 5.8 记录各项损失值
             dis_loss_list.append(dis_loss.item())
             ae_loss_list.append(ae_loss.item())
             recon_loss_list.append(recon_loss.item())
             adv_loss_list.append(adv_loss.item())
+            seg_loss_list.append(seg_loss.item())
 
         # 6. 打印当前epoch的训练损失并记录到历史
         epoch_dis = np.mean(dis_loss_list)
         epoch_recon = np.mean(recon_loss_list)
         epoch_adv = np.mean(adv_loss_list)
         epoch_ae = np.mean(ae_loss_list)
+        epoch_seg = np.mean(seg_loss_list)
 
-        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}".format(epoch, epochs, epoch_dis,
-                                                                                                                                 epoch_recon, epoch_adv, epoch_ae,
-                                                                                                                                 ))
+        logger.info("epoch [{}/{}], dis_loss: {:.6f}, recon_loss:{:.6f}, adv_loss:{:.6f}, ae_loss: {:.6f}, seg_loss: {:.6f}".format(
+            epoch, epochs, epoch_dis, epoch_recon, epoch_adv, epoch_ae, epoch_seg))
 
         # 记录损失历史用于绘图
         loss_history["dis_loss"].append(epoch_dis)
         loss_history["recon_loss"].append(epoch_recon)
         loss_history["adv_loss"].append(epoch_adv)
         loss_history["ae_loss"].append(epoch_ae)
+        loss_history["seg_loss"].append(epoch_seg)
 
         # 7. 定期评估模型性能
         if (epoch) % args.eval_epoch == 0:

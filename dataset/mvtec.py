@@ -137,6 +137,97 @@ class AnomalyDataset(Dataset):
         if self.gt_target_transform is not None:
             anomaly_gt = self.gt_target_transform(anomaly_gt.copy())
         return img, anomaly_img, anomaly_gt, anomaly_label
+
+
+class MVTecAnomalyWithMask(Dataset):
+    """
+    Load anomaly images from MVTec test set with pixel-level GT masks.
+    Used for RRS training with SegmentCrossEntropyLoss.
+
+    Returns:
+        (anomaly_img, gt_mask, label) where:
+            anomaly_img: transformed anomaly image tensor
+            gt_mask: binary GT mask tensor (1=anomaly, 0=normal)
+            label: 1 (anomaly)
+    """
+
+    def __init__(self, root, category, transform=None, gt_transform=None, img_size=256, max_samples=None):
+        super(MVTecAnomalyWithMask, self).__init__()
+        self.category = category
+        self.transform = transform
+        self.gt_transform = gt_transform
+        self.img_size = img_size
+
+        # Load anomaly image paths and corresponding GT mask paths from test set
+        test_path = os.path.join(root, 'mvtec', category, 'test')
+        gt_path = os.path.join(root, 'mvtec', category, 'ground_truth')
+
+        self.img_paths = []
+        self.gt_paths = []
+
+        if os.path.exists(test_path):
+            defect_types = os.listdir(test_path)
+            for defect_type in sorted(defect_types):
+                if defect_type == 'good':
+                    continue  # skip normal test images
+
+                img_dir = os.path.join(test_path, defect_type)
+                gt_dir = os.path.join(gt_path, defect_type)
+
+                if not os.path.isdir(img_dir):
+                    continue
+
+                img_files = sorted(glob.glob(os.path.join(img_dir, "*.png")))
+                gt_files = sorted(glob.glob(os.path.join(gt_dir, "*.png"))) if os.path.isdir(gt_dir) else []
+
+                # Pair images with masks (MVTec GT masks have _mask suffix)
+                for img_file in img_files:
+                    # Try to find corresponding GT mask
+                    base_name = os.path.splitext(os.path.basename(img_file))[0]
+                    # GT mask naming: 001_mask.png or 001.png
+                    gt_candidates = [
+                        os.path.join(gt_dir, f"{base_name}_mask.png"),
+                        os.path.join(gt_dir, f"{base_name}.png"),
+                    ]
+                    gt_file = None
+                    for candidate in gt_candidates:
+                        if os.path.exists(candidate):
+                            gt_file = candidate
+                            break
+
+                    if gt_file is not None:
+                        self.img_paths.append(img_file)
+                        self.gt_paths.append(gt_file)
+
+        # Limit number of samples if specified
+        if max_samples is not None and max_samples < len(self.img_paths):
+            indices = np.random.choice(len(self.img_paths), max_samples, replace=False)
+            indices.sort()
+            self.img_paths = [self.img_paths[i] for i in indices]
+            self.gt_paths = [self.gt_paths[i] for i in indices]
+
+        print(f"MVTecAnomalyWithMask: loaded {len(self.img_paths)} anomaly images with GT masks for category '{category}'")
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, idx):
+        img = np.array(Image.open(self.img_paths[idx]).convert('RGB').resize(
+            (self.img_size, self.img_size), resample=Image.BILINEAR), dtype=np.uint8)
+        gt = np.array(Image.open(self.gt_paths[idx]).convert('L').resize(
+            (self.img_size, self.img_size), resample=Image.BILINEAR), dtype=np.uint8)
+
+        # Binarize GT mask: any non-zero pixel is anomaly
+        gt = (gt > 0).astype(np.uint8)
+
+        label = 1  # always anomaly
+
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.gt_transform is not None:
+            gt = self.gt_transform(gt)
+
+        return img, gt, label
     
 
         

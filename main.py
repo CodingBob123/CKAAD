@@ -6,6 +6,7 @@ from util.test import evaluation, evaluation_pixel, visualize
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 from model.rrs import RRS
 from model.perlin_anomaly import PerlinAnomalyGenerator, MultiScaleAnomalyGenerator
+from model.afs import AFS_Adapted
 import logging
 from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
@@ -69,6 +70,15 @@ def parse_args():
     parser.add_argument('--rrs_anomaly_samples', type=int, default=None, help='max number of anomaly samples to use for RRS training (None=all)')
     parser.add_argument('--rrs_stop_grad', action='store_true', help='stop gradient from RRS to AE')
     parser.add_argument('--rrs_lr', type=float, default=1e-3, help='RRS learning rate')
+
+    # AFS (Anomaly-aware Feature Selection) module
+    parser.add_argument('--use_afs', action='store_true',
+                        help='enable AFS (Anomaly-aware Feature Selection)')
+    parser.add_argument('--afs_select_planes', nargs='+', type=int, default=None,
+                        help='output channels (with expansion) for AFS, '
+                             'e.g. [256, 512] for layers=[2,3] with wide_resnet50_2')
+    parser.add_argument('--afs_init_bsn', type=int, default=50,
+                        help='number of batches for AFS initialization')
 
     # Synthetic anomaly generation (lightweight Perlin-based)
     parser.add_argument('--use_synthetic_anomaly', action='store_true',
@@ -229,7 +239,7 @@ def gradient_loss(a, b):
     return (loss_x + loss_y) / 2
 
 
-def visualize_evaluation_anomaly_maps(pfe, ae, dataloader, args, device, epoch, phase="test"):
+def visualize_evaluation_anomaly_maps(pfe, ae, dataloader, args, device, epoch, phase="test", afs=None):
     """
     在评估时可视化anomaly maps，用于监控训练过程中的异常检测效果
 
@@ -276,7 +286,11 @@ def visualize_evaluation_anomaly_maps(pfe, ae, dataloader, args, device, epoch, 
                 continue
 
             imgs = imgs.to(device)
-            inputs = pfe(imgs)
+            inputs_raw = pfe(imgs)
+            if afs is not None:
+                inputs = afs(inputs_raw)
+            else:
+                inputs = inputs_raw
             outputs = ae(inputs)
 
             # 计算anomaly map
@@ -385,7 +399,7 @@ def visualize_evaluation_anomaly_maps(pfe, ae, dataloader, args, device, epoch, 
     print(f"Evaluation visualization saved to: {result_path} ({sample_count} samples)")
 
 
-def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
+def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs, afs=None):
     """
     使用matplotlib进行anomaly map可视化的简化版本
     不依赖opencv，使用numpy和matplotlib
@@ -409,7 +423,11 @@ def visualize_anomaly_maps_simple(pfe, ae, dataloader, args, device, epochs):
                 gts = None
 
             imgs = imgs.to(device)
-            inputs = pfe(imgs)
+            inputs_raw = pfe(imgs)
+            if afs is not None:
+                inputs = afs(inputs_raw)
+            else:
+                inputs = inputs_raw
             outputs = ae(inputs)
 
             # 计算anomaly map
@@ -568,17 +586,67 @@ def train(args):
         param.requires_grad_(False)  # 冻结特征提取器参数
     pfe.eval()  # 设置为评估模式
     
-    # 3.2 初始化编码器-解码器(自编码器)
-    # 输入通道数由预训练模型的输出通道数决定，例如对于ResNet50和layers=[1,2,3]，为[256,512,1024]
-    ae = ED(backbone=args.model, input_channels=pfe.output_channels).to(device)
+    # 3.2 初始化AFS模块（可选）
+    # AFS在PFE输出上进行通道选择，使后续所有模块使用精简后的通道数
+    afs = None
+    pfe_output_channels_base = pfe.output_channels  # 默认与PFE一致
     
-    # 3.3 初始化判别器
-    # input_sizes: 各层特征图的空间尺寸，例如[64,32,16]
-    # input_channels: 各层特征图的通道数，例如[64,128,256]
-    # expansion: 通道扩展系数，ResNet18/34为1，ResNet50/101等为4
-    discriminator = Discriminator(input_sizes=pfe.output_sizes, input_channels=pfe.output_channels, expansion=pfe.expansion).to(device)
+    if args.use_afs:
+        # AFS输入通道 = PFE实际输出通道（含expansion）
+        afs_in_channels = [c * pfe.expansion for c in pfe.output_channels]
+        
+        # 如果未指定select_planes，默认减半
+        if args.afs_select_planes is None:
+            afs_select_planes = [c // 2 for c in afs_in_channels]
+        else:
+            assert len(args.afs_select_planes) == len(afs_in_channels), \
+                f"afs_select_planes长度 {len(args.afs_select_planes)} != " \
+                f"特征层数 {len(afs_in_channels)}"
+            afs_select_planes = args.afs_select_planes
+        
+        afs = AFS_Adapted(afs_in_channels, afs_select_planes).to(device)
+        logger.info(f"AFS initialized: in_channels={afs_in_channels}, "
+                    f"select_planes={afs_select_planes}")
+        
+        # AFS初始化需要PerlinAnomalyGenerator在特征空间合成异常
+        # 如果用户未启用use_synthetic_anomaly，创建一个默认实例用于AFS初始化
+        if not args.use_synthetic_anomaly or perlin_gen is None:
+            init_perlin = PerlinAnomalyGenerator(
+                anomaly_ratio=0.3, perturbation='noise', noise_std=0.15
+            )
+            logger.info("AFS init: created default PerlinAnomalyGenerator for initialization")
+        else:
+            init_perlin = perlin_gen
+        
+        # 执行AFS通道索引初始化
+        afs.init_idxs(pfe, init_perlin, train_dataloader,
+                      args.afs_init_bsn, device)
+        
+        # 打印选中的通道索引
+        for i in range(afs.num_layers):
+            idx_list = afs.indexes[f"layer_{i}"].data.cpu().tolist()
+            logger.info(f"AFS layer_{i}: selected {len(idx_list)}/"
+                        f"{afs_in_channels[i]} channels, indices={idx_list}")
+        
+        # 下游模块使用AFS缩减后的基础通道数
+        pfe_output_channels_base = [s // pfe.expansion for s in afs_select_planes]
+        logger.info(f"AFS: downstream base channels changed from "
+                    f"{pfe.output_channels} to {pfe_output_channels_base}")
+    
+    # 3.3 初始化编码器-解码器(自编码器)
+    # 如果有AFS，输入通道数为AFS缩减后的基础通道数
+    ae = ED(backbone=args.model, input_channels=pfe_output_channels_base).to(device)
+    
+    # 3.4 初始化判别器
+    # input_sizes: 各层特征图的空间尺寸（AFS不改变空间尺寸）
+    # input_channels: 各层特征图的基础通道数（AFS后可能减半）
+    discriminator = Discriminator(
+        input_sizes=pfe.output_sizes,
+        input_channels=pfe_output_channels_base,
+        expansion=pfe.expansion
+    ).to(device)
 
-    # 3.31 初始化轻量级合成异常生成器（可选，替代加载的真实异常图像）
+    # 3.5 初始化轻量级合成异常生成器（可选，替代加载的真实异常图像）
     perlin_gen = None
     if args.use_synthetic_anomaly:
         if args.multi_scale_anomaly:
@@ -597,12 +665,16 @@ def train(args):
                      args.anomaly_noise_std,
                      " (multi-scale)" if args.multi_scale_anomaly else "")
 
-    # 3.4 初始化RRS模块（可选）
+    # 3.6 初始化RRS模块（可选）
     rrs = None
     rrs_optimizer = None
     if args.use_rrs:
-        # 计算各层的实际通道数和stride
-        rrs_layer_channels = [c * pfe.expansion for c in pfe.output_channels]
+        # 如果有AFS，RRS使用AFS实际输出通道数（含expansion）
+        if args.use_afs:
+            rrs_layer_channels = afs_select_planes
+            logger.info("RRS using AFS-reduced channels: {}".format(rrs_layer_channels))
+        else:
+            rrs_layer_channels = [c * pfe.expansion for c in pfe.output_channels]
         rrs_layer_strides = [args.img_size // s for s in pfe.output_sizes]
         rrs = RRS(
             layer_channels=rrs_layer_channels,
@@ -616,7 +688,7 @@ def train(args):
         logger.info("RRS module initialized: channels={}, strides={}".format(rrs_layer_channels, rrs_layer_strides))
         logger.info("RRS mode_numbers={}, total_select={}".format(rrs.mode_numbers, rrs.total_select_number))
     
-    # 3.4 初始化优化器
+    # 3.7 初始化优化器
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
     
@@ -657,14 +729,25 @@ def train(args):
             # 5.1 准备输入数据
             normal_img = normal[0].to(device)  # 正常图像: [batch_size, 3, img_size, img_size]
 
-            # 5.2 特征提取和重建（正常样本）
-            normal_inputs = pfe(normal_img)
-            normal_outputs = ae(normal_inputs)
-
+            # 5.2 特征提取（正常样本）：PFE → [AFS] → AE
+            # PFE输出原始多尺度特征
+            normal_raw = pfe(normal_img)
+            
             if args.use_synthetic_anomaly and perlin_gen is not None:
-                # === 合成异常模式：直接在特征空间扰动 ===
-                # 在正常特征上生成 Perlin 噪声掩码并扰动，模拟缺陷
-                anomaly_inputs, anomaly_masks = perlin_gen(normal_inputs)
+                # === 合成异常模式：在PFE特征空间生成异常，再经AFS筛选 ===
+                # 先由PerlinAnomalyGenerator在原始PFE特征上生成合成异常
+                anomaly_raw, anomaly_masks = perlin_gen(normal_raw)
+                
+                # 再经AFS通道筛选（如果启用）
+                if afs is not None:
+                    normal_inputs = afs(normal_raw)
+                    anomaly_inputs = afs(anomaly_raw)
+                else:
+                    normal_inputs = normal_raw
+                    anomaly_inputs = anomaly_raw
+                
+                # AE重建
+                normal_outputs = ae(normal_inputs)
                 anomaly_outputs = ae(anomaly_inputs)
                 outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
                 anomaly_size = normal_img.size(0)  # 始终有异常样本
@@ -679,9 +762,23 @@ def train(args):
                     anomaly_img = normal_img[:0]  # 创建空张量
 
                 anomaly_size = anomaly_img.size(0)
+                
+                # 正常特征经AFS（如果启用）
+                if afs is not None:
+                    normal_inputs = afs(normal_raw)
+                else:
+                    normal_inputs = normal_raw
+                
+                # 正常特征重建
+                normal_outputs = ae(normal_inputs)
 
                 if anomaly_size > 0:
-                    anomaly_inputs = pfe(anomaly_img)
+                    # 异常特征也经AFS筛选
+                    anomaly_raw = pfe(anomaly_img)
+                    if afs is not None:
+                        anomaly_inputs = afs(anomaly_raw)
+                    else:
+                        anomaly_inputs = anomaly_raw
                     anomaly_outputs = ae(anomaly_inputs)
                     outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
                 else:
@@ -750,9 +847,13 @@ def train(args):
                 rrs_anomaly_img = rrs_batch[0].to(device)  # anomaly image
                 rrs_gt_mask = rrs_batch[1].to(device)       # GT mask: [B, 1, H, W]
 
-                # 异常图像通过 PFE → AE（detach，RRS独立训练不影响AE）
+                # 异常图像通过 PFE → [AFS] → AE（detach，RRS独立训练不影响AE）
                 with torch.no_grad():
-                    rrs_inputs = pfe(rrs_anomaly_img)
+                    rrs_raw = pfe(rrs_anomaly_img)
+                    if afs is not None:
+                        rrs_inputs = afs(rrs_raw)
+                    else:
+                        rrs_inputs = rrs_raw
                     rrs_outputs = ae(rrs_inputs)
 
                 # RRS前向（异常图像）
@@ -811,21 +912,21 @@ def train(args):
         # 7. 定期评估模型性能
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
-                valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args)
+                valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args, afs=afs)
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
                 # 评估时可视化anomaly map
                 if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
-                    visualize_evaluation_anomaly_maps(pfe, ae, valid_dataloader, args, device, epoch, "valid")
+                    visualize_evaluation_anomaly_maps(pfe, ae, valid_dataloader, args, device, epoch, "valid", afs=afs)
 
-            metrics = evaluation(pfe, ae, test_dataloader, device, args)
+            metrics = evaluation(pfe, ae, test_dataloader, device, args, afs=afs)
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
 
             # 评估时可视化anomaly map
             if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
-                visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test")
+                visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test", afs=afs)
 
     # 8. 训练结束后保存最终损失曲线
     try:
@@ -891,7 +992,7 @@ def train(args):
         viz_dataloader = torch.utils.data.DataLoader(viz_dataset, batch_size=4, shuffle=False)
 
         # 使用简化的matplotlib可视化（不依赖opencv）
-        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs)
+        visualize_anomaly_maps_simple(pfe, ae, viz_dataloader, args, device, epochs, afs=afs)
 
         viz_result_path = './results/{}_{}_final_epoch_{}'.format(args.dataset, args.normal, epochs)
         logger.info("Anomaly map visualization completed. Results saved to: {}".format(viz_result_path))

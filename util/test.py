@@ -101,13 +101,13 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
-def evaluation(encoder, ed, dataloader, device, args):
+def evaluation(encoder, ed, dataloader, device, args, afs=None):
     if args.dataset in ['mvtec', 'visa', 'btad']:
-        return evaluation_pixel(encoder, ed, dataloader, device, args)
+        return evaluation_pixel(encoder, ed, dataloader, device, args, afs=afs)
     else:
-        return evaluation_semantic(encoder, ed, dataloader, device, args)
+        return evaluation_semantic(encoder, ed, dataloader, device, args, afs=afs)
 
-def evaluation_semantic(encoder, ed, dataloader, device, args):
+def evaluation_semantic(encoder, ed, dataloader, device, args, afs=None):
     encoder.eval()
     ed.eval()
     gt_list = []
@@ -117,7 +117,11 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
     with torch.no_grad():
         for img, label in dataloader:
             img = img.to(device)
-            inputs = encoder(img)
+            inputs_raw = encoder(img)
+            if afs is not None:
+                inputs = afs(inputs_raw)
+            else:
+                inputs = inputs_raw
             outputs = ed(inputs)
             gt_list.append(label != int(args.normal))
             anomaly_map = cal_anomaly_map(inputs, outputs, out_size=img.size(-1), amap_mode='add')
@@ -131,7 +135,7 @@ def evaluation_semantic(encoder, ed, dataloader, device, args):
         metric_dict['Image'] = calculate_metrics(sample_score_list, gt_list)
     return metric_dict
 
-def evaluation_pixel(encoder, ed, dataloader, device, args):
+def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None):
     encoder.eval()
     ed.eval()
     pixel_gt_list = []
@@ -145,7 +149,11 @@ def evaluation_pixel(encoder, ed, dataloader, device, args):
     with torch.no_grad():
         for img, gt, label in dataloader:
             img = img.to(device)
-            inputs = encoder(img)
+            inputs_raw = encoder(img)
+            if afs is not None:
+                inputs = afs(inputs_raw)
+            else:
+                inputs = inputs_raw
             outputs = ed(inputs)
             gt = gt.squeeze(1)
             anomaly_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
@@ -177,14 +185,18 @@ def evaluation_pixel(encoder, ed, dataloader, device, args):
         metrics['Image'] = calculate_metrics(sample_score_list, sample_gt_list, True)
     return metrics
 
-def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix=""):
+def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix="", afs=None):
     pfe.eval()
     ae.eval()
     with torch.no_grad():
         cnt = 0
         for data in dataloader:
             imgs = data[0].to(device)
-            inputs = pfe(imgs)
+            inputs_raw = pfe(imgs)
+            if afs is not None:
+                inputs = afs(inputs_raw)
+            else:
+                inputs = inputs_raw
             outputs = ae(inputs)
             labels = data[-1]
             anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='a')

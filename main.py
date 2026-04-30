@@ -120,6 +120,10 @@ def parse_args():
                         help='sample selection strategy for anomaly synthesis')
     parser.add_argument('--pixel_patchguard_prob', type=float, default=0.5,
                         help='within pixel mixed mode, patchguard probability')
+
+    # Encoder 第二分支增强对齐
+    parser.add_argument('--enable_enhancement', action='store_true',
+                        help='enable boundary-preserving alignment for the second branch of encoder')
     parser.add_argument('--pixel_cutpaste_prob', type=float, default=0.3,
                         help='within pixel mixed mode, cutpaste probability')
     parser.add_argument('--pixel_cutout_prob', type=float, default=0.2,
@@ -704,7 +708,8 @@ def train(args):
     
     # 3.3 初始化编码器-解码器(自编码器)
     # 如果有AFS，输入通道数为AFS缩减后的基础通道数
-    ae = ED(backbone=args.model, input_channels=pfe_output_channels_base).to(device)
+    ae = ED(backbone=args.model, input_channels=pfe_output_channels_base,
+            enable_enhancement=args.enable_enhancement).to(device)
     
     # 3.4 初始化判别器
     # input_sizes: 各层特征图的空间尺寸（AFS不改变空间尺寸）

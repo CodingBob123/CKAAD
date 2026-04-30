@@ -3,9 +3,6 @@ from torch import Tensor
 import torch.nn as nn
 from typing import Type, Callable, Union, Optional, List
 import functools
-from model.Efficient_CA_complex import CoordAtt_ECA
-from model.ECANet import ECAAttention
-from model.SEAAttention import Sea_Attention
 
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -128,39 +125,6 @@ class AttnBottleneck(nn.Module):
         return out   # 输出: [N, planes*4, H/stride, W/stride]
 
 
-class BoundaryPreservingBlock(nn.Module):
-    """边界保持对齐模块 - 适用于Encoder第二分支
-    通过水平(1x3) + 垂直(3x1) 卷积增强边界特征感知能力
-    """
-    def __init__(self, in_channels: int, out_channels: int, stride: int = 2,
-                 norm_layer: Optional[Callable[..., nn.Module]] = None):
-        super(BoundaryPreservingBlock, self).__init__()
-        if norm_layer is None:
-            norm_layer = nn.InstanceNorm2d
-
-        self.block = nn.Sequential(
-            # 3×3 下采样卷积
-            nn.Conv2d(in_channels, out_channels // 2, 3, stride=stride, padding=1, bias=False),
-            norm_layer(out_channels // 2),
-            nn.ReLU(inplace=True),
-            # 水平边界增强 (1×3)
-            nn.Conv2d(out_channels // 2, out_channels // 2, (1, 3), padding=(0, 1), bias=False),
-            norm_layer(out_channels // 2),
-            nn.ReLU(inplace=True),
-            # 垂直边界增强 (3×1)
-            nn.Conv2d(out_channels // 2, out_channels // 2, (3, 1), padding=(1, 0), bias=False),
-            norm_layer(out_channels // 2),
-            nn.ReLU(inplace=True),
-            # 1×1 输出投影
-            nn.Conv2d(out_channels // 2, out_channels, 1, bias=False),
-            norm_layer(out_channels),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.block(x)
-
-
 class FusionLayer(nn.Module):
     def __init__(self,
                  block: Type[Union[AttnBasicBlock, AttnBottleneck]],
@@ -168,7 +132,6 @@ class FusionLayer(nn.Module):
                  input_channels: List[int] = [64, 128, 256],
                  norm_layer: Optional[Callable[..., nn.Module]] = None,
                  width_per_group: int = 64,
-                 enable_enhancement: bool = False,
                  ):
         super(FusionLayer, self).__init__()
         if norm_layer is None:
@@ -179,33 +142,12 @@ class FusionLayer(nn.Module):
         self.base_width = width_per_group
         
         conv_layers = []   #  原文一开始使用的是三层预训练特征块，每一块转换通道用的卷积层列表（共三个列表）
-        for i, input_channel in enumerate(input_channels):
-            # 第二分支（index=1）启用边界保持对齐
-            if enable_enhancement and i == 1:
-                conv_layers.append(self._make_boundary_conv_layer(
-                    input_channel * block.expansion,
-                    input_channels[-1] * block.expansion
-                ))
-            else:
-                conv_layers.append(self._make_conv_layer(block, input_channel * block.expansion, input_channels[-1]))
+        for input_channel in input_channels:
+            # 函数会返回卷积层列表，不同层级的输入被映射到统一通道数 input_channels[-1] * block.expansion（ 256×4=1024）。
+            conv_layers.append(self._make_conv_layer(block, input_channel * block.expansion, input_channels[-1]))
         self.conv_layers = nn.ModuleList(conv_layers)
         
-        # 为每个分支添加坐标注意力模块（在预训练特征对齐前先进行 CA 增强）
-        branch_channels = [c * block.expansion for c in input_channels]
-        self.coord_atts = nn.ModuleList([
-            CoordAtt_ECA(inp=ch, oup=ch) for ch in branch_channels
-        ])
-        
-        # 拼接后的总通道数：分支数 × 对齐后的通道数
-        inplanes_after_concat = input_channels[-1] * block.expansion * len(input_channels)
-        
-        # ECA 通道注意力：作用于拼接后的融合特征，进行通道重标定
-        self.eca_attention = ECAAttention(kernel_size=3)
-        
-        # SEA 结构感知注意力：增强融合特征的轴向长程依赖和局部细节
-        self.sea_attention = Sea_Attention(dim=inplanes_after_concat, key_dim=64, num_heads=8, attn_ratio=2)
-        
-        self.encode_layer1 = self._make_layer(block, inplanes_after_concat, input_channels[-1] * 2, layers, stride=2)
+        self.encode_layer1 = self._make_layer(block, input_channels[-1] * block.expansion * len(input_channels), input_channels[-1] * 2, layers, stride=2)
         
 
         for m in self.modules():
@@ -227,17 +169,6 @@ class FusionLayer(nn.Module):
             )
             inplanes = inplanes * 2
             
-        return nn.Sequential(*layers)
-
-    def _make_boundary_conv_layer(self, inplanes: int, out_planes: int) -> nn.Sequential:
-        """使用 BoundaryPreservingBlock 构建第二分支的边界保持对齐序列"""
-        layers = []
-        norm_layer = self._norm_layer
-        while out_planes != inplanes:
-            layers.append(
-                BoundaryPreservingBlock(inplanes, inplanes * 2, stride=2, norm_layer=norm_layer)
-            )
-            inplanes = inplanes * 2
         return nn.Sequential(*layers)
 
     def _make_layer(self, block: Type[Union[AttnBasicBlock, AttnBottleneck]], inplanes: int, planes: int, blocks: int,
@@ -267,48 +198,37 @@ class FusionLayer(nn.Module):
         （exp = 1 for BasicBlock, 4 for Bottleneck）
 
         """
-        # 1) 在原始预训练特征上先进行坐标注意力增强（对齐前增强）
-        ca_features = [self.coord_atts[i](xi) for i, xi in enumerate(x)]
-
-        # 2) 对每一个分支进行特征通道/尺度对齐到最后一个尺度
-        features = [self.conv_layers[i](fi) for i, fi in enumerate(ca_features)]  # → 每个 [B, 256*exp, H3, W3]
-
-        # 3) 将对齐后的三个分支在通道维度上拼接
-        fused = torch.cat(features, dim=1)   # → [B, 3*256*exp, H3, W3]
-
-        # 4) 对拼接后的融合特征应用 ECA 通道注意力（通道重标定）
-        fused = self.eca_attention(fused)
-
-        # 5) 应用 SEA 结构感知注意力（轴向长程依赖 + 局部细节增强）
-        fused = self.sea_attention(fused)
-
-        # 6) 送入后续编码层进行特征压缩和抽象
-        output = self.encode_layer1(fused)   # → [B, 512*exp, H3/2, W3/2]
+        # 利用卷积层列表，对每一个预训练特征块进行多尺度特征对齐  _make_conv_layer
+        feature = [self.conv_layers[i](xi) for i, xi in enumerate(x)]  # → 每个 feature[i] : [B, 256*exp, H3, W3] （对齐到最后一个尺度）
+        # 将对齐好的特征块进行拼接
+        feature = torch.cat(feature, dim=1)   # → [B, 3*256*exp, H3, W3]
+        # 拼接后，对整个融合特征 做进一步编码 包括下采样（减小空间分辨率，扩大感受野），残差block堆叠，增强特征表达
+        output = self.encode_layer1(feature)  # → [B, 512*exp, H3/2, W3/2]
 
         return output.contiguous()
 
 
 class Encoder(nn.Module):
-    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3, enable_enhancement=False) -> None:
+    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3) -> None:
         super(Encoder, self).__init__()
         self.expansion = 4
         if backbone == 'resnet18':
-            self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels)
             self.expansion = 1
         elif backbone == 'resnet34':
-            self.fusion_layer = FusionLayer(AttnBasicBlock, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBasicBlock, attn_block_num, input_channels)
             self.expansion = 1
             
         elif backbone == 'resnet50':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels)
         elif backbone == 'resnet101':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels)
         elif backbone == 'resnet152':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels)
         elif backbone == 'wide_resnet50_2':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2)
         elif backbone == 'wide_resnet101_2':
-            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancement=enable_enhancement)
+            self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2)
             
     def forward(self, x):
         return self.fusion_layer(x)

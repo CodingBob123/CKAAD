@@ -80,6 +80,14 @@ do
             ;;
     esac
 
+    case $normal in 'toothbrush'|'transistor'|'wood')
+            enable_enhancement=True
+            ;;
+        *)
+            enable_enhancement=False
+            ;;
+    esac
+
 CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
  --lr ${lr} --d_lr 1e-04 --adv_conf 0.02 --epochs ${epochs} \
 --normal $normal --seed 111 --img_size 256 \
@@ -90,6 +98,7 @@ CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
 --recon_loss_type combined --loss_alpha 1.0 --loss_beta 0 --loss_gamma 0 \
 --use_rrs --rrs_anomaly_samples 20 --rrs_lr 1e-3 --rrs_loss_weight 1.0 \
 --use_afs --afs_init_bsn 50 \
+--enable_enhancement ${enable_enhancement} \
 \
 --use_pixel_anomaly \
 --pixel_anomaly_mode ${pixel_anomaly_mode} \

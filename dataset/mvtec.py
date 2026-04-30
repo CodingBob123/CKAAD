@@ -1,15 +1,18 @@
 """dataset"""
 import os
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 from PIL import Image
 import glob
 from torchvision import transforms
 
 class MVTecDataset(Dataset):
-    def __init__(self, root, category, train=True, transform=None, gt_target_transform=None, img_size=256):
+    def __init__(self, root, category, train=True, transform=None, gt_target_transform=None,
+                 img_size=256, return_foreground_mask=False):
         super(MVTecDataset, self).__init__()
         self.category = category
+        self.train = train
         if train:
             self.img_path = os.path.join(root, 'mvtec', category, 'train')
         else:
@@ -18,6 +21,15 @@ class MVTecDataset(Dataset):
         self.transform = transform
         self.gt_target_transform = gt_target_transform
         self.img_size = img_size
+        self.return_foreground_mask = return_foreground_mask
+
+        # 检查 foreground_mask 目录是否存在（训练模式且需要返回时才检查）
+        self.fg_mask_dir = None
+        if train and return_foreground_mask:
+            fg_dir = os.path.join(root, 'mvtec', category, 'train', 'foreground_mask')
+            if os.path.isdir(fg_dir):
+                self.fg_mask_dir = fg_dir
+
         self.process_data()  
         
     def get_initial_data(self):
@@ -79,6 +91,22 @@ class MVTecDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+    def _load_foreground_mask(self, idx):
+        """加载前景 mask。如果目录不存在或文件不存在，返回全 1 mask。"""
+        if self.fg_mask_dir is None:
+            return torch.ones((1, self.img_size, self.img_size), dtype=torch.float32)
+
+        img_path = self.img_paths[idx]
+        base_name = os.path.basename(img_path)
+        fg_path = os.path.join(self.fg_mask_dir, base_name)
+
+        if not os.path.exists(fg_path):
+            return torch.ones((1, self.img_size, self.img_size), dtype=torch.float32)
+
+        fg = Image.open(fg_path).convert('L')
+        fg = fg.resize((self.img_size, self.img_size), Image.NEAREST)
+        return transforms.ToTensor()(fg)  # [1, H, W]
+
     def __getitem__(self, idx):
         
         img, gt, label = self.data[idx], self.gt_targets[idx], self.targets[idx]
@@ -86,6 +114,10 @@ class MVTecDataset(Dataset):
             img = self.transform(img)
         if self.gt_target_transform is not None:
             gt = self.gt_target_transform(gt)
+
+        if self.return_foreground_mask:
+            fg_mask = self._load_foreground_mask(idx)
+            return img, gt, label, fg_mask
         return img, gt, label
     
 

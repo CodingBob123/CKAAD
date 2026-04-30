@@ -40,23 +40,29 @@ class PerlinAnomalyGenerator:
     """
 
     def __init__(self, anomaly_ratio=0.3, perturbation='noise',
-                 noise_std=0.15, kernel_size=65, sigma=12.0):
+                 noise_std=0.15, kernel_size=65, sigma=12.0,
+                 mix_noise=1):
         """
         Args:
             anomaly_ratio: 异常区域占图像比例 (0~1)
             perturbation: 扰动方式
-                'noise'   - 掩码区域加高斯噪声（模拟纹理异常）
-                'shuffle' - 跨batch混洗特征（模拟结构异常）
-                'erase'   - 掩码区域归零（模拟缺失缺陷）
-            noise_std: 噪声强度（仅 perturbation='noise' 时有效）
+                'noise'          - 掩码区域加高斯噪声（模拟纹理异常）
+                'shuffle'        - 跨batch混洗特征（模拟结构异常）
+                'erase'          - 掩码区域归零（模拟缺失缺陷）
+                'simplenet_noise' - 全图多级高斯噪声（SimpleNet风格扰动，无空间掩码）
+                'hard_erase'     - 掩码区域用特征均值填充（模拟硬增强遮挡，区别于erase的归零）
+            noise_std: 噪声强度（仅 perturbation='noise' 或 'simplenet_noise' 时有效）
             kernel_size: 高斯模糊核大小（越大掩码越平滑）
             sigma: 高斯模糊sigma（越大掩码过渡越自然）
+            mix_noise: 噪声级数（仅 'simplenet_noise'，≥1，噪声 std 按 1.1^k 递增，
+                       每样本随机选一级，k=0,...,mix_noise-1，类似 SimpleNet 多级噪声策略）
         """
         self.anomaly_ratio = anomaly_ratio
         self.perturbation = perturbation
         self.noise_std = noise_std
         self.kernel_size = kernel_size
         self.sigma = sigma
+        self.mix_noise = mix_noise
 
     def __call__(self, features_list, anomaly_ratio=None):
         """在特征空间中生成合成异常。
@@ -114,6 +120,29 @@ class PerlinAnomalyGenerator:
         elif self.perturbation == 'erase':
             return feat * (1 - mask)
 
+        elif self.perturbation == 'simplenet_noise':
+            # SimpleNet 风格全局多级高斯噪声（无空间掩码）
+            B, C, H, W = feat.shape
+            device = feat.device
+            # 每样本随机选一个噪声级数
+            noise_idxs = torch.randint(0, self.mix_noise, torch.Size([B]), device=device)
+            noise_one_hot = F.one_hot(noise_idxs, num_classes=self.mix_noise)  # (B, K)
+            # 为每种噪声级数生成噪声张量
+            noise_stack = torch.stack([
+                torch.normal(0, self.noise_std * (1.1 ** k), feat.shape).to(device)
+                for k in range(self.mix_noise)
+            ], dim=1)  # (B, K, C, H, W)
+            # 每样本只选择其对应的噪声级数
+            noise = (noise_stack * noise_one_hot.view(B, self.mix_noise, 1, 1, 1)).sum(1)
+            return feat + noise
+
+        elif self.perturbation == 'hard_erase':
+            # 硬增强风格擦除：掩码区域用特征均值填充
+            # 区别于 erase 的归零，这里用每个样本/通道的空间均值作为"硬填充值"
+            # 模拟图像级 Random Erasing 中用固定值填充的思想
+            feat_mean = feat.mean(dim=(2, 3), keepdim=True)  # [B, C, 1, 1]
+            return feat * (1 - mask) + feat_mean * mask
+
         else:
             raise ValueError(f"Unknown perturbation: {self.perturbation}")
 
@@ -163,17 +192,18 @@ class MultiScaleAnomalyGenerator:
     """
 
     def __init__(self, ratios=(0.05, 0.1, 0.2, 0.35, 0.5),
-                 perturbation='noise', noise_std=0.15):
+                 perturbation='noise', noise_std=0.15, mix_noise=1):
         """
         Args:
             ratios: 候选异常比例列表，每次随机选取一个
             perturbation: 扰动方式
             noise_std: 噪声强度
+            mix_noise: 噪声级数（仅 'simplenet_noise'）
         """
         self.generators = [
             PerlinAnomalyGenerator(
                 anomaly_ratio=r, perturbation=perturbation,
-                noise_std=noise_std
+                noise_std=noise_std, mix_noise=mix_noise
             ) for r in ratios
         ]
 

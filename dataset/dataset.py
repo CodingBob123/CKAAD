@@ -14,9 +14,10 @@ import copy
 
 class MyDataset(object):
     """CIFAR data loader."""
-    def __init__(self, root, dataset='cifar10', category=0, image_size=256):
+    def __init__(self, root, dataset='cifar10', category=0, image_size=256, return_foreground_mask=False):
         self.root = root
         self.dataset_name = dataset.lower()
+        self.return_foreground_mask = return_foreground_mask
         if isinstance(category, str) and dataset.lower() in ['mvtec', 'visa']:
             self.category = category
         elif isinstance(category, str) or isinstance(category, float):
@@ -58,7 +59,10 @@ class MyDataset(object):
             self.gt_transform = transforms.Compose([
                 transforms.ToTensor(),
             ])
-            ds = MVTecDataset(root=self.root, category=self.category, train=train, transform=self.img_transform, gt_target_transform=self.gt_transform, img_size=self.img_size)
+            ds = MVTecDataset(root=self.root, category=self.category, train=train,
+                              transform=self.img_transform, gt_target_transform=self.gt_transform,
+                              img_size=self.img_size,
+                              return_foreground_mask=self.return_foreground_mask)
         elif self.dataset_name == 'visa':
             self.gt_transform = transforms.Compose([
                 transforms.ToTensor(),
@@ -73,8 +77,10 @@ class OODDataSet(MyDataset):
                  dataset='cifar10',
                  image_size=256,
                  category=0, labeled_anomaly_ratio=0.0, labeled_anomaly_class_num=1, labeled_anomaly_class=1, load_test_only=False,
-                 use_rrs=False, rrs_anomaly_samples=None):
-        super(OODDataSet, self).__init__(root=root, dataset=dataset, category=category, image_size=image_size)
+                 use_rrs=False, rrs_anomaly_samples=None,
+                 return_foreground_mask=False):
+        super(OODDataSet, self).__init__(root=root, dataset=dataset, category=category, image_size=image_size,
+                                         return_foreground_mask=return_foreground_mask)
         self.labeled_anomaly_ratio = labeled_anomaly_ratio
         self.labeled_anomaly_class_num = labeled_anomaly_class_num
         self.labeled_anomaly_class = labeled_anomaly_class

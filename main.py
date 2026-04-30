@@ -6,7 +6,14 @@ from util.test import evaluation, evaluation_pixel, visualize
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 from model.rrs import RRS
 from model.perlin_anomaly import PerlinAnomalyGenerator, MultiScaleAnomalyGenerator
+from model.pixel_anomaly import PixelAnomalyGenerator
+from model.anomaly_controller import UnifiedAnomalyController
 from model.afs import AFS_Adapted
+# =====================================================================
+# 【FeatureAdapter 缝合点 ①】-- 导入
+# 取消下面的注释以启用 FeatureAdapter（AFS → AE 之间插入通道适配）：
+# from model.feature_adapter import FeatureAdapter
+# =====================================================================
 import logging
 from argparse import ArgumentParser
 from dataset.dataset import OODDataSet
@@ -86,12 +93,46 @@ def parse_args():
     parser.add_argument('--anomaly_ratio', type=float, default=0.3,
                         help='anomaly area ratio for synthetic anomaly (0~1)')
     parser.add_argument('--anomaly_perturbation', type=str, default='noise',
-                        choices=['noise', 'shuffle', 'erase'],
+                        choices=['noise', 'shuffle', 'erase', 'simplenet_noise', 'hard_erase'],
                         help='feature perturbation type')
     parser.add_argument('--anomaly_noise_std', type=float, default=0.15,
                         help='noise std for synthetic anomaly perturbation')
+    parser.add_argument('--anomaly_mix_noise', type=int, default=1,
+                        help='noise levels for simplenet_noise perturbation '
+                             '(noise std scaled by 1.1^k per level, samples pick one randomly)')
     parser.add_argument('--multi_scale_anomaly', action='store_true',
                         help='randomly vary anomaly ratio during training for diversity')
+
+    # Pixel-level anomaly synthesis (PatchGuard + OCR-GAN)
+    parser.add_argument('--use_pixel_anomaly', action='store_true',
+                        help='use pixel-level anomaly synthesis (PatchGuard/CutPaste/Cutout)')
+    parser.add_argument('--pixel_anomaly_mode', type=str, default='mixed',
+                        choices=['patchguard', 'cutpaste', 'cutout', 'mixed'],
+                        help='pixel anomaly mode')
+    parser.add_argument('--pixel_anomaly_prob', type=float, default=0.4,
+                        help='probability of pixel anomaly per sample')
+    parser.add_argument('--perlin_anomaly_prob', type=float, default=0.35,
+                        help='probability of Perlin anomaly per sample')
+    parser.add_argument('--anomaly_strategy', type=str, default='prob',
+                        choices=['prob', 'adapt', 'progressive'],
+                        help='sample selection strategy for anomaly synthesis')
+    parser.add_argument('--pixel_patchguard_prob', type=float, default=0.5,
+                        help='within pixel mixed mode, patchguard probability')
+    parser.add_argument('--pixel_cutpaste_prob', type=float, default=0.3,
+                        help='within pixel mixed mode, cutpaste probability')
+    parser.add_argument('--pixel_cutout_prob', type=float, default=0.2,
+                        help='within pixel mixed mode, cutout probability')
+    parser.add_argument('--pixel_max_attempts', type=int, default=50,
+                        help='max attempts for PatchGuard coordinate sampling')
+
+    # =================================================================
+    # 【FeatureAdapter 缝合点 ②】-- 参数解析
+    # 取消下面的注释以启用 FeatureAdapter：
+    # parser.add_argument('--use_feature_adapter', action='store_true',
+    #                     help='enable FeatureAdapter between AFS and AE')
+    # parser.add_argument('--feature_adapter_layers', type=int, default=1,
+    #                     help='number of Linear layers per scale in FeatureAdapter')
+    # =================================================================
     
     return parser.parse_args()
 
@@ -575,7 +616,8 @@ def train(args):
                          labeled_anomaly_class_num=args.labeled_anomaly_class_num,
                          labeled_anomaly_class=args.labeled_anomaly_class,
                          use_rrs=args.use_rrs,
-                         rrs_anomaly_samples=args.rrs_anomaly_samples)
+                         rrs_anomaly_samples=args.rrs_anomaly_samples,
+                         return_foreground_mask=args.use_pixel_anomaly)
     train_dataloader, valid_dataloader, anomaly_dataloader, test_dataloader, rrs_dataloader = dataset.get_data_loader(batch_size=batch_size)
 
     # 3.初始化模型
@@ -612,7 +654,8 @@ def train(args):
         # 如果用户未启用use_synthetic_anomaly，创建一个默认实例用于AFS初始化
         if not args.use_synthetic_anomaly or perlin_gen is None:
             init_perlin = PerlinAnomalyGenerator(
-                anomaly_ratio=0.3, perturbation='noise', noise_std=0.15
+                anomaly_ratio=0.3, perturbation='noise', noise_std=0.15,
+                mix_noise=args.anomaly_mix_noise
             )
             logger.info("AFS init: created default PerlinAnomalyGenerator for initialization")
         else:
@@ -653,17 +696,47 @@ def train(args):
             perlin_gen = MultiScaleAnomalyGenerator(
                 perturbation=args.anomaly_perturbation,
                 noise_std=args.anomaly_noise_std,
+                mix_noise=args.anomaly_mix_noise,
             )
         else:
             perlin_gen = PerlinAnomalyGenerator(
                 anomaly_ratio=args.anomaly_ratio,
                 perturbation=args.anomaly_perturbation,
                 noise_std=args.anomaly_noise_std,
+                mix_noise=args.anomaly_mix_noise,
             )
-        logger.info("Synthetic anomaly generator initialized: type=%s, ratio=%.2f, std=%.3f%s",
+        logger.info("Synthetic anomaly generator initialized: type=%s, ratio=%.2f, std=%.3f, mix_noise=%d%s",
                      args.anomaly_perturbation, args.anomaly_ratio,
-                     args.anomaly_noise_std,
+                     args.anomaly_noise_std, args.anomaly_mix_noise,
                      " (multi-scale)" if args.multi_scale_anomaly else "")
+
+    # 3.6 初始化像素级异常生成器（可选）
+    pixel_gen = None
+    if args.use_pixel_anomaly:
+        pixel_gen = PixelAnomalyGenerator(
+            dataset=args.dataset,
+            class_name=args.normal,
+            mode=args.pixel_anomaly_mode,
+            patchguard_prob=args.pixel_patchguard_prob,
+            cutpaste_prob=args.pixel_cutpaste_prob,
+            cutout_prob=args.pixel_cutout_prob,
+            max_attempts=args.pixel_max_attempts,
+        )
+        logger.info("Pixel anomaly generator initialized: mode=%s, pg=%.2f cp=%.2f co=%.2f",
+                     args.pixel_anomaly_mode, args.pixel_patchguard_prob,
+                     args.pixel_cutpaste_prob, args.pixel_cutout_prob)
+
+    # 3.7 初始化异常合成控制器（可选）
+    anomaly_controller = None
+    if args.use_pixel_anomaly and args.use_synthetic_anomaly:
+        anomaly_controller = UnifiedAnomalyController(
+            args, args.epochs, dataset=args.dataset,
+            class_name=args.normal, logger=logger,
+        )
+        anomaly_controller.set_pixel_generator(pixel_gen)
+        anomaly_controller.set_perlin_generator(perlin_gen)
+        logger.info("UnifiedAnomalyController initialized: strategy=%s, pixel=%.2f perlin=%.2f",
+                     args.anomaly_strategy, args.pixel_anomaly_prob, args.perlin_anomaly_prob)
 
     # 3.6 初始化RRS模块（可选）
     rrs = None
@@ -687,10 +760,37 @@ def train(args):
         rrs_optimizer = torch.optim.Adam(rrs.parameters(), lr=args.rrs_lr, betas=(0.5, 0.999))
         logger.info("RRS module initialized: channels={}, strides={}".format(rrs_layer_channels, rrs_layer_strides))
         logger.info("RRS mode_numbers={}, total_select={}".format(rrs.mode_numbers, rrs.total_select_number))
-    
+
+    # =================================================================
+    # 【FeatureAdapter 缝合点 ③】-- 初始化与优化器
+    # 取消下面的注释以启用 FeatureAdapter：
+    #
+    # if args.use_feature_adapter:
+    #     # FeatureAdapter 输入通道 = AFS 实际输出通道（含 expansion）
+    #     if args.use_afs:
+    #         fa_in_channels = afs.select_planes_list  # AFS 缩减后的通道
+    #         logger.info("FeatureAdapter using AFS-reduced channels: {}".format(fa_in_channels))
+    #     else:
+    #         fa_in_channels = [c * pfe.expansion for c in pfe.output_channels]
+    #     feature_adapter = FeatureAdapter(fa_in_channels, n_layers=args.feature_adapter_layers).to(device)
+    #     fa_optimizer = torch.optim.Adam(feature_adapter.parameters(), lr=args.lr, betas=(0.5, 0.999))
+    #     logger.info("FeatureAdapter initialized: channels={}, layers={}".format(
+    #         fa_in_channels, args.feature_adapter_layers))
+    # else:
+    #     feature_adapter = None
+    #
+    # 取消到上一行注释为止
+    # =================================================================
+
     # 3.7 初始化优化器
     ae_optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr, betas=(0.5, 0.999))
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr=args.d_lr, betas=(0.5, 0.999))
+    # ----------------------------------------------------------------
+    # 【FeatureAdapter 优化器续】-- 如有需要，在 ae_optimizer 后加入：
+    # if args.use_feature_adapter:
+    #     fa_optimizer = torch.optim.Adam(feature_adapter.parameters(), lr=args.lr, betas=(0.5, 0.999))
+    #     logger.info("FeatureAdapter optimizer created (lr={})".format(args.lr))
+    # ----------------------------------------------------------------
     
     # 设置权重系数和标签
     gamma = 0.5  # 控制重建特征损失的权重
@@ -729,15 +829,56 @@ def train(args):
             # 5.1 准备输入数据
             normal_img = normal[0].to(device)  # 正常图像: [batch_size, 3, img_size, img_size]
 
+            # 提取 foreground_mask（如果可用）
+            # 注意：当 labeled_anomaly_ratio>0 时，数据集被 AnomalyDataset 包装，
+            # 返回的 4 个元素为 (img, anomaly_img, anomaly_gt, anomaly_label)，
+            # 此时 normal[3] 不是 fg_mask，应跳过
+            foreground_masks = None
+            if (args.use_pixel_anomaly and len(normal) >= 4
+                    and args.labeled_anomaly_ratio <= 0):
+                foreground_masks = normal[3].to(device)
+
             # 5.2 特征提取（正常样本）：PFE → [AFS] → AE
             # PFE输出原始多尺度特征
             normal_raw = pfe(normal_img)
-            
-            if args.use_synthetic_anomaly and perlin_gen is not None:
+
+            if anomaly_controller is not None:
+                # === 控制器模式：混合像素级 + 特征级异常合成 ===
+                anomaly_features, anomaly_masks, anomaly_size = anomaly_controller(
+                    normal_img, normal_raw, foreground_masks, pfe, epoch
+                )
+
+                # 经AFS通道筛选（如果启用）
+                if afs is not None:
+                    normal_inputs = afs(normal_raw)
+                    anomaly_inputs = afs(anomaly_features) if anomaly_size > 0 else None
+                else:
+                    normal_inputs = normal_raw
+                    anomaly_inputs = anomaly_features if anomaly_size > 0 else None
+
+                # -------------------------------------------------------
+                # 【FeatureAdapter 缝合点 ④-a】-- 合成异常模式：AFS → FeatureAdapter → AE
+                # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
+                # if feature_adapter is not None:
+                #     normal_inputs = feature_adapter(normal_inputs)
+                #     anomaly_inputs = feature_adapter(anomaly_inputs)
+                # -------------------------------------------------------
+
+                # AE重建
+                normal_outputs = ae(normal_inputs)
+                if anomaly_size > 0:
+                    anomaly_outputs = ae(anomaly_inputs)
+                    outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
+                else:
+                    outputs = normal_outputs
+                anomaly_img = normal_img  # 占位，后续RRS使用自己的dataloader
+
+            elif args.use_synthetic_anomaly and perlin_gen is not None:
                 # === 合成异常模式：在PFE特征空间生成异常，再经AFS筛选 ===
                 # 先由PerlinAnomalyGenerator在原始PFE特征上生成合成异常
                 anomaly_raw, anomaly_masks = perlin_gen(normal_raw)
-                
+                anomaly_size = normal_img.size(0)
+
                 # 再经AFS通道筛选（如果启用）
                 if afs is not None:
                     normal_inputs = afs(normal_raw)
@@ -745,13 +886,38 @@ def train(args):
                 else:
                     normal_inputs = normal_raw
                     anomaly_inputs = anomaly_raw
-                
+
+                # -------------------------------------------------------
+                # 【FeatureAdapter 缝合点 ④-a】-- 合成异常模式：AFS → FeatureAdapter → AE
+                # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
+                # if feature_adapter is not None:
+                #     normal_inputs = feature_adapter(normal_inputs)
+                #     anomaly_inputs = feature_adapter(anomaly_inputs)
+                # -------------------------------------------------------
+
                 # AE重建
                 normal_outputs = ae(normal_inputs)
                 anomaly_outputs = ae(anomaly_inputs)
                 outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
-                anomaly_size = normal_img.size(0)  # 始终有异常样本
                 anomaly_img = normal_img  # 占位，后续RRS使用自己的dataloader
+
+            elif args.use_pixel_anomaly and pixel_gen is not None:
+                # === 纯像素级异常模式（无Perlin）：在像素空间生成异常，再经PFE+AFS ===
+                anomaly_size = normal_img.size(0)
+                anomaly_imgs, pixel_masks = pixel_gen(normal_img, foreground_masks)
+                anomaly_raw = pfe(anomaly_imgs)
+
+                if afs is not None:
+                    normal_inputs = afs(normal_raw)
+                    anomaly_inputs = afs(anomaly_raw)
+                else:
+                    normal_inputs = normal_raw
+                    anomaly_inputs = anomaly_raw
+
+                normal_outputs = ae(normal_inputs)
+                anomaly_outputs = ae(anomaly_inputs)
+                outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
+                anomaly_img = normal_img
             else:
                 # === 原始模式：从数据加载器加载真实异常图像 ===
                 if anomaly is not None:
@@ -768,7 +934,14 @@ def train(args):
                     normal_inputs = afs(normal_raw)
                 else:
                     normal_inputs = normal_raw
-                
+
+                # -------------------------------------------------------
+                # 【FeatureAdapter 缝合点 ④-b】-- 原始模式正常分支：AFS → FeatureAdapter → AE
+                # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
+                # if feature_adapter is not None:
+                #     normal_inputs = feature_adapter(normal_inputs)
+                # -------------------------------------------------------
+
                 # 正常特征重建
                 normal_outputs = ae(normal_inputs)
 
@@ -779,6 +952,14 @@ def train(args):
                         anomaly_inputs = afs(anomaly_raw)
                     else:
                         anomaly_inputs = anomaly_raw
+
+                    # -------------------------------------------------------
+                    # 【FeatureAdapter 缝合点 ④-c】-- 原始模式异常分支：AFS → FeatureAdapter → AE
+                    # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
+                    # if feature_adapter is not None:
+                    #     anomaly_inputs = feature_adapter(anomaly_inputs)
+                    # -------------------------------------------------------
+
                     anomaly_outputs = ae(anomaly_inputs)
                     outputs = [torch.cat([n_o, a_o]) for n_o, a_o in zip(normal_outputs, anomaly_outputs)]
                 else:
@@ -854,6 +1035,14 @@ def train(args):
                         rrs_inputs = afs(rrs_raw)
                     else:
                         rrs_inputs = rrs_raw
+
+                    # -------------------------------------------------------
+                    # 【FeatureAdapter 缝合点 ④-d】-- RRS 分支：AFS → FeatureAdapter → AE
+                    # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
+                    # if feature_adapter is not None:
+                    #     rrs_inputs = feature_adapter(rrs_inputs)
+                    # -------------------------------------------------------
+
                     rrs_outputs = ae(rrs_inputs)
 
                 # RRS前向（异常图像）
@@ -910,6 +1099,16 @@ def train(args):
         loss_history["seg_loss"].append(epoch_seg)
 
         # 7. 定期评估模型性能
+        # ---------------------------------------------------------------
+        # 【FeatureAdapter 缝合点 ④-e】-- 评估时传入 feature_adapter
+        # 如果启用了 FeatureAdapter，需修改 evaluation 和 visualize_evaluation_anomaly_maps
+        # 调用，增加 feature_adapter 参数（需同时修改 util/test.py 中的相应函数）：
+        #   valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args,
+        #                              afs=afs, feature_adapter=feature_adapter)
+        #   metrics = evaluation(pfe, ae, test_dataloader, device, args,
+        #                        afs=afs, feature_adapter=feature_adapter)
+        #   visualize_evaluation_anomaly_maps(..., afs=afs, feature_adapter=feature_adapter)
+        # ---------------------------------------------------------------
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
                 valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args, afs=afs)

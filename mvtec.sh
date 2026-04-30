@@ -10,6 +10,33 @@ labeled_anomaly_class_num=1
 # 如需启用合成异常协同训练（可选），取消下面注释：
 #   --use_synthetic_anomaly --anomaly_perturbation noise \
 #   --anomaly_ratio 0.3 --anomaly_noise_std 0.15 --multi_scale_anomaly
+#
+# 如需使用 SimpleNet 风格全局多级噪声扰动：
+#   --use_synthetic_anomaly --anomaly_perturbation simplenet_noise \
+#   --anomaly_noise_std 0.05 --anomaly_mix_noise 3 \
+#   说明: mix_noise=3 表示噪声 std 按 1.1^k 递增 (k=0,1,2)，
+#         每样本随机选一级，实现多级噪声策略
+#
+# 如需使用硬增强擦除（特征均值填充）：
+#   --use_synthetic_anomaly --anomaly_perturbation hard_erase \
+#   说明: 基于Perlin掩码的不规则形状擦除，掩码区域用特征均值填充，
+#         区别于 erase 的归零操作，模拟图像级硬增强遮挡效果
+
+# ========== 像素级异常合成（PatchGuard + OCR-GAN）参数 ==========
+# 如需启用像素级异常合成（与 Perlin 合成异常协同训练），添加：
+#   --use_pixel_anomaly --pixel_anomaly_mode mixed \
+#   --anomaly_strategy progressive \
+#   --pixel_anomaly_prob 0.4 --perlin_anomaly_prob 0.35
+#
+# 如需仅使用像素级异常（不使用 Perlin），添加：
+#   --use_pixel_anomaly --pixel_anomaly_mode mixed \
+#   （不添加 --use_synthetic_anomaly）
+#
+# pixel_anomaly_mode 选项:
+#   patchguard : 前景感知 cut-and-paste（需 foreground_mask 目录）
+#   cutpaste   : OCR-GAN CutPaste（仅ColorJitter，无需前景mask）
+#   cutout     : OCR-GAN Cutout（随机擦除，无需前景mask）
+#   mixed      : 随机选择上述三种
 
 for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
 do

@@ -1,42 +1,40 @@
 """
-FeatureAdapter — 基于 SimpleNet Projection 的特征适配模块。
+FeatureAdapter — 基于 1x1 Conv2d 的特征适配模块。
+（原设计基于 SimpleNet Projection 的 Linear 投影，已将 Linear 替换为 Conv2d 1x1，
+  避免不必要的 permute/reshape 操作，语义更自然、性能更优。）
 
 目的：
-在 AFS 输出后、AE 输入前，对每个尺度的特征图在通道维进行线性投影，
+在 AFS 输出后、AE 输入前，对每个尺度的特征图在通道维进行 1x1 卷积投影，
 使特征表达更适合后续自编码器重建。
 
-设计参考 SimpleNet 的 Projection 类（详见 simplenet.py 第59-87行）：
-- 每层特征图使用独立的 Linear 投影（保持通道数不变）
+设计要点：
+- 每层特征图使用独立的 Conv2d(1x1) 投影（保持通道数不变）
+- n_layers > 1 时，层间插入 ReLU 激活，使投影具有非线性表达能力
 - Xavier 正态分布初始化权重
-
-用法（需在 main.py 中取消注释相应代码）：
-    feature_adapter = FeatureAdapter(in_channels_list, n_layers=1)
-    adapted_feats = feature_adapter(inputs)  # inputs = AFS 输出
 """
 
-import torch
 import torch.nn as nn
 
 
 def init_weight(m):
     """Xavier 正态分布初始化。"""
-    if isinstance(m, torch.nn.Linear):
-        torch.nn.init.xavier_normal_(m.weight)
-    elif isinstance(m, torch.nn.Conv2d):
-        torch.nn.init.xavier_normal_(m.weight)
+    if isinstance(m, nn.Conv2d):
+        nn.init.xavier_normal_(m.weight)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
 
 
 class FeatureAdapter(nn.Module):
-    """多尺度特征适配器。
+    """多尺度特征适配器（Conv2d 1x1 版）。
 
-    对 AFS 输出的每个尺度特征图 [B, C, H, W]，在通道维应用独立的 Linear 投影。
+    对 AFS 输出的每个尺度特征图 [B, C, H, W]，应用独立的 1x1 卷积投影。
     投影是逐像素的（即对每个空间位置独立进行），保持通道数 C 不变。
 
     Args:
         in_channels_list: 各尺度特征图的输入通道数列表（含 expansion），
                           与 AFS 实际输出通道数一致。
-        n_layers: 每层投影的 Linear 层数。默认 1（单层 Linear）。
-                  增加层数可增强适配能力，但也会引入更多参数。
+        n_layers: 每层投影的 Conv2d 层数。默认 1（单层 Conv2d）。
+                  当 >1 时，层间插入 ReLU 激活函数，提供非线性表达能力。
     """
 
     def __init__(self, in_channels_list, n_layers=1):
@@ -48,10 +46,10 @@ class FeatureAdapter(nn.Module):
         self.projections = nn.ModuleList()
         for c in in_channels_list:
             layers = []
-            _in = c
             for i in range(n_layers):
-                layers.append(nn.Linear(_in, c))
-                _in = c
+                layers.append(nn.Conv2d(c, c, kernel_size=1, bias=True))
+                if i < n_layers - 1:  # 层间插入 ReLU（最后一层后不加）
+                    layers.append(nn.ReLU(inplace=True))
             proj = nn.Sequential(*layers)
             proj.apply(init_weight)
             self.projections.append(proj)
@@ -68,13 +66,8 @@ class FeatureAdapter(nn.Module):
         """
         adapted = []
         for i, feat in enumerate(features_list):
-            B, C, H, W = feat.shape
-            # [B, H, W, C] -> [B*H*W, C]
-            feat_flat = feat.permute(0, 2, 3, 1).reshape(-1, C)
-            # Linear 投影
-            feat_proj = self.projections[i](feat_flat)
-            # [B, H, W, C] -> [B, C, H, W]
-            feat_out = feat_proj.reshape(B, H, W, C).permute(0, 3, 1, 2)
+            # Conv2d(1x1) 直接处理 [B, C, H, W]，无需 permute/reshape
+            feat_out = self.projections[i](feat)
             adapted.append(feat_out)
 
         return adapted

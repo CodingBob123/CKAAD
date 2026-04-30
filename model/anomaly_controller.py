@@ -14,6 +14,7 @@ import logging
 from typing import List, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 
 from model.pixel_anomaly import PixelAnomalyGenerator, has_foreground_mask
 

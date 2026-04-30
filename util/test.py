@@ -147,7 +147,8 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None):
     all_maps = []
     metrics = {}
     with torch.no_grad():
-        for img, gt, label in dataloader:
+        for batch in dataloader:
+            img, gt, label = batch[:3]
             img = img.to(device)
             inputs_raw = encoder(img)
             if afs is not None:

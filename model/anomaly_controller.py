@@ -256,7 +256,7 @@ class UnifiedAnomalyController:
 
             if not has_pixel:
                 # 只有 Perlin，直接返回
-                return perlin_ano, perlin_masks, B
+                return perlin_ano, perlin_masks, perlin_indices.numel()
 
             # 合并 Pixel 和 Perlin 结果
             for scale_idx in range(len(perlin_ano)):

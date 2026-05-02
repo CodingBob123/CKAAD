@@ -101,15 +101,28 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
-def evaluation(encoder, ed, dataloader, device, args, afs=None):
-    if args.dataset in ['mvtec', 'visa', 'btad']:
-        return evaluation_pixel(encoder, ed, dataloader, device, args, afs=afs)
-    else:
-        return evaluation_semantic(encoder, ed, dataloader, device, args, afs=afs)
+def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
+    source = getattr(args, 'eval_anomaly_map_source', 'recon')
+    if source == 'rrs':
+        if rrs is None:
+            raise ValueError("eval_anomaly_map_source='rrs' requires --use_rrs")
+        rrs.eval()
+        rrs_out = rrs(inputs, outputs, image=img)
+        return rrs_out['anomaly_score'].detach().cpu().numpy()
+    return cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
 
-def evaluation_semantic(encoder, ed, dataloader, device, args, afs=None):
+
+def evaluation(encoder, ed, dataloader, device, args, afs=None, rrs=None):
+    if args.dataset in ['mvtec', 'visa', 'btad']:
+        return evaluation_pixel(encoder, ed, dataloader, device, args, afs=afs, rrs=rrs)
+    else:
+        return evaluation_semantic(encoder, ed, dataloader, device, args, afs=afs, rrs=rrs)
+
+def evaluation_semantic(encoder, ed, dataloader, device, args, afs=None, rrs=None):
     encoder.eval()
     ed.eval()
+    if rrs is not None:
+        rrs.eval()
     gt_list = []
     sample_score_list = []
     metric_dict = {}
@@ -124,7 +137,7 @@ def evaluation_semantic(encoder, ed, dataloader, device, args, afs=None):
                 inputs = inputs_raw
             outputs = ed(inputs)
             gt_list.append(label != int(args.normal))
-            anomaly_map = cal_anomaly_map(inputs, outputs, out_size=img.size(-1), amap_mode='add')
+            anomaly_map = get_eval_anomaly_map(inputs, outputs, img, args, rrs=rrs)
             if args.dataset in ['isic']:
                 fea_score = anomaly_map.reshape(img.size(0), -1).mean(axis=-1)
             else:
@@ -135,9 +148,11 @@ def evaluation_semantic(encoder, ed, dataloader, device, args, afs=None):
         metric_dict['Image'] = calculate_metrics(sample_score_list, gt_list)
     return metric_dict
 
-def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None):
+def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None, rrs=None):
     encoder.eval()
     ed.eval()
+    if rrs is not None:
+        rrs.eval()
     pixel_gt_list = []
     pixel_score_list = []
     sample_gt_list = []
@@ -157,7 +172,7 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None):
                 inputs = inputs_raw
             outputs = ed(inputs)
             gt = gt.squeeze(1)
-            anomaly_map = cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+            anomaly_map = get_eval_anomaly_map(inputs, outputs, img, args, rrs=rrs)
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
             all_gts.append(gt.cpu().numpy())

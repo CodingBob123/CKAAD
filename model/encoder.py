@@ -276,11 +276,11 @@ class FusionLayer(nn.Module):
         # 3) 将对齐后的三个分支在通道维度上拼接
         fused = torch.cat(features, dim=1)   # → [B, 3*256*exp, H3, W3]
 
-        # 4) 对拼接后的融合特征应用 ECA 通道注意力（通道重标定）
-        fused = self.eca_attention(fused)
-
-        # 5) 应用 SEA 结构感知注意力（轴向长程依赖 + 局部细节增强）
+        # 4) 应用 SEA 结构感知注意力（轴向长程依赖 + 局部细节增强）
         fused = self.sea_attention(fused)
+
+        # 5) 对拼接后的融合特征应用 ECA 通道注意力（通道重标定）
+        fused = self.eca_attention(fused)
 
         # 6) 送入后续编码层进行特征压缩和抽象
         output = self.encode_layer1(fused)   # → [B, 512*exp, H3/2, W3/2]

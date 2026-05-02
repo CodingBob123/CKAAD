@@ -63,6 +63,10 @@ def parse_args():
 
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
 
+    parser.add_argument('--eval_anomaly_map_source', type=str, default='recon',
+                        choices=['recon', 'rrs'],
+                        help='anomaly map source for evaluation: recon uses AE reconstruction residual, rrs uses RRS anomaly_score')
+
     # [VIS-DISABLED] 评估可视化相关参数
     # parser.add_argument('--eval_visualize', action='store_true', help='whether to visualize anomaly maps during evaluation')
     # parser.add_argument('--eval_viz_samples', type=int, default=5, help='number of samples to visualize during evaluation')
@@ -1028,44 +1032,109 @@ def train(args):
 
             # 5.9 RRS训练：用异常图像+GT mask训练RRS分割
             seg_loss = torch.tensor(0.0).to(device)
-            if rrs is not None and rrs_data_iter is not None:
-                try:
-                    rrs_batch = next(rrs_data_iter)
-                except StopIteration:
-                    rrs_data_iter = cycle(rrs_dataloader)
-                    rrs_batch = next(rrs_data_iter)
+            if rrs is not None:
+                # =============================================================
+                # 分支 A：用真实异常图像的 GT mask 训练 RRS（原有，保留）
+                # 数据来源：rrs_dataloader（测试集真实异常，rrs_anomaly_samples 张）
+                # 使用真实 GT mask 提供强监督信号
+                # =============================================================
+                if rrs_data_iter is not None:
+                    try:
+                        rrs_batch = next(rrs_data_iter)
+                    except StopIteration:
+                        rrs_data_iter = cycle(rrs_dataloader)
+                        rrs_batch = next(rrs_data_iter)
 
-                rrs_anomaly_img = rrs_batch[0].to(device)  # anomaly image
-                rrs_gt_mask = rrs_batch[1].to(device)       # GT mask: [B, 1, H, W]
+                    rrs_anomaly_img = rrs_batch[0].to(device)  # anomaly image
+                    rrs_gt_mask = rrs_batch[1].to(device)       # GT mask: [B, 1, H, W]
 
-                # 异常图像通过 PFE → [AFS] → AE（detach，RRS独立训练不影响AE）
-                with torch.no_grad():
-                    rrs_raw = pfe(rrs_anomaly_img)
-                    if afs is not None:
-                        rrs_inputs = afs(rrs_raw)
-                    else:
-                        rrs_inputs = rrs_raw
+                    # 异常图像通过 PFE → [AFS] → AE（detach，RRS独立训练不影响AE）
+                    with torch.no_grad():
+                        rrs_raw = pfe(rrs_anomaly_img)
+                        if afs is not None:
+                            rrs_inputs = afs(rrs_raw)
+                        else:
+                            rrs_inputs = rrs_raw
 
-                    # -------------------------------------------------------
-                    # 【FeatureAdapter 缝合点 ④-d】-- RRS 分支：AFS → FeatureAdapter → AE
-                    # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
-                    # if feature_adapter is not None:
-                    #     rrs_inputs = feature_adapter(rrs_inputs)
-                    # -------------------------------------------------------
+                        # -------------------------------------------------------
+                        # 【FeatureAdapter 缝合点 ④-d】-- RRS 分支：AFS → FeatureAdapter → AE
+                        # 取消下面注释以在 AFS 和 AE 之间插入 FeatureAdapter：
+                        # if feature_adapter is not None:
+                        #     rrs_inputs = feature_adapter(rrs_inputs)
+                        # -------------------------------------------------------
 
-                    rrs_outputs = ae(rrs_inputs)
+                        rrs_outputs = ae(rrs_inputs)
 
-                # RRS前向（异常图像）
-                rrs_out = rrs(rrs_inputs, rrs_outputs, image=rrs_anomaly_img)
+                    # RRS前向（异常图像）
+                    rrs_out = rrs(rrs_inputs, rrs_outputs, image=rrs_anomaly_img)
 
-                # SegmentCrossEntropyLoss（异常区域）
-                logit = rrs_out['logit']  # [B, 2, H, W]
-                bsz = logit.size(0)
-                logit_flat = logit.view(bsz, 2, -1)  # [B, 2, H*W]
-                gt_flat = rrs_gt_mask.view(bsz, -1).long()  # [B, H*W]
-                seg_loss_anomaly = torch.nn.functional.cross_entropy(logit_flat, gt_flat)
+                    # SegmentCrossEntropyLoss（异常区域）
+                    logit = rrs_out['logit']  # [B, 2, H, W]
+                    bsz = logit.size(0)
+                    logit_flat = logit.view(bsz, 2, -1)  # [B, 2, H*W]
+                    gt_flat = rrs_gt_mask.view(bsz, -1).long()  # [B, H*W]
+                    seg_loss_anomaly = torch.nn.functional.cross_entropy(logit_flat, gt_flat)
+                    seg_loss = seg_loss + seg_loss_anomaly
 
-                # 正常图像的RRS损失（全0 mask，detach避免干扰AE训练）
+                # =============================================================
+                # 分支 B（新增）：用当前 batch 的合成异常训练 RRS
+                # 数据来源：anomaly_controller / perlin_gen / pixel_gen 每步生成的合成异常
+                # 利用合成异常的 mask（Perlin mask / 像素级 mask）作为监督信号
+                # 梯度完全隔离，不影响 AE
+                # =============================================================
+                if anomaly_size > 0:
+                    # 检查当前 batch 是否在合成异常模式下（anomaly_masks 可用）
+                    in_synthetic_mode = (
+                        anomaly_controller is not None
+                        or args.use_synthetic_anomaly
+                        or args.use_pixel_anomaly
+                    )
+
+                    if in_synthetic_mode:
+                        # 合成异常的 features 已由前面的分支计算好：
+                        #   anomaly_inputs：PFE → [AFS] → anomaly features
+                        #   anomaly_outputs：AE 重建
+                        # 合成异常的 masks（各特征尺度，取第 0 层最高分辨率）：
+                        #   分支 controller:   anomaly_masks[0] (来自 anomaly_masks_list_list)
+                        #   分支 perlin:       anomaly_masks[0] (来自 perlin_gen)
+                        #   分支 pixel:        pixel_masks       (来自 pixel_gen)
+
+                        if args.use_pixel_anomaly and not args.use_synthetic_anomaly and \
+                           anomaly_controller is None:
+                            # 纯像素异常模式：pixel_masks 在 [B,1,H_img,W_img] 空间
+                            syn_gt_mask = pixel_masks
+                        else:
+                            # 控制器 / Perlin 模式：anomaly_masks[0] 在特征空间尺度
+                            syn_gt_mask = anomaly_masks[0]  # [B, 1, H_feat, W_feat]
+
+                        if syn_gt_mask.size(0) != anomaly_inputs[0].size(0):
+                            raise RuntimeError(
+                                "RRS synthetic mask/feature batch mismatch: "
+                                f"mask={syn_gt_mask.size(0)}, feature={anomaly_inputs[0].size(0)}"
+                            )
+
+                        # detach 确保 RRS 独立训练，不回传到 AE / 前序特征图。
+                        anomaly_inputs_det = [ai.detach() for ai in anomaly_inputs]
+                        anomaly_outputs_det = [ao.detach() for ao in anomaly_outputs]
+                        syn_rrs_out = rrs(anomaly_inputs_det, anomaly_outputs_det, image=normal_img)
+                        syn_logit = syn_rrs_out['logit']  # [B, 2, H_img, W_img]
+
+                        # 将 syn_gt_mask resize 到 logit 的空间尺寸
+                        _, _, lh, lw = syn_logit.shape
+                        syn_gt_resized = torch.nn.functional.interpolate(
+                            syn_gt_mask.float(), size=(lh, lw), mode='nearest'
+                        )
+                        syn_bsz = syn_logit.size(0)
+                        syn_logit_flat = syn_logit.view(syn_bsz, 2, -1)
+                        syn_gt_flat = syn_gt_resized.view(syn_bsz, -1).long()
+                        seg_loss_syn = torch.nn.functional.cross_entropy(
+                            syn_logit_flat, syn_gt_flat
+                        )
+                        seg_loss = seg_loss + seg_loss_syn
+
+                # =============================================================
+                # 分支 C：正常图像的 RRS 损失（全 0 mask，增强 RRS 对正常样本的抑制能力）
+                # =============================================================
                 normal_inputs_det = [ni.detach() for ni in normal_inputs]
                 normal_outputs_det = [no.detach() for no in normal_outputs]
                 normal_rrs_out = rrs(normal_inputs_det, normal_outputs_det, image=normal_img)
@@ -1075,10 +1144,9 @@ def train(args):
                 normal_gt_flat = torch.zeros(normal_bsz, normal_logit_flat.size(-1),
                                              dtype=torch.long, device=device)
                 seg_loss_normal = torch.nn.functional.cross_entropy(normal_logit_flat, normal_gt_flat)
+                seg_loss = seg_loss + seg_loss_normal
 
-                seg_loss = seg_loss_anomaly + seg_loss_normal
-
-                # 更新RRS参数
+                # 更新RRS参数（所有分支的损失合并后一起 backward）
                 rrs_optimizer.zero_grad()
                 seg_loss.backward()
                 torch.nn.utils.clip_grad_norm_(rrs.parameters(), 1.0)
@@ -1121,7 +1189,7 @@ def train(args):
         # ---------------------------------------------------------------
         if (epoch) % args.eval_epoch == 0:
             if valid_dataloader is not None:
-                valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args, afs=afs)
+                valid_metrics = evaluation(pfe, ae, valid_dataloader, device, args, afs=afs, rrs=rrs)
                 valid_info = get_res_str(valid_metrics)
                 logger.info("Valid: {}".format(valid_info))
 
@@ -1129,13 +1197,45 @@ def train(args):
                 # if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
                 #     visualize_evaluation_anomaly_maps(pfe, ae, valid_dataloader, args, device, epoch, "valid", afs=afs)
 
-            metrics = evaluation(pfe, ae, test_dataloader, device, args, afs=afs)
+            metrics = evaluation(pfe, ae, test_dataloader, device, args, afs=afs, rrs=rrs)
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
 
             # [VIS-DISABLED] 评估时可视化anomaly map
             # if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
             #     visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test", afs=afs)
+
+        # 8. 周期性更新 AFS 通道索引（新增）
+        # 原因：渐进式异常策略下异常分布动态变化，AFS 的通道选择会随时间次优化
+        # 频率：每 20 个 epoch 重新初始化一次
+        # 注意：AFS 索引是非可训练参数 (requires_grad=False)，重新赋值不影响训练图
+        # ---------------------------------------------------------------
+        if args.use_afs and epoch % 20 == 0 and epoch < epochs:
+            # 获取用于 AFS 初始化的 Perlin 生成器
+            if anomaly_controller is not None and anomaly_controller.perlin_gen is not None:
+                afs_perlin = anomaly_controller.perlin_gen
+            elif perlin_gen is not None:
+                afs_perlin = perlin_gen
+            else:
+                # 如果当前没有活跃的 perlin 生成器，创建一个默认的
+                from model.perlin_anomaly import PerlinAnomalyGenerator
+                afs_perlin = PerlinAnomalyGenerator(
+                    anomaly_ratio=args.anomaly_ratio,
+                    perturbation=args.anomaly_perturbation,
+                    noise_std=args.anomaly_noise_std,
+                    mix_noise=args.anomaly_mix_noise,
+                ).to(device)
+                logger.info("AFS re-init: created temporary PerlinAnomalyGenerator")
+
+            logger.info("AFS re-initializing at epoch %d...", epoch)
+            afs.init_idxs(pfe, afs_perlin, train_dataloader, args.afs_init_bsn, device)
+
+            # 打印更新后的通道索引
+            for i in range(afs.num_layers):
+                idx_list = afs.indexes[f"layer_{i}"].data.cpu().tolist()
+                logger.info(f"AFS layer_{i} (re-init @ep{epoch}): "
+                            f"selected {len(idx_list)}/{afs.in_channels_list[i]} channels")
+        # ---------------------------------------------------------------
 
     # [VIS-DISABLED] 训练结束后保存最终损失曲线
     # try:

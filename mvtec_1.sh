@@ -23,7 +23,7 @@
 # [保留正常] 50% 样本保持纯正常（无任何异常合成），提升 AE 重建鲁棒性
 # [AFS] 异常感知特征选择     | --use_afs --afs_init_bsn 50    | (启用)       | 自动半通道选择（256→128 512→256 1024→512）
 # [RRS] 残差分割网络         | --use_rrs --rrs_anomaly_samples 20 | (启用)  | 用测试集真实异常训练分割分支
-# [评估图] anomaly map来源    | --eval_anomaly_map_source rrs/recon | recon   | recon=原重建误差图，rrs=RRS anomaly_score
+# [评估图] anomaly map来源    | --eval_anomaly_map_source recon/rrs/rrs_cos | rrs_cos | recon=原重建误差图，rrs=RRS anomaly_score，rrs_cos=RRS选通道+cos重建误差图
 # [消融对照 1] 仅 Pixel      | --use_pixel_anomaly（不设 use_synthetic_anomaly）| 所有样本 100% 像素异常
 # [消融对照 2] 仅 Perlin     | --use_synthetic_anomaly（不设 use_pixel_anomaly） | 所有样本 100% 特征扰动
 # [消融对照 3] Raw Elastic   | 原版 labeled_anomaly_ratio=0.05（不使用任何合成） | ElasticTransform 弹性形变
@@ -51,7 +51,7 @@ pixel_patchguard_prob=0.5         # mixed 内 PatchGuard 概率
 pixel_cutpaste_prob=0.3           # mixed 内 CutPaste 概率
 pixel_cutout_prob=0.2             # mixed 内 Cutout 概率
 pixel_anomaly_prob=0.20           # 控制器中像素级异常的出现概率
-eval_anomaly_map_source=rrs     # recon: 原AE重建误差图；rrs: 使用RRS anomaly_score评估
+eval_anomaly_map_source=rrs_cos # recon: 原AE重建误差图；rrs: 使用RRS anomaly_score；rrs_cos: RRS选通道+cos重建误差图
 
 # === 特征级 Perlin 异常（PerlinAnomalyGenerator） ===
 anomaly_perturbation=simplenet_noise  # 多级噪声扰动（最鲁棒的 Perlin 模式）

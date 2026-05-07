@@ -109,6 +109,17 @@ def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
         rrs.eval()
         rrs_out = rrs(inputs, outputs, image=img)
         return rrs_out['anomaly_score'].detach().cpu().numpy()
+    if source == 'rrs_cos':
+        if rrs is None:
+            raise ValueError("eval_anomaly_map_source='rrs_cos' requires --use_rrs")
+        rrs.eval()
+        anomaly_map = rrs.rrs_cosine_map(inputs, outputs, img.shape[-1], amap_mode='add')
+        anomaly_map = anomaly_map.detach().cpu().numpy()
+        anomaly_map_list = []
+        for i in range(len(anomaly_map)):
+            amap = gaussian_filter(anomaly_map[i], sigma=4)
+            anomaly_map_list.append(amap)
+        return np.vstack(anomaly_map_list)
     return cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
 
 
@@ -201,7 +212,7 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None, rrs=None):
         metrics['Image'] = calculate_metrics(sample_score_list, sample_gt_list, True)
     return metrics
 
-def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix="", afs=None):
+def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix="", afs=None, rrs=None):
     pfe.eval()
     ae.eval()
     with torch.no_grad():
@@ -215,7 +226,7 @@ def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfi
                 inputs = inputs_raw
             outputs = ae(inputs)
             labels = data[-1]
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='a')
+            anomaly_maps = get_eval_anomaly_map(inputs, outputs, imgs, args, rrs=rrs)
             
             imgs = transform_invert(imgs, transform)
             

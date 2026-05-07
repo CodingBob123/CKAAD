@@ -171,6 +171,51 @@ class RRS(nn.Module):
             residuals.append(residual)
         return residuals
 
+    def _align_features(self, features):
+        return [getattr(self, f"layer{i}_upsample")(features[i])
+                for i in range(self.num_layers)]
+
+    def _select_indices(self, residual_cat):
+        residual_idx = self.bn_idx(residual_cat)
+        B, _, H, W = residual_cat.size()
+        selected_idxs = []
+        for mode, mode_n in zip(self.modes, self.mode_numbers):
+            idxs = self.select_ano_index(residual_idx, mode, mode_n)
+            selected_idxs.append(idxs.view((B, mode_n, 1, 1)).repeat(1, 1, H, W))
+        return selected_idxs
+
+    def rrs_cosine_map(self, inputs, outputs, out_size, amap_mode='add'):
+        """Compute baseline-style cosine map on RRS-selected channels."""
+        residuals = self.compute_residuals(inputs, outputs)
+        if self.stop_grad:
+            residuals = [r.detach() for r in residuals]
+
+        residual_cat = torch.cat(self._align_features(residuals), dim=1)
+        input_cat = torch.cat(self._align_features(inputs), dim=1)
+        output_cat = torch.cat(self._align_features(outputs), dim=1)
+
+        B, _, H, W = residual_cat.size()
+        if amap_mode == 'mul':
+            anomaly_map = torch.ones([B, 1, out_size, out_size], device=residual_cat.device)
+        else:
+            anomaly_map = torch.zeros([B, 1, out_size, out_size], device=residual_cat.device)
+
+        for idxs in self._select_indices(residual_cat):
+            selected_inputs = torch.gather(input_cat, dim=1, index=idxs)
+            selected_outputs = torch.gather(output_cat, dim=1, index=idxs)
+            a_map = 1 - F.cosine_similarity(selected_inputs, selected_outputs)
+            a_map = torch.unsqueeze(a_map, dim=1)
+            a_map = F.interpolate(a_map, size=out_size, mode='bilinear', align_corners=True)
+
+            if amap_mode == 'mul':
+                anomaly_map *= a_map
+            elif amap_mode == 'max':
+                anomaly_map = torch.max(anomaly_map, a_map)
+            else:
+                anomaly_map += a_map
+
+        return anomaly_map
+
     def forward(self, inputs, outputs, image=None):
         """
         Forward pass of RRS module.
@@ -193,24 +238,19 @@ class RRS(nn.Module):
             residuals = [r.detach() for r in residuals]
 
         # 3. Upsample all residuals to the smallest stride (highest resolution)
-        aligned = [getattr(self, f"layer{i}_upsample")(residuals[i])
-                   for i in range(self.num_layers)]
+        aligned = self._align_features(residuals)
 
         # 4. Concatenate along channel dimension
         residual_cat = torch.cat(aligned, dim=1)  # [B, sum(C_i), H_align, W_align]
 
         # 5. BN for index selection (does not affect gradient flow to original residual)
-        residual_idx = self.bn_idx(residual_cat)
-
         B, C, H, W = residual_cat.size()
 
         # 6. Channel selection (core of RRS)
         residual_choose = []
-        for mode, mode_n in zip(self.modes, self.mode_numbers):
-            idxs = self.select_ano_index(residual_idx, mode, mode_n)
+        for idxs in self._select_indices(residual_cat):
             residual_choose.append(
-                torch.gather(residual_cat, dim=1,
-                             index=idxs.view((B, mode_n, 1, 1)).repeat(1, 1, H, W)))
+                torch.gather(residual_cat, dim=1, index=idxs))
 
         selected = torch.cat(residual_choose, dim=1)  # [B, total_select, H, W]
 

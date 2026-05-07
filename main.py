@@ -64,8 +64,8 @@ def parse_args():
     parser.add_argument('--topk', type=int, default=100, help='calculate topk values')
 
     parser.add_argument('--eval_anomaly_map_source', type=str, default='recon',
-                        choices=['recon', 'rrs'],
-                        help='anomaly map source for evaluation: recon uses AE reconstruction residual, rrs uses RRS anomaly_score')
+                        choices=['recon', 'rrs', 'rrs_cos'],
+                        help='anomaly map source for evaluation: recon uses AE reconstruction residual, rrs uses RRS anomaly_score, rrs_cos uses RRS-selected channels with cosine residual')
 
     # [VIS-DISABLED] 评估可视化相关参数
     # parser.add_argument('--eval_visualize', action='store_true', help='whether to visualize anomaly maps during evaluation')

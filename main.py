@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import random
 import os
+import csv
 from util.test import evaluation, evaluation_pixel  # , visualize  # [VIS-DISABLED] 可视化函数导入
 from model.model import PretrainedFeatureExtractor, ED, Discriminator
 from model.rrs import RRS
@@ -50,6 +51,12 @@ def parse_args():
     parser.add_argument('--labeled_anomaly_ratio', type=float, default=0.0, help='labeled anomaly ratio')
     
     parser.add_argument('--log_dir', type=str, default='./log/', help='log dir')
+
+    parser.add_argument('--exp_name', type=str, default='default', help='experiment name for logs and checkpoints')
+
+    parser.add_argument('--ckpt_dir', type=str, default='/hy-tmp/checkpoints/', help='checkpoint root dir')
+
+    parser.add_argument('--save_best', action='store_true', help='save best checkpoint during evaluation')
     
     parser.add_argument('--model', type=str, default='resnet18', choices=['resnet18', 'resnet34', 'resnet50', 'wide_resnet50_2', 'wide_resnet101_2', 'resnet152'])
     
@@ -183,6 +190,58 @@ def get_res_str(metrics):
         for item, v in value.items():
             score_res_str += "{}_{}: {:.6f} ".format(key, item, v) 
     return score_res_str
+
+
+def get_best_score(metrics):
+    image_auroc = metrics.get('Image', {}).get('AUROC', 0.0)
+    pixel_auroc = metrics.get('Pixel', {}).get('AUROC', 0.0)
+    pixel_pro = metrics.get('Pixel', {}).get('PRO', 0.0)
+    return image_auroc + pixel_auroc + pixel_pro
+
+
+def get_ckpt_dir(args):
+    return os.path.join(args.ckpt_dir, args.exp_name, args.dataset,
+                        args.normal, 'seed_{}'.format(args.seed))
+
+
+def save_checkpoint(path, epoch, args, metrics, score, pfe, ae, discriminator,
+                    afs=None, rrs=None, ae_optimizer=None,
+                    discriminator_optimizer=None, rrs_optimizer=None):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    checkpoint = {
+        'epoch': epoch,
+        'args': vars(args),
+        'metrics': metrics,
+        'best_score': score,
+        'pfe': pfe.state_dict(),
+        'ae': ae.state_dict(),
+        'discriminator': discriminator.state_dict(),
+        'afs': afs.state_dict() if afs is not None else None,
+        'rrs': rrs.state_dict() if rrs is not None else None,
+        'ae_optimizer': ae_optimizer.state_dict() if ae_optimizer is not None else None,
+        'discriminator_optimizer': discriminator_optimizer.state_dict() if discriminator_optimizer is not None else None,
+        'rrs_optimizer': rrs_optimizer.state_dict() if rrs_optimizer is not None else None,
+    }
+    torch.save(checkpoint, path)
+
+
+def append_eval_csv(path, epoch, metrics, score):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    file_exists = os.path.exists(path)
+    row = {
+        'epoch': epoch,
+        'image_auroc': metrics.get('Image', {}).get('AUROC', ''),
+        'image_f1': metrics.get('Image', {}).get('F1', ''),
+        'image_acc': metrics.get('Image', {}).get('ACC', ''),
+        'pixel_auroc': metrics.get('Pixel', {}).get('AUROC', ''),
+        'pixel_pro': metrics.get('Pixel', {}).get('PRO', ''),
+        'score': score,
+    }
+    with open(path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=list(row.keys()))
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 def loss_function(a, b, loss_type='cosine', alpha=0.7, beta=0.2, gamma=0.1):
     """
@@ -608,17 +667,26 @@ def train(args):
     5. 对抗训练：使重建特征更接近正常特征
     """
     # 1.设置日志的目录和文件名，并打印日志
-    log_dir = os.path.join(args.log_dir, "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num), args.dataset)
+    log_dir = os.path.join(args.log_dir, args.exp_name,
+                           "lan{:.2f}_acn{}".format(args.labeled_anomaly_ratio,  args.labeled_anomaly_class_num),
+                           args.dataset)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     logger_filename = os.path.join(log_dir, 'n_{}_a_{}_s_{}'.format(args.normal, args.labeled_anomaly_class, args.seed) + '.txt')
     logger = get_logger(logger_filename)
     logger.info("log file: {}".format(logger_filename))
     logger.info("class: {}".format(args.normal))
+    ckpt_dir = get_ckpt_dir(args)
+    csv_path = os.path.join(ckpt_dir, 'eval_metrics.csv')
+    logger.info("checkpoint dir: {}".format(ckpt_dir))
+    logger.info("eval csv: {}".format(csv_path))
     
     print_args(logger, args)
     epochs = args.epochs
     batch_size = args.batch_size
+    best_score = float('-inf')
+    best_epoch = 0
+    best_metrics = None
         
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logger.info("device: {}".format(device))
@@ -1201,6 +1269,24 @@ def train(args):
             infostr = get_res_str(metrics)
             logger.info("Test: {}".format(infostr))
 
+            current_score = get_best_score(metrics)
+            append_eval_csv(csv_path, epoch, metrics, current_score)
+            logger.info("Checkpoint score: {:.6f} (best: {:.6f} @ epoch {})".format(
+                current_score, best_score, best_epoch))
+            if args.save_best and current_score > best_score:
+                best_score = current_score
+                best_epoch = epoch
+                best_metrics = metrics
+                best_path = os.path.join(ckpt_dir, 'best.pth')
+                save_checkpoint(
+                    best_path, epoch, args, metrics, best_score,
+                    pfe, ae, discriminator, afs=afs, rrs=rrs,
+                    ae_optimizer=ae_optimizer,
+                    discriminator_optimizer=discriminator_optimizer,
+                    rrs_optimizer=rrs_optimizer,
+                )
+                logger.info("Saved best checkpoint: {}".format(best_path))
+
             # [VIS-DISABLED] 评估时可视化anomaly map
             # if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
             #     visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test", afs=afs)
@@ -1236,6 +1322,17 @@ def train(args):
                 logger.info(f"AFS layer_{i} (re-init @ep{epoch}): "
                             f"selected {len(idx_list)}/{afs.in_channels_list[i]} channels")
         # ---------------------------------------------------------------
+
+    if args.save_best:
+        last_path = os.path.join(ckpt_dir, 'last.pth')
+        save_checkpoint(
+            last_path, epochs, args, best_metrics, best_score,
+            pfe, ae, discriminator, afs=afs, rrs=rrs,
+            ae_optimizer=ae_optimizer,
+            discriminator_optimizer=discriminator_optimizer,
+            rrs_optimizer=rrs_optimizer,
+        )
+        logger.info("Saved last checkpoint: {}".format(last_path))
 
     # [VIS-DISABLED] 训练结束后保存最终损失曲线
     # try:

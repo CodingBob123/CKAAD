@@ -34,6 +34,8 @@
 # ======================================================================
 labeled_anomaly_ratio=0          # 必须 =0：避免 AnomalyDataset 包装，确保数据集返回 foreground_mask
 labeled_anomaly_class_num=1
+exp_name=ours_rrs_cos
+ckpt_dir=/hy-tmp/checkpoints/
 
 # ======================================================================
 # 合成异常参数（控制器 + 像素级 + 特征级 Perlin）
@@ -60,8 +62,8 @@ anomaly_mix_noise=3                # 3 级噪声 (1.1^0, 1.1^1, 1.1^2)
 perlin_anomaly_prob=0.30          # 控制器中 Perlin 异常的出现概率
 # 注: 剩余 1 - 0.20 - 0.30 = 50% 样本保持正常（无异常合成）
 
-# for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
-for normal in 'bottle'
+for normal in 'bottle' 'cable' 'capsule' 'carpet' 'grid' 'hazelnut' 'leather' 'metal_nut' 'pill' 'screw' 'tile' 'toothbrush' 'transistor' 'wood' 'zipper'
+# for normal in 'bottle'
 do
     echo $normal
 
@@ -70,8 +72,8 @@ do
             eval_epoch=1
             ;;
         *)
-            epochs=144
-            eval_epoch=8
+            epochs=160
+            eval_epoch=5
             ;;
     esac
 
@@ -106,7 +108,8 @@ CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
 --labeled_anomaly_class_num ${labeled_anomaly_class_num} \
 --labeled_anomaly_class 0 \
 --labeled_anomaly_ratio ${labeled_anomaly_ratio} \
---log_dir ./log --model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
+--log_dir ./log --exp_name ${exp_name} --ckpt_dir ${ckpt_dir} --save_best \
+--model wide_resnet50_2 --eval_epoch ${eval_epoch} --layer 1 2 3 \
 --eval_anomaly_map_source ${eval_anomaly_map_source} \
 --recon_loss_type combined --loss_alpha 1.0 --loss_beta 0 --loss_gamma 0 \
 --use_rrs --rrs_anomaly_samples 20 --rrs_lr 1e-3 --rrs_loss_weight 1.0 \

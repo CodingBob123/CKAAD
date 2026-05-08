@@ -184,6 +184,19 @@ class RRS(nn.Module):
             selected_idxs.append(idxs.view((B, mode_n, 1, 1)).repeat(1, 1, H, W))
         return selected_idxs
 
+    def _merge_selected_indices(self, residual_cat):
+        residual_idx = self.bn_idx(residual_cat)
+        merged_idxs = []
+        for batch_residual in residual_idx:
+            batch_select = []
+            batch_residual = batch_residual.unsqueeze(0)
+            for mode, mode_n in zip(self.modes, self.mode_numbers):
+                idxs = self.select_ano_index(batch_residual, mode, mode_n).view(-1)
+                batch_select.append(idxs)
+            batch_select = torch.cat(batch_select)
+            merged_idxs.append(torch.unique(batch_select, sorted=True))
+        return merged_idxs
+
     def rrs_cosine_map(self, inputs, outputs, out_size, amap_mode='add'):
         """Compute baseline-style cosine map on RRS-selected channels."""
         residuals = self.compute_residuals(inputs, outputs)
@@ -200,19 +213,22 @@ class RRS(nn.Module):
         else:
             anomaly_map = torch.zeros([B, 1, out_size, out_size], device=residual_cat.device)
 
-        for idxs in self._select_indices(residual_cat):
-            selected_inputs = torch.gather(input_cat, dim=1, index=idxs)
-            selected_outputs = torch.gather(output_cat, dim=1, index=idxs)
+        merged_idxs = self._merge_selected_indices(residual_cat)
+        for b, idxs in enumerate(merged_idxs):
+            if idxs.numel() == 0:
+                continue
+            selected_inputs = input_cat[b:b + 1][:, idxs, :, :]
+            selected_outputs = output_cat[b:b + 1][:, idxs, :, :]
             a_map = 1 - F.cosine_similarity(selected_inputs, selected_outputs)
             a_map = torch.unsqueeze(a_map, dim=1)
             a_map = F.interpolate(a_map, size=out_size, mode='bilinear', align_corners=True)
 
             if amap_mode == 'mul':
-                anomaly_map *= a_map
+                anomaly_map[b:b + 1] *= a_map
             elif amap_mode == 'max':
-                anomaly_map = torch.max(anomaly_map, a_map)
+                anomaly_map[b:b + 1] = torch.max(anomaly_map[b:b + 1], a_map)
             else:
-                anomaly_map += a_map
+                anomaly_map[b:b + 1] += a_map
 
         return anomaly_map
 

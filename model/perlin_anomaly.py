@@ -89,13 +89,17 @@ class PerlinAnomalyGenerator:
             _, c, h, w = feat.shape
 
             # 1. 在最高分辨率上生成掩码，再下采样到当前尺度
-            mask = self._generate_mask(
-                batch_size, ref_h, ref_w, device, ratio
-            )
-            if (h, w) != (ref_h, ref_w):
-                mask = F.interpolate(
-                    mask, size=(h, w), mode='nearest'
+            if self.perturbation == 'simplenet_noise':
+                # SimpleNet noise perturbs the whole feature map, so supervision should be full-map too.
+                mask = torch.ones(batch_size, 1, h, w, device=device)
+            else:
+                mask = self._generate_mask(
+                    batch_size, ref_h, ref_w, device, ratio
                 )
+                if (h, w) != (ref_h, ref_w):
+                    mask = F.interpolate(
+                        mask, size=(h, w), mode='nearest'
+                    )
 
             # 2. 对特征进行扰动
             feat_anom = self._perturb(feat, mask)

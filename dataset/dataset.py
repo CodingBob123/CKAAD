@@ -8,7 +8,7 @@ from dataset.oct import OCTDataset
 from dataset.xray import XRayDataset
 from dataset.isic import ISICDataset
 from dataset.br35h import Br35HDataset
-from dataset.visa import VisaDataset
+from dataset.visa import VisaDataset, VisaAnomalyWithMask
 
 import copy
 
@@ -194,14 +194,33 @@ class OODDataSet(MyDataset):
         # RRS dataloader: loads real anomaly images with GT masks from test set
         rrs_loader = None
         if self.use_rrs and self.dataset_name in ['mvtec', 'visa', 'btad']:
-            rds = MVTecAnomalyWithMask(
-                root=self.root,
-                category=self.category,
-                transform=self.img_transform,
-                gt_transform=self.gt_transform if hasattr(self, 'gt_transform') else transforms.Compose([transforms.ToTensor()]),
-                img_size=self.img_size,
-                max_samples=self.rrs_anomaly_samples,
-            )
+            if self.dataset_name == 'mvtec':
+                rds = MVTecAnomalyWithMask(
+                    root=self.root,
+                    category=self.category,
+                    transform=self.img_transform,
+                    gt_transform=self.gt_transform if hasattr(self, 'gt_transform') else transforms.Compose([transforms.ToTensor()]),
+                    img_size=self.img_size,
+                    max_samples=self.rrs_anomaly_samples,
+                )
+            elif self.dataset_name == 'visa':
+                rds = VisaAnomalyWithMask(
+                    root=self.root,
+                    category=self.category,
+                    transform=self.img_transform,
+                    gt_transform=self.gt_transform if hasattr(self, 'gt_transform') else transforms.Compose([transforms.ToTensor()]),
+                    img_size=self.img_size,
+                    max_samples=self.rrs_anomaly_samples,
+                )
+            else:
+                rds = MVTecAnomalyWithMask(
+                    root=self.root,
+                    category=self.category,
+                    transform=self.img_transform,
+                    gt_transform=self.gt_transform if hasattr(self, 'gt_transform') else transforms.Compose([transforms.ToTensor()]),
+                    img_size=self.img_size,
+                    max_samples=self.rrs_anomaly_samples,
+                )
             if len(rds) > 0:
                 rrs_batch_size = min(batch_size, len(rds))
                 rrs_loader = DataLoader(rds, batch_size=rrs_batch_size, shuffle=True, drop_last=True)

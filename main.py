@@ -243,6 +243,18 @@ def append_eval_csv(path, epoch, metrics, score):
             writer.writeheader()
         writer.writerow(row)
 
+
+def imagenet_denormalize(img):
+    mean = torch.tensor([0.485, 0.456, 0.406], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    return (img * std + mean).clamp(0, 1)
+
+
+def imagenet_normalize(img):
+    mean = torch.tensor([0.485, 0.456, 0.406], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    return (img - mean) / std
+
 def loss_function(a, b, loss_type='cosine', alpha=0.7, beta=0.2, gamma=0.1):
     """
     结构感知重建损失函数
@@ -986,7 +998,9 @@ def train(args):
             elif args.use_pixel_anomaly and pixel_gen is not None:
                 # === 纯像素级异常模式（无Perlin）：在像素空间生成异常，再经PFE+AFS ===
                 anomaly_size = normal_img.size(0)
-                anomaly_imgs, pixel_masks = pixel_gen(normal_img, foreground_masks)
+                normal_img_pixel = imagenet_denormalize(normal_img)
+                anomaly_imgs_pixel, pixel_masks = pixel_gen(normal_img_pixel, foreground_masks)
+                anomaly_imgs = imagenet_normalize(anomaly_imgs_pixel)
                 anomaly_raw = pfe(anomaly_imgs)
 
                 if afs is not None:
@@ -1291,12 +1305,11 @@ def train(args):
             # if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
             #     visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test", afs=afs)
 
-        # 8. 周期性更新 AFS 通道索引（新增）
-        # 原因：渐进式异常策略下异常分布动态变化，AFS 的通道选择会随时间次优化
-        # 频率：每 20 个 epoch 重新初始化一次
+        # 8. AFS warmup 后单次更新通道索引
+        # 原因：前 24 个 epoch 让 AE / 异常合成先稳定，再更新一次 AFS 索引后固定
         # 注意：AFS 索引是非可训练参数 (requires_grad=False)，重新赋值不影响训练图
         # ---------------------------------------------------------------
-        if args.use_afs and epoch % 20 == 0 and epoch < epochs:
+        if args.use_afs and epoch == 24 and epoch < epochs:
             # 获取用于 AFS 初始化的 Perlin 生成器
             if anomaly_controller is not None and anomaly_controller.perlin_gen is not None:
                 afs_perlin = anomaly_controller.perlin_gen
@@ -1313,7 +1326,7 @@ def train(args):
                 ).to(device)
                 logger.info("AFS re-init: created temporary PerlinAnomalyGenerator")
 
-            logger.info("AFS re-initializing at epoch %d...", epoch)
+            logger.info("AFS warmup re-initializing at epoch %d...", epoch)
             afs.init_idxs(pfe, afs_perlin, train_dataloader, args.afs_init_bsn, device)
 
             # 打印更新后的通道索引

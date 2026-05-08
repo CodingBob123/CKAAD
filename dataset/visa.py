@@ -88,3 +88,56 @@ class VisaDataset(Dataset):
         if self.gt_target_transform is not None:
             gt = self.gt_target_transform(gt)
         return img, gt, label
+
+
+class VisaAnomalyWithMask(Dataset):
+    """Load VisA test anomaly images with pixel-level masks for RRS training."""
+
+    def __init__(self, root, category, transform=None, gt_transform=None, img_size=256, max_samples=None):
+        super(VisaAnomalyWithMask, self).__init__()
+        self.category = category
+        self.root = os.path.join(root, 'visa')
+        self.transform = transform
+        self.gt_transform = gt_transform
+        self.img_size = img_size
+        self.img_paths = []
+        self.gt_paths = []
+
+        csv_path = os.path.join(self.root, 'split_csv/1cls.csv')
+        csv_data = pd.read_csv(csv_path, header=0)
+        columns = csv_data.columns
+        cls_data = csv_data[csv_data[columns[0]] == category]
+        cls_data = cls_data[cls_data[columns[1]] == 'test']
+        cls_data = cls_data[cls_data[columns[2]] == 'anomaly']
+
+        for _, row in cls_data.iterrows():
+            img_path = os.path.join(self.root, row[columns[3]])
+            gt_path = os.path.join(self.root, row[columns[4]])
+            if os.path.exists(img_path) and os.path.exists(gt_path):
+                self.img_paths.append(img_path)
+                self.gt_paths.append(gt_path)
+
+        if max_samples is not None and max_samples < len(self.img_paths):
+            indices = np.random.choice(len(self.img_paths), max_samples, replace=False)
+            indices.sort()
+            self.img_paths = [self.img_paths[i] for i in indices]
+            self.gt_paths = [self.gt_paths[i] for i in indices]
+
+        print(f"VisaAnomalyWithMask: loaded {len(self.img_paths)} anomaly images with GT masks for category '{category}'")
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, idx):
+        img = np.array(Image.open(self.img_paths[idx]).convert('RGB').resize(
+            (self.img_size, self.img_size), resample=Image.BILINEAR), dtype=np.uint8)
+        gt = np.array(Image.open(self.gt_paths[idx]).convert('L').resize(
+            (self.img_size, self.img_size), resample=Image.BILINEAR), dtype=np.uint8)
+        gt = (gt > 0).astype(np.uint8)
+
+        label = 1
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.gt_transform is not None:
+            gt = self.gt_transform(gt)
+        return img, gt, label

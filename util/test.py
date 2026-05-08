@@ -108,7 +108,9 @@ def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
             raise ValueError("eval_anomaly_map_source='rrs' requires --use_rrs")
         rrs.eval()
         rrs_out = rrs(inputs, outputs, image=img)
-        return rrs_out['anomaly_score'].detach().cpu().numpy()
+        anomaly_score = rrs_out['anomaly_score'].detach().cpu().numpy()
+        # RRS returns [B, 1, H, W]; existing metric code expects [B, H, W].
+        return anomaly_score[:, 0]
     return cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
 
 

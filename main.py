@@ -92,6 +92,9 @@ def parse_args():
                              'e.g. [256, 512] for layers=[2,3] with wide_resnet50_2')
     parser.add_argument('--afs_init_bsn', type=int, default=50,
                         help='number of batches for AFS initialization')
+    parser.add_argument('--afs_warmup_update_epoch', type=int, default=32,
+                        choices=[24, 32],
+                        help='re-initialize AFS once after warm-up at the specified epoch')
 
     # Synthetic anomaly generation (lightweight Perlin-based)
     parser.add_argument('--use_synthetic_anomaly', action='store_true',
@@ -1205,12 +1208,12 @@ def train(args):
             # if args.eval_visualize and (epoch // args.eval_epoch) % args.eval_viz_freq == 0:
             #     visualize_evaluation_anomaly_maps(pfe, ae, test_dataloader, args, device, epoch, "test", afs=afs)
 
-        # 8. 周期性更新 AFS 通道索引（新增）
-        # 原因：渐进式异常策略下异常分布动态变化，AFS 的通道选择会随时间次优化
-        # 频率：每 20 个 epoch 重新初始化一次
-        # 注意：AFS 索引是非可训练参数 (requires_grad=False)，重新赋值不影响训练图
+        # 8. Warm-up 后仅一次更新 AFS 通道索引（新增）
+        # 原因：避免 AFS 硬通道选择频繁变化，破坏 AE/判别器已适应的输入通道语义。
+        # 策略：在 warm-up epoch（24 或 32）后重初始化一次，之后固定到训练结束。
+        # 注意：AFS 索引是非可训练参数 (requires_grad=False)，重新赋值不影响训练图。
         # ---------------------------------------------------------------
-        if args.use_afs and epoch % 20 == 0 and epoch < epochs:
+        if args.use_afs and epoch == args.afs_warmup_update_epoch and epoch < epochs:
             # 获取用于 AFS 初始化的 Perlin 生成器
             if anomaly_controller is not None and anomaly_controller.perlin_gen is not None:
                 afs_perlin = anomaly_controller.perlin_gen
@@ -1224,10 +1227,10 @@ def train(args):
                     perturbation=args.anomaly_perturbation,
                     noise_std=args.anomaly_noise_std,
                     mix_noise=args.anomaly_mix_noise,
-                ).to(device)
+                )
                 logger.info("AFS re-init: created temporary PerlinAnomalyGenerator")
 
-            logger.info("AFS re-initializing at epoch %d...", epoch)
+            logger.info("AFS warm-up re-initializing once at epoch %d...", epoch)
             afs.init_idxs(pfe, afs_perlin, train_dataloader, args.afs_init_bsn, device)
 
             # 打印更新后的通道索引

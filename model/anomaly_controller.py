@@ -19,6 +19,18 @@ import torch.nn.functional as F
 from model.pixel_anomaly import PixelAnomalyGenerator, has_foreground_mask
 
 
+def imagenet_denormalize(img):
+    mean = torch.tensor([0.485, 0.456, 0.406], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    return (img * std + mean).clamp(0, 1)
+
+
+def imagenet_normalize(img):
+    mean = torch.tensor([0.485, 0.456, 0.406], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], device=img.device, dtype=img.dtype).view(1, 3, 1, 1)
+    return (img - mean) / std
+
+
 class UnifiedAnomalyController:
     """三层异常合成策略控制器。
 
@@ -227,11 +239,12 @@ class UnifiedAnomalyController:
         anomaly_masks_list_list = []  # list of lists (per scale)
 
         if has_pixel and self.pixel_gen is not None:
-            pixel_imgs = normal_img[pixel_indices]
+            pixel_imgs = imagenet_denormalize(normal_img[pixel_indices])
             pixel_fg = foreground_masks[pixel_indices] if foreground_masks is not None else None
 
             # 生成像素级异常图像 + mask
             pixel_anomaly, pixel_masks = self.pixel_gen(pixel_imgs, pixel_fg)
+            pixel_anomaly = imagenet_normalize(pixel_anomaly)
 
             # 提取异常特征
             pixel_raw = pfe(pixel_anomaly)  # list of [N_pixel, C, H, W]

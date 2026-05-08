@@ -6,7 +6,6 @@ from sklearn.metrics import roc_auc_score, precision_recall_curve
 import cv2
 from sklearn.metrics import auc
 from skimage import measure
-import pandas as pd
 from numpy import ndarray
 from scipy.ndimage import gaussian_filter
 from statistics import mean
@@ -78,21 +77,35 @@ def cvt2heatmap(gray):
 
 
 def calculate_metrics(scores, labels, acc=True):
-    precision, recall, thresholds = precision_recall_curve(labels, scores)
-    f1_scores = 2 * (precision * recall) / (precision + recall + 1e-16)
-    best_threshold = thresholds[np.argmax(f1_scores)]
-    binary_predictions = np.where(scores >= best_threshold, 1, 0)
+    labels = np.asarray(labels).astype(int)
+    scores = np.asarray(scores)
+
+    if len(np.unique(labels)) < 2:
+        auroc_score = np.nan
+        positive = int(labels[0]) if labels.size > 0 else 0
+        binary_predictions = np.ones_like(labels) * positive
+        f1 = 1.0 if positive == 1 else 0.0
+    else:
+        precision, recall, thresholds = precision_recall_curve(labels, scores)
+        f1_scores = 2 * (precision * recall) / (precision + recall + 1e-16)
+        if len(thresholds) > 0:
+            best_idx = np.argmax(f1_scores[:-1])
+            best_threshold = thresholds[best_idx]
+            binary_predictions = np.where(scores >= best_threshold, 1, 0)
+        else:
+            binary_predictions = np.zeros_like(labels)
+        f1 = np.max(f1_scores)
+        auroc_score = roc_auc_score(labels, scores)
 
     TP = np.sum((binary_predictions == 1) & (labels == 1))
     TN = np.sum((binary_predictions == 0) & (labels == 0))
     FP = np.sum((binary_predictions == 1) & (labels == 0))
     FN = np.sum((binary_predictions == 0) & (labels == 1))
-    ACC = (TP + TN) / (TP + TN + FP + FN)
-    auroc_score = roc_auc_score(labels, scores)
+    ACC = (TP + TN) / (TP + TN + FP + FN + 1e-16)
     if acc:
         res = {
             'AUROC': auroc_score,
-            'F1': np.max(f1_scores),
+            'F1': f1,
             'ACC': ACC,
         }
     else:
@@ -108,9 +121,21 @@ def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
             raise ValueError("eval_anomaly_map_source='rrs' requires --use_rrs")
         rrs.eval()
         rrs_out = rrs(inputs, outputs, image=img)
-        anomaly_score = rrs_out['anomaly_score'].detach().cpu().numpy()
-        # RRS returns [B, 1, H, W]; existing metric code expects [B, H, W].
-        return anomaly_score[:, 0]
+        anomaly_map = rrs_out['anomaly_score'].detach().cpu().numpy()
+        if anomaly_map.ndim == 4 and anomaly_map.shape[1] == 1:
+            anomaly_map = anomaly_map[:, 0, :, :]
+        return anomaly_map
+    if source == 'rrs_cos':
+        if rrs is None:
+            raise ValueError("eval_anomaly_map_source='rrs_cos' requires --use_rrs")
+        rrs.eval()
+        anomaly_map = rrs.rrs_cosine_map(inputs, outputs, img.shape[-1], amap_mode='add')
+        anomaly_map = anomaly_map.detach().cpu().numpy()
+        anomaly_map_list = []
+        for i in range(len(anomaly_map)):
+            amap = gaussian_filter(anomaly_map[i], sigma=4)
+            anomaly_map_list.append(amap)
+        return np.vstack(anomaly_map_list)
     return cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
 
 
@@ -203,7 +228,7 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None, rrs=None):
         metrics['Image'] = calculate_metrics(sample_score_list, sample_gt_list, True)
     return metrics
 
-def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix="", afs=None):
+def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfix="", afs=None, rrs=None):
     pfe.eval()
     ae.eval()
     with torch.no_grad():
@@ -217,7 +242,7 @@ def visualize(pfe, ae, dataloader: MVTecDataset, args, transform, device, postfi
                 inputs = inputs_raw
             outputs = ae(inputs)
             labels = data[-1]
-            anomaly_maps = cal_anomaly_map(inputs, outputs, imgs.shape[-1], amap_mode='a')
+            anomaly_maps = get_eval_anomaly_map(inputs, outputs, imgs, args, rrs=rrs)
             
             imgs = transform_invert(imgs, transform)
             
@@ -259,12 +284,16 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
     assert set(masks.flatten()) == {0, 1}, "set(masks.flatten()) must be {0, 1}"
     assert isinstance(num_th, int), "type(num_th) must be int"
 
-    df = pd.DataFrame([], columns=["pro", "fpr", "threshold"])
-    binary_amaps = np.zeros_like(amaps, dtype=np.bool)
+    binary_amaps = np.zeros_like(amaps, dtype=bool)
 
     min_th = amaps.min()
     max_th = amaps.max()
     delta = (max_th - min_th) / num_th
+    if delta == 0:
+        return 0.0
+
+    pros_list = []
+    fprs_list = []
 
     for th in np.arange(min_th, max_th, delta):
         binary_amaps[amaps <= th] = 0
@@ -277,16 +306,25 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
                 axes1_ids = region.coords[:, 1]
                 tp_pixels = binary_amap[axes0_ids, axes1_ids].sum()
                 pros.append(tp_pixels / region.area)
+        if len(pros) == 0:
+            continue
 
         inverse_masks = 1 - masks
         fp_pixels = np.logical_and(inverse_masks, binary_amaps).sum()
         fpr = fp_pixels / inverse_masks.sum()
 
-        df = df.append({"pro": mean(pros), "fpr": fpr, "threshold": th}, ignore_index=True)
+        pros_list.append(mean(pros))
+        fprs_list.append(fpr)
 
     # Normalize FPR from 0 ~ 1 to 0 ~ 0.3
-    df = df[df["fpr"] < 0.3]
-    df["fpr"] = df["fpr"] / df["fpr"].max()
+    pros_arr = np.asarray(pros_list)
+    fprs_arr = np.asarray(fprs_list)
+    keep = fprs_arr < 0.3
+    pros_arr = pros_arr[keep]
+    fprs_arr = fprs_arr[keep]
+    if len(fprs_arr) < 2 or fprs_arr.max() == 0:
+        return 0.0
+    fprs_arr = fprs_arr / fprs_arr.max()
 
-    pro_auc = auc(df["fpr"], df["pro"])
+    pro_auc = auc(fprs_arr, pros_arr)
     return pro_auc

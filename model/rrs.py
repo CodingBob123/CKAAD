@@ -16,6 +16,34 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def resolve_mode_numbers(layer_channels, modes, mode_numbers=None):
+    """Return a stable per-mode channel budget for RRS/CRES."""
+    if not modes:
+        raise ValueError("RRS modes must not be empty")
+    modes = list(modes)
+    for mode in modes:
+        if mode not in ['max', 'mean']:
+            raise ValueError(f"mode must be in [max, mean], got {mode}")
+
+    total_channels = sum(layer_channels)
+    if mode_numbers is None:
+        if len(modes) == 1:
+            return [min(total_channels, 512)]
+        per_mode = min(total_channels // len(modes), 256)
+        return [per_mode] * len(modes)
+
+    mode_numbers = list(mode_numbers)
+    if len(mode_numbers) == 1 and len(modes) > 1:
+        mode_numbers = mode_numbers * len(modes)
+    if len(mode_numbers) != len(modes):
+        raise ValueError(
+            "mode_numbers length ({}) must match modes length ({})".format(
+                len(mode_numbers), len(modes)
+            )
+        )
+    return mode_numbers
+
+
 class Residual(nn.Module):
     def __init__(self, in_channels):
         super(Residual, self).__init__()
@@ -81,11 +109,7 @@ class RRS(nn.Module):
         self.stop_grad = stop_grad
         self.num_residual_layers = num_residual_layers
 
-        # Auto-set mode_numbers if not provided
-        total_channels = sum(layer_channels)
-        if mode_numbers is None:
-            per_mode = min(total_channels // len(modes), 256)
-            mode_numbers = [per_mode] * len(modes)
+        mode_numbers = resolve_mode_numbers(layer_channels, modes, mode_numbers)
         self.mode_numbers = mode_numbers
         self.total_select_number = sum(self.mode_numbers)
 

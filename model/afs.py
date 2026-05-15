@@ -33,16 +33,22 @@ class AFS_Adapted(nn.Module):
                             e.g. [256, 512]
     """
 
-    def __init__(self, in_channels_list, select_planes_list):
+    def __init__(self, in_channels_list, select_planes_list, selection_strategy='anomaly'):
         super(AFS_Adapted, self).__init__()
 
         assert len(in_channels_list) == len(select_planes_list), \
             f"in_channels_list ({len(in_channels_list)}) and " \
             f"select_planes_list ({len(select_planes_list)}) must have same length"
+        if selection_strategy not in ['anomaly', 'random', 'fixed']:
+            raise ValueError(
+                "selection_strategy must be in ['anomaly', 'random', 'fixed'], "
+                f"got {selection_strategy}"
+            )
 
         self.num_layers = len(in_channels_list)
         self.in_channels_list = in_channels_list
         self.select_planes_list = select_planes_list
+        self.selection_strategy = selection_strategy
 
         # Non-trainable parameters storing selected channel indices per layer
         self.indexes = nn.ParameterDict()
@@ -94,6 +100,22 @@ class AFS_Adapted(nn.Module):
             init_bsn: number of batches for initialization
             device: torch device
         """
+        if self.selection_strategy == 'fixed':
+            for i in range(self.num_layers):
+                k = min(self.select_planes_list[i], self.in_channels_list[i])
+                self.indexes[f"layer_{i}"].data.copy_(
+                    torch.arange(k, device=device, dtype=torch.long)
+                )
+            return
+
+        if self.selection_strategy == 'random':
+            for i in range(self.num_layers):
+                k = min(self.select_planes_list[i], self.in_channels_list[i])
+                indices = torch.randperm(self.in_channels_list[i], device=device)[:k]
+                indices, _ = torch.sort(indices)
+                self.indexes[f"layer_{i}"].data.copy_(indices.long())
+            return
+
         pfe.eval()
 
         # Per-channel MSE loss bank: cumulative MSE per channel per layer

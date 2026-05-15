@@ -289,8 +289,10 @@ class FusionLayer(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256], attn_block_num=3, enable_enhancement=False) -> None:
+    def __init__(self, backbone='wide_resnet50_2', input_channels=[64, 128, 256],
+                 attn_block_num=3, enable_enhancement=False, disable_same=False) -> None:
         super(Encoder, self).__init__()
+        self.disable_same = disable_same
         self.expansion = 4
         if backbone == 'resnet18':
             self.fusion_layer = FusionLayer(AttnBasicBlock, 2, input_channels, enable_enhancement=enable_enhancement)
@@ -311,4 +313,6 @@ class Encoder(nn.Module):
             self.fusion_layer = FusionLayer(AttnBottleneck, attn_block_num, input_channels, width_per_group=64 * 2, enable_enhancement=enable_enhancement)
             
     def forward(self, x):
+        if self.disable_same:
+            return x[-1]
         return self.fusion_layer(x)

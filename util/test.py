@@ -13,6 +13,27 @@ import os
 from torchvision import transforms
 from torchvision.utils import save_image
 
+
+def ensure_anomaly_map_shape(anomaly_map):
+    """Normalize anomaly maps to [B, H, W] numpy arrays."""
+    if isinstance(anomaly_map, torch.Tensor):
+        anomaly_map = anomaly_map.detach().cpu().numpy()
+    anomaly_map = np.asarray(anomaly_map)
+    if anomaly_map.ndim == 2:
+        anomaly_map = anomaly_map[None, ...]
+    elif anomaly_map.ndim == 4 and anomaly_map.shape[1] == 1:
+        anomaly_map = anomaly_map[:, 0, :, :]
+    elif anomaly_map.ndim == 4 and anomaly_map.shape[-1] == 1:
+        anomaly_map = anomaly_map[..., 0]
+    if anomaly_map.ndim != 3:
+        raise ValueError(
+            "anomaly_map must be convertible to [B, H, W], got shape {}".format(
+                anomaly_map.shape
+            )
+        )
+    return anomaly_map.astype(np.float32, copy=False)
+
+
 def transform_invert(img_, transform_train):
     """
     reverse transfrom 
@@ -121,22 +142,21 @@ def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
             raise ValueError("eval_anomaly_map_source='rrs' requires --use_rrs")
         rrs.eval()
         rrs_out = rrs(inputs, outputs, image=img)
-        anomaly_map = rrs_out['anomaly_score'].detach().cpu().numpy()
-        if anomaly_map.ndim == 4 and anomaly_map.shape[1] == 1:
-            anomaly_map = anomaly_map[:, 0, :, :]
-        return anomaly_map
+        return ensure_anomaly_map_shape(rrs_out['anomaly_score'])
     if source == 'rrs_cos':
         if rrs is None:
             raise ValueError("eval_anomaly_map_source='rrs_cos' requires --use_rrs")
         rrs.eval()
         anomaly_map = rrs.rrs_cosine_map(inputs, outputs, img.shape[-1], amap_mode='add')
-        anomaly_map = anomaly_map.detach().cpu().numpy()
+        anomaly_map = ensure_anomaly_map_shape(anomaly_map)
         anomaly_map_list = []
         for i in range(len(anomaly_map)):
             amap = gaussian_filter(anomaly_map[i], sigma=4)
             anomaly_map_list.append(amap)
-        return np.vstack(anomaly_map_list)
-    return cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+        return ensure_anomaly_map_shape(np.vstack(anomaly_map_list))
+    return ensure_anomaly_map_shape(
+        cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
+    )
 
 
 def evaluation(encoder, ed, dataloader, device, args, afs=None, rrs=None):
@@ -185,8 +205,6 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None, rrs=None):
     sample_gt_list = []
     sample_score_list = []
     aupro_list = []
-    all_gts = []
-    all_maps = []
     metrics = {}
     with torch.no_grad():
         for batch in dataloader:
@@ -202,27 +220,33 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None, rrs=None):
             anomaly_map = get_eval_anomaly_map(inputs, outputs, img, args, rrs=rrs)
             gt[gt > 0.5] = 1
             gt[gt <= 0.5] = 0
-            all_gts.append(gt.cpu().numpy())
-            all_maps.append(anomaly_map)
-            pixel_gt_list.append(gt.cpu().numpy().astype(int).reshape(-1))  # 扁平向量，一维
+            gt_np = gt.cpu().numpy().astype(int)
+
+            pixel_gt_list.append(gt_np.reshape(-1))
             pixel_score_list.append(anomaly_map.reshape(-1))
-            sample_gt_list.append(np.max(gt.reshape(gt.size(0), -1).cpu().numpy().astype(int), axis=-1))
-            sample_score = torch.topk(torch.from_numpy(anomaly_map.reshape(img.size(0), -1)), args.topk, dim=-1)[0].numpy().mean(axis=-1)
+            sample_gt_list.append(np.max(gt_np.reshape(gt.size(0), -1), axis=-1))
+            sample_score = torch.topk(
+                torch.from_numpy(anomaly_map.reshape(img.size(0), -1)),
+                args.topk,
+                dim=-1,
+            )[0].numpy().mean(axis=-1)
             sample_score_list.append(sample_score)
-            label = gt.reshape(gt.shape[0], -1).max(axis=-1)[0]
-            if len(gt[label.bool()]) > 0:
-                anomaly_map = anomaly_map[label.bool()]
-                gt = gt[label.bool()]
-                for am, g in zip(anomaly_map, gt):
-                    aupro_list.append(compute_pro(g.unsqueeze(dim=0).cpu().numpy().astype(int), am.reshape(1, *am.shape)))
-                    
+
+            positive_mask = gt_np.reshape(gt_np.shape[0], -1).max(axis=-1).astype(bool)
+            if positive_mask.any():
+                for am, g in zip(anomaly_map[positive_mask], gt_np[positive_mask]):
+                    aupro_list.append(
+                        compute_pro(
+                            g.reshape(1, *g.shape).astype(int),
+                            am.reshape(1, *am.shape),
+                        )
+                    )
+
         pixel_gt_list = np.concatenate(pixel_gt_list).reshape(-1)
         pixel_score_list = np.concatenate(pixel_score_list).reshape(-1)
         sample_gt_list = np.concatenate(sample_gt_list)
         sample_score_list = np.concatenate(sample_score_list)
-        pixel_aupro = round(np.mean(aupro_list), 6)
-        all_gts = np.concatenate(all_gts)
-        all_maps = np.concatenate(all_maps)
+        pixel_aupro = round(float(np.mean(aupro_list)), 6) if aupro_list else 0.0
         metrics['Pixel'] = calculate_metrics(pixel_score_list, pixel_gt_list, False)
         metrics['Pixel']['PRO'] = pixel_aupro
         metrics['Image'] = calculate_metrics(sample_score_list, sample_gt_list, True)
@@ -281,7 +305,7 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
     assert amaps.ndim == 3, "amaps.ndim must be 3 (num_test_data, h, w)"
     assert masks.ndim == 3, "masks.ndim must be 3 (num_test_data, h, w)"
     assert amaps.shape == masks.shape, "amaps.shape and masks.shape must be same"
-    assert set(masks.flatten()) == {0, 1}, "set(masks.flatten()) must be {0, 1}"
+    assert set(np.unique(masks)).issubset({0, 1}), "masks must be binary with values in {0, 1}"
     assert isinstance(num_th, int), "type(num_th) must be int"
 
     binary_amaps = np.zeros_like(amaps, dtype=bool)
@@ -310,8 +334,11 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
             continue
 
         inverse_masks = 1 - masks
+        inverse_pixels = inverse_masks.sum()
+        if inverse_pixels == 0:
+            continue
         fp_pixels = np.logical_and(inverse_masks, binary_amaps).sum()
-        fpr = fp_pixels / inverse_masks.sum()
+        fpr = fp_pixels / inverse_pixels
 
         pros_list.append(mean(pros))
         fprs_list.append(fpr)

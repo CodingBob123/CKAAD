@@ -90,6 +90,11 @@ def parse_args():
     parser.add_argument('--rrs_anomaly_samples', type=int, default=None, help='max number of anomaly samples to use for RRS training (None=all)')
     parser.add_argument('--rrs_stop_grad', action='store_true', help='stop gradient from RRS to AE')
     parser.add_argument('--rrs_lr', type=float, default=1e-3, help='RRS learning rate')
+    parser.add_argument('--rrs_modes', nargs='+', type=str, default=['max', 'mean'],
+                        choices=['max', 'mean'],
+                        help='RRS/CRES residual selection modes, e.g. --rrs_modes max, mean, or max mean')
+    parser.add_argument('--rrs_mode_numbers', nargs='+', type=int, default=None,
+                        help='channels selected per RRS mode; default keeps 512 total selected channels when possible')
 
     # AFS (Anomaly-aware Feature Selection) module
     parser.add_argument('--use_afs', action='store_true',
@@ -102,6 +107,12 @@ def parse_args():
     parser.add_argument('--afs_warmup_update_epoch', type=int, default=32,
                         choices=[24, 32],
                         help='re-initialize AFS once after warm-up at the specified epoch')
+    parser.add_argument('--afs_selection_strategy', type=str, default='anomaly',
+                        choices=['anomaly', 'random', 'fixed'],
+                        help='MAFS/AFS channel selection strategy for ablation')
+
+    parser.add_argument('--disable_same', action='store_true',
+                        help='disable SAME attention fusion and use the deepest feature directly')
 
     # Synthetic anomaly generation (lightweight Perlin-based)
     parser.add_argument('--use_synthetic_anomaly', action='store_true',
@@ -763,9 +774,14 @@ def train(args):
                 f"特征层数 {len(afs_in_channels)}"
             afs_select_planes = args.afs_select_planes
         
-        afs = AFS_Adapted(afs_in_channels, afs_select_planes).to(device)
+        afs = AFS_Adapted(
+            afs_in_channels,
+            afs_select_planes,
+            selection_strategy=args.afs_selection_strategy,
+        ).to(device)
         logger.info(f"AFS initialized: in_channels={afs_in_channels}, "
-                    f"select_planes={afs_select_planes}")
+                    f"select_planes={afs_select_planes}, "
+                    f"selection_strategy={args.afs_selection_strategy}")
         
         # AFS初始化需要PerlinAnomalyGenerator在特征空间合成异常
         # 如果用户未启用use_synthetic_anomaly，创建一个默认实例用于AFS初始化
@@ -796,7 +812,8 @@ def train(args):
     # 3.3 初始化编码器-解码器(自编码器)
     # 如果有AFS，输入通道数为AFS缩减后的基础通道数
     ae = ED(backbone=args.model, input_channels=pfe_output_channels_base,
-            enable_enhancement=args.enable_enhancement).to(device)
+            enable_enhancement=args.enable_enhancement,
+            disable_same=args.disable_same).to(device)
     
     # 3.4 初始化判别器
     # input_sizes: 各层特征图的空间尺寸（AFS不改变空间尺寸）
@@ -849,14 +866,15 @@ def train(args):
         rrs = RRS(
             layer_channels=rrs_layer_channels,
             layer_strides=rrs_layer_strides,
-            modes=['max', 'mean'],
-            mode_numbers=None,  # auto: min(total//2, 256) per mode
+            modes=args.rrs_modes,
+            mode_numbers=args.rrs_mode_numbers,
             num_residual_layers=2,
             stop_grad=args.rrs_stop_grad,
         ).to(device)
         rrs_optimizer = torch.optim.Adam(rrs.parameters(), lr=args.rrs_lr, betas=(0.5, 0.999))
         logger.info("RRS module initialized: channels={}, strides={}".format(rrs_layer_channels, rrs_layer_strides))
-        logger.info("RRS mode_numbers={}, total_select={}".format(rrs.mode_numbers, rrs.total_select_number))
+        logger.info("RRS modes={}, mode_numbers={}, total_select={}".format(
+            rrs.modes, rrs.mode_numbers, rrs.total_select_number))
 
     # =================================================================
     # 【FeatureAdapter 缝合点 ③】-- 初始化与优化器

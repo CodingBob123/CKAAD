@@ -152,7 +152,7 @@ def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
         anomaly_map_list = []
         for i in range(len(anomaly_map)):
             amap = gaussian_filter(anomaly_map[i], sigma=4)
-            anomaly_map_list.append(amap)
+            anomaly_map_list.append(amap[np.newaxis, ...])
         return ensure_anomaly_map_shape(np.vstack(anomaly_map_list))
     return ensure_anomaly_map_shape(
         cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')

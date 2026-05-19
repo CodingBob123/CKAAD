@@ -101,9 +101,27 @@ class ED(nn.Module):
             disable_same=disable_same,
         )
         self.decoder = Decoder(backbone=backbone, output_channels=input_channels)
+
+        if disable_same:
+            # disable_same 时 encoder 直接返回 x[-1]（最后一层特征），
+            # 跳过了 FusionLayer 的融合和下采样，导致输出空间尺寸翻倍、通道减半。
+            # 此处添加 3×3 stride=2 卷积进行投影下采样，使输出与 decoder 期望一致。
+            # 输入通道: input_channels[-1] * block.expansion
+            # 输出通道: input_channels[-1] * 2 * block.expansion
+            expansion = 4 if backbone in ('resnet50', 'resnet101', 'resnet152',
+                                           'wide_resnet50_2', 'wide_resnet101_2') else 1
+            in_ch = input_channels[-1] * expansion
+            out_ch = input_channels[-1] * 2 * expansion
+            self.disable_same_proj = nn.Sequential(
+                nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=2, padding=1, bias=False),
+                nn.InstanceNorm2d(out_ch),
+                nn.ReLU(inplace=True),
+            )
     
     def forward(self, x):
         z = self.encoder(x)
+        if hasattr(self, 'disable_same_proj'):
+            z = self.disable_same_proj(z)
         o = self.decoder(z)
         return o
     

@@ -3,7 +3,8 @@ set -e
 source "$(dirname "$0")/sarrnet_experiment_common.sh"
 
 DATASET=${DATASET:-mvtec}
-CATEGORIES=${CATEGORIES:-"bottle cable capsule carpet grid hazelnut leather metal_nut pill screw tile toothbrush transistor wood zipper"}
+# CATEGORIES=${CATEGORIES:-"bottle cable capsule carpet grid hazelnut leather metal_nut pill screw tile toothbrush transistor wood zipper"}
+CATEGORIES=${CATEGORIES:-"tile toothbrush transistor wood zipper"}
 
 for normal in ${CATEGORIES}
 do
@@ -19,6 +20,12 @@ do
 
     for variant in baseline hsakg hsakg_mafs hsakg_mafs_wo_same full
     do
+        # 暂时跳过 bottle 下已完成的变体（baseline / hsakg / hsakg_mafs）
+        # if [ "${normal}" = "tile" ] && [ "${variant}" = "baseline" -o "${variant}" = "hsakg" -o "${variant}" = "hsakg_mafs" -o "${variant}" = "hsakg_mafs_wo_same"]; then
+        if [ "${normal}" = "tile" ] && [ "${variant}" = "baseline" -o "${variant}" = "hsakg" -o "${variant}" = "hsakg_mafs"]; then
+            echo "Skipping Table2 ${variant}: ${DATASET}/${normal} (already done)"
+            continue
+        fi
         echo "Table2 ${variant}: ${DATASET}/${normal}"
         cmd=$(sarrnet_base_cmd "${DATASET}" "${normal}" "table2_${variant}" "${lr}")
         CUDA_VISIBLE_DEVICES=${SARRNET_GPU} ${cmd} ${variants[${variant}]} ${extra_args}

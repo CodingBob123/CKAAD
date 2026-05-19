@@ -23,7 +23,7 @@ do
             ;;
     esac
 
-    CUDA_VISIBLE_DEVICES=0 python main.py --dataset mvtec --batch_size 16 \
+    CUDA_VISIBLE_DEVICES=0 python ../main.py --dataset mvtec --batch_size 16 \
      --lr ${lr} --d_lr 1e-04 --adv_conf 0.02 --epochs ${epochs} \
     --normal $normal --seed 111 --img_size 256 \
     --labeled_anomaly_class_num ${labeled_anomaly_class_num} \

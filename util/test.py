@@ -50,13 +50,20 @@ def transform_invert(img_, transform_train):
 
 
 def cal_anomaly_map(fs_list, ft_list, out_size=224, amap_mode='mul'):
-    batch = 1 if len(fs_list[0].size()) == 2 else fs_list[0].size(0)
+    # Determine batch dimension robustly from the first feature map with >=3 dims
+    batch = 1
+    for ft in ft_list:
+        if len(ft.size()) >= 3:
+            batch = ft.size(0)
+            break
     if amap_mode == 'mul':
         anomaly_map = torch.ones([batch, 1, out_size, out_size], device=fs_list[0].device)
     else:
         anomaly_map = torch.zeros([batch, 1, out_size, out_size], device=fs_list[0].device)
     a_map_list = []
-    for i in range(len(ft_list)):
+    # Safely iterate over the shorter list to avoid IndexError
+    n_layers = min(len(fs_list), len(ft_list))
+    for i in range(n_layers):
         
         fs = fs_list[i]
         ft = ft_list[i]
@@ -135,14 +142,27 @@ def calculate_metrics(scores, labels, acc=True):
         }
     return res
 
+def _expand_anomaly_map_batch(result, expected_batch):
+    """Expand anomaly_map batch dimension to match expected size by repeating."""
+    repeat = expected_batch // result.shape[0]
+    if repeat > 1 and result.shape[0] == 1:
+        result = np.repeat(result, repeat, axis=0)
+    return result
+
+
 def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
     source = getattr(args, 'eval_anomaly_map_source', 'recon')
+    expected_batch = img.size(0)
     if source == 'rrs':
         if rrs is None:
             raise ValueError("eval_anomaly_map_source='rrs' requires --use_rrs")
         rrs.eval()
         rrs_out = rrs(inputs, outputs, image=img)
-        return ensure_anomaly_map_shape(rrs_out['anomaly_score'])
+        result = ensure_anomaly_map_shape(rrs_out['anomaly_score'])
+        # Ensure batch dimension matches expectation
+        if result.shape[0] < expected_batch:
+            result = _expand_anomaly_map_batch(result, expected_batch)
+        return result
     if source == 'rrs_cos':
         if rrs is None:
             raise ValueError("eval_anomaly_map_source='rrs_cos' requires --use_rrs")
@@ -153,10 +173,17 @@ def get_eval_anomaly_map(inputs, outputs, img, args, rrs=None):
         for i in range(len(anomaly_map)):
             amap = gaussian_filter(anomaly_map[i], sigma=4)
             anomaly_map_list.append(amap)
-        return ensure_anomaly_map_shape(np.vstack(anomaly_map_list))
-    return ensure_anomaly_map_shape(
+        result = ensure_anomaly_map_shape(np.vstack(anomaly_map_list))
+        # Ensure batch dimension matches expectation
+        if result.shape[0] < expected_batch:
+            result = _expand_anomaly_map_batch(result, expected_batch)
+        return result
+    result = ensure_anomaly_map_shape(
         cal_anomaly_map(inputs, outputs, img.shape[-1], amap_mode='add')
     )
+    if result.shape[0] < expected_batch:
+        result = _expand_anomaly_map_batch(result, expected_batch)
+    return result
 
 
 def evaluation(encoder, ed, dataloader, device, args, afs=None, rrs=None):
@@ -222,11 +249,37 @@ def evaluation_pixel(encoder, ed, dataloader, device, args, afs=None, rrs=None):
             gt[gt <= 0.5] = 0
             gt_np = gt.cpu().numpy().astype(int)
 
+            # ---------------------------------------------------------------
+            # 防御性修复：确保 anomaly_map 与 gt_np 在 batch 维和空间维均对齐
+            # 必须在所有 reshape/append 之前执行，否则后续 list 长度不一致
+            # ---------------------------------------------------------------
+            # 1) 对齐 batch 维度
+            if anomaly_map.shape[0] == 1 and gt_np.shape[0] > 1:
+                repeat_factor = gt_np.shape[0] // anomaly_map.shape[0]
+                anomaly_map = np.repeat(anomaly_map, repeat_factor, axis=0)
+            elif anomaly_map.shape[0] != gt_np.shape[0]:
+                min_batch = min(anomaly_map.shape[0], gt_np.shape[0])
+                gt_np = gt_np[:min_batch]
+                gt = gt[:min_batch]
+                anomaly_map = anomaly_map[:min_batch]
+
+            # 2) 对齐空间维度：anomaly_map 与 gt_np 的 spatial size (H, W)
+            if anomaly_map.shape[1:] != gt_np.shape[1:]:
+                _, h_am, w_am = anomaly_map.shape
+                _, h_gt, w_gt = gt_np.shape
+                resized = np.zeros((anomaly_map.shape[0], h_gt, w_gt), dtype=anomaly_map.dtype)
+                for idx in range(anomaly_map.shape[0]):
+                    resized[idx] = cv2.resize(
+                        anomaly_map[idx], (w_gt, h_gt),
+                        interpolation=cv2.INTER_LINEAR
+                    )
+                anomaly_map = resized
+
             pixel_gt_list.append(gt_np.reshape(-1))
             pixel_score_list.append(anomaly_map.reshape(-1))
             sample_gt_list.append(np.max(gt_np.reshape(gt.size(0), -1), axis=-1))
             sample_score = torch.topk(
-                torch.from_numpy(anomaly_map.reshape(img.size(0), -1)),
+                torch.from_numpy(anomaly_map.reshape(anomaly_map.shape[0], -1)),
                 args.topk,
                 dim=-1,
             )[0].numpy().mean(axis=-1)

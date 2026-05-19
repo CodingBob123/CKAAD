@@ -718,7 +718,7 @@ def train(args):
     logger.info("device: {}".format(device))
 
     # 2.加载数据集，获取数据加载器
-    dataset = OODDataSet(root='./data', dataset=args.dataset, image_size=args.img_size, category=args.normal,
+    dataset = OODDataSet(root=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'), dataset=args.dataset, image_size=args.img_size, category=args.normal,
                          labeled_anomaly_ratio=args.labeled_anomaly_ratio,
                          labeled_anomaly_class_num=args.labeled_anomaly_class_num,
                          labeled_anomaly_class=args.labeled_anomaly_class,
@@ -1339,7 +1339,6 @@ def train(args):
                 afs_perlin = perlin_gen
             else:
                 # 如果当前没有活跃的 perlin 生成器，创建一个默认的
-                from model.perlin_anomaly import PerlinAnomalyGenerator
                 afs_perlin = PerlinAnomalyGenerator(
                     anomaly_ratio=args.anomaly_ratio,
                     perturbation=args.anomaly_perturbation,
@@ -1409,7 +1408,7 @@ def train(args):
     #     # 创建测试数据集（只可视化前几个样本以节省时间）
     #     if args.dataset == 'mvtec':
     #         from dataset.mvtec import MVTecDataset
-    #         viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
+    #         viz_dataset = MVTecDataset(root=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'), category=args.normal, train=False,
     #                                  transform=img_transform, gt_target_transform=gt_transform,
     #                                  img_size=args.img_size)
     #         # 只可视化前5个样本（包括正常和异常样本）

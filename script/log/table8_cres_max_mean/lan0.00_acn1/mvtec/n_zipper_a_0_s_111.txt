@@ -1,0 +1,633 @@
+[2026-05-18 19:38:10,697][main.py][line:717][INFO] log file: ./log/table8_cres_max_mean/lan0.00_acn1/mvtec/n_zipper_a_0_s_111.txt
+[2026-05-18 19:38:10,697][main.py][line:718][INFO] class: zipper
+[2026-05-18 19:38:10,697][main.py][line:721][INFO] checkpoint dir: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111
+[2026-05-18 19:38:10,697][main.py][line:722][INFO] eval csv: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/eval_metrics.csv
+[2026-05-18 19:38:10,697][main.py][line:1461][INFO] --------args----------
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] dataset: mvtec
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] batch_size: 16
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] lr: 0.005
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] epochs: 200
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] img_size: 256
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] normal: zipper
+[2026-05-18 19:38:10,697][main.py][line:1463][INFO] seed: 111
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] labeled_anomaly_class_num: 1
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] labeled_anomaly_class: 0
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] labeled_anomaly_ratio: 0.0
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] log_dir: ./log
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] exp_name: table8_cres_max_mean
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] ckpt_dir: /hy-tmp/checkpoints/
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] save_best: True
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] model: wide_resnet50_2
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] eval_epoch: 8
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] layer: [1, 2, 3]
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] d_lr: 0.0001
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] adv_conf: 0.02
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] topk: 100
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] eval_anomaly_map_source: rrs
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] recon_loss_type: combined
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] loss_alpha: 1.0
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] loss_beta: 0.0
+[2026-05-18 19:38:10,698][main.py][line:1463][INFO] loss_gamma: 0.0
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] use_rrs: True
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] rrs_loss_weight: 1.0
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] rrs_anomaly_samples: 20
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] rrs_stop_grad: False
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] rrs_lr: 0.001
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] rrs_modes: ['max', 'mean']
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] rrs_mode_numbers: None
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] use_afs: True
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] afs_select_planes: None
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] afs_init_bsn: 50
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] afs_warmup_update_epoch: 32
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] afs_selection_strategy: anomaly
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] disable_same: False
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] use_synthetic_anomaly: True
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] anomaly_ratio: 0.3
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] anomaly_perturbation: simplenet_noise
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] anomaly_noise_std: 0.05
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] anomaly_mix_noise: 3
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] multi_scale_anomaly: True
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] use_pixel_anomaly: True
+[2026-05-18 19:38:10,699][main.py][line:1463][INFO] pixel_anomaly_mode: mixed
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] pixel_anomaly_prob: 0.2
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] perlin_anomaly_prob: 0.3
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] anomaly_strategy: prob
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] pixel_patchguard_prob: 0.5
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] enable_enhancement: False
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] pixel_cutpaste_prob: 0.3
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] pixel_cutout_prob: 0.2
+[2026-05-18 19:38:10,700][main.py][line:1463][INFO] pixel_max_attempts: 50
+[2026-05-18 19:38:10,700][main.py][line:1464][INFO] --------args----------
+
+[2026-05-18 19:38:10,752][main.py][line:732][INFO] device: cuda
+[2026-05-18 19:38:22,855][main.py][line:776][INFO] Synthetic anomaly generator initialized: type=simplenet_noise, ratio=0.30, std=0.050, mix_noise=3 (multi-scale)
+[2026-05-18 19:38:22,856][main.py][line:796][INFO] AFS initialized: in_channels=[256, 512, 1024], select_planes=[128, 256, 512], selection_strategy=anomaly
+[2026-05-18 19:39:08,559][main.py][line:818][INFO] AFS layer_0: selected 128/256 channels, indices=[3, 10, 14, 15, 16, 17, 19, 21, 25, 26, 27, 30, 31, 33, 34, 38, 39, 42, 43, 44, 47, 48, 51, 53, 54, 56, 60, 61, 64, 66, 67, 71, 74, 76, 78, 79, 80, 81, 83, 84, 87, 89, 90, 92, 93, 94, 95, 96, 97, 101, 102, 103, 104, 106, 108, 109, 110, 114, 115, 118, 120, 123, 126, 130, 134, 135, 137, 138, 139, 140, 141, 142, 145, 146, 150, 152, 153, 157, 158, 159, 162, 163, 166, 170, 177, 178, 183, 185, 186, 189, 194, 195, 197, 198, 199, 200, 202, 204, 206, 207, 209, 210, 211, 213, 215, 223, 224, 225, 226, 227, 228, 229, 230, 232, 233, 234, 237, 238, 241, 242, 243, 244, 245, 247, 249, 250, 252, 255]
+[2026-05-18 19:39:08,560][main.py][line:818][INFO] AFS layer_1: selected 256/512 channels, indices=[0, 1, 2, 5, 7, 10, 11, 13, 14, 15, 20, 22, 23, 25, 28, 30, 31, 33, 35, 37, 38, 40, 41, 44, 45, 49, 50, 51, 53, 55, 57, 58, 61, 62, 63, 65, 67, 72, 74, 76, 78, 81, 82, 83, 85, 86, 88, 89, 95, 96, 99, 100, 101, 103, 106, 107, 108, 111, 114, 115, 119, 121, 122, 123, 124, 125, 130, 131, 132, 133, 135, 136, 138, 140, 149, 153, 154, 155, 156, 157, 158, 159, 160, 163, 165, 168, 170, 171, 172, 173, 175, 176, 177, 180, 182, 183, 184, 186, 187, 188, 190, 191, 192, 193, 194, 195, 197, 202, 203, 204, 206, 211, 212, 216, 217, 218, 219, 220, 222, 224, 225, 229, 231, 232, 233, 234, 237, 238, 248, 249, 251, 254, 256, 257, 259, 260, 261, 262, 263, 264, 266, 268, 269, 272, 276, 278, 280, 282, 283, 288, 289, 291, 293, 296, 297, 298, 299, 301, 303, 304, 306, 309, 313, 315, 316, 318, 319, 322, 324, 325, 326, 327, 328, 331, 333, 334, 336, 338, 339, 340, 341, 346, 347, 351, 353, 354, 357, 358, 360, 362, 365, 368, 370, 371, 376, 378, 380, 388, 391, 393, 394, 396, 397, 400, 402, 403, 409, 410, 411, 413, 415, 421, 422, 426, 428, 429, 430, 431, 437, 438, 439, 440, 441, 443, 445, 446, 449, 452, 453, 455, 456, 462, 463, 465, 470, 471, 472, 479, 485, 486, 487, 489, 491, 492, 493, 495, 496, 498, 499, 501, 502, 504, 506, 508, 509, 510]
+[2026-05-18 19:39:08,560][main.py][line:818][INFO] AFS layer_2: selected 512/1024 channels, indices=[1, 3, 4, 7, 8, 10, 14, 20, 21, 22, 23, 26, 29, 31, 33, 37, 38, 39, 40, 41, 43, 44, 47, 49, 50, 52, 53, 54, 56, 57, 58, 61, 62, 68, 72, 73, 74, 76, 77, 78, 82, 83, 84, 86, 88, 89, 94, 96, 97, 98, 99, 100, 102, 103, 105, 108, 109, 112, 114, 116, 119, 120, 121, 123, 127, 129, 130, 131, 133, 140, 141, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 155, 158, 159, 162, 165, 168, 172, 173, 179, 181, 182, 183, 184, 186, 190, 194, 196, 198, 201, 203, 206, 208, 209, 212, 214, 218, 221, 222, 224, 227, 231, 232, 235, 237, 243, 248, 250, 251, 252, 253, 254, 259, 260, 261, 263, 264, 265, 269, 270, 271, 272, 275, 278, 279, 284, 285, 286, 287, 293, 294, 295, 296, 297, 298, 302, 303, 304, 305, 306, 311, 313, 314, 315, 316, 318, 319, 321, 322, 323, 324, 326, 327, 328, 329, 335, 336, 338, 339, 340, 341, 342, 343, 344, 345, 346, 349, 351, 353, 354, 355, 357, 358, 359, 360, 363, 364, 366, 367, 368, 369, 370, 371, 372, 374, 375, 378, 381, 382, 383, 384, 387, 389, 390, 391, 392, 398, 399, 402, 405, 406, 407, 408, 412, 415, 416, 420, 421, 422, 425, 426, 428, 430, 436, 439, 440, 444, 445, 451, 452, 455, 456, 459, 460, 463, 466, 467, 468, 469, 473, 474, 476, 477, 479, 484, 490, 491, 494, 498, 499, 501, 504, 505, 507, 508, 509, 511, 513, 517, 519, 521, 522, 523, 526, 527, 528, 533, 536, 537, 541, 542, 543, 544, 545, 546, 547, 548, 549, 553, 554, 559, 560, 562, 564, 567, 572, 574, 575, 576, 578, 579, 581, 582, 583, 589, 592, 594, 596, 597, 599, 603, 605, 606, 607, 608, 609, 611, 616, 617, 620, 621, 622, 624, 628, 630, 631, 634, 636, 640, 644, 646, 647, 649, 650, 651, 652, 653, 654, 655, 657, 658, 659, 660, 662, 665, 668, 671, 672, 674, 675, 678, 680, 681, 682, 685, 686, 688, 689, 690, 695, 696, 697, 702, 705, 706, 708, 709, 714, 716, 720, 722, 724, 726, 727, 728, 730, 731, 732, 733, 734, 735, 738, 740, 744, 748, 750, 754, 756, 757, 758, 759, 762, 763, 765, 767, 768, 771, 772, 773, 774, 776, 778, 781, 783, 784, 786, 788, 789, 795, 796, 798, 800, 804, 805, 807, 809, 811, 812, 813, 816, 817, 818, 822, 825, 826, 827, 830, 833, 834, 836, 838, 839, 843, 844, 848, 850, 852, 853, 858, 860, 863, 868, 870, 871, 872, 875, 882, 884, 885, 888, 892, 893, 894, 896, 898, 899, 902, 904, 905, 906, 907, 908, 911, 913, 914, 915, 917, 918, 919, 920, 921, 922, 926, 929, 930, 931, 933, 935, 936, 938, 939, 941, 943, 944, 946, 949, 950, 951, 952, 954, 955, 956, 958, 959, 961, 964, 965, 969, 970, 977, 978, 983, 985, 987, 988, 994, 996, 997, 998, 1000, 1001, 1003, 1004, 1005, 1006, 1011, 1013, 1016, 1021, 1022, 1023]
+[2026-05-18 19:39:08,560][main.py][line:823][INFO] AFS: downstream base channels changed from [64, 128, 256] to [32, 64, 128]
+[2026-05-18 19:39:09,080][main.py][line:855][INFO] Pixel anomaly generator initialized: mode=mixed, pg=0.50 cp=0.30 co=0.20
+[2026-05-18 19:39:09,081][main.py][line:867][INFO] UnifiedAnomalyController initialized: strategy=prob, pixel=0.20 perlin=0.30
+[2026-05-18 19:39:09,081][main.py][line:876][INFO] RRS using AFS-reduced channels: [128, 256, 512]
+[2026-05-18 19:39:09,142][main.py][line:889][INFO] RRS module initialized: channels=[128, 256, 512], strides=[4, 8, 16]
+[2026-05-18 19:39:09,142][main.py][line:891][INFO] RRS modes=['max', 'mean'], mode_numbers=[256, 256], total_select=512
+[2026-05-18 19:39:16,341][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.6% perlin=25.0% normal=54.4%
+[2026-05-18 19:39:20,822][main.py][line:1287][INFO] epoch [1/200], dis_loss: 14.982659, recon_loss:0.985248, adv_loss:0.054262, ae_loss: 0.986334, seg_loss: 1.640324
+[2026-05-18 19:39:23,985][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=21.2% perlin=26.6% normal=52.2%
+[2026-05-18 19:39:31,328][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.8% perlin=26.9% normal=52.3%
+[2026-05-18 19:39:32,093][main.py][line:1287][INFO] epoch [2/200], dis_loss: 14.953334, recon_loss:0.407639, adv_loss:0.137255, ae_loss: 0.410384, seg_loss: 1.430898
+[2026-05-18 19:39:38,777][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=21.9% perlin=26.7% normal=51.4%
+[2026-05-18 19:39:43,075][main.py][line:1287][INFO] epoch [3/200], dis_loss: 14.933687, recon_loss:0.303507, adv_loss:0.221502, ae_loss: 0.307938, seg_loss: 1.218509
+[2026-05-18 19:39:46,090][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=21.9% perlin=26.6% normal=51.5%
+[2026-05-18 19:39:53,320][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=21.9% perlin=26.7% normal=51.5%
+[2026-05-18 19:39:54,237][main.py][line:1287][INFO] epoch [4/200], dis_loss: 14.940795, recon_loss:0.248224, adv_loss:0.258768, ae_loss: 0.253400, seg_loss: 1.178025
+[2026-05-18 19:40:01,093][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.9% perlin=27.1% normal=52.1%
+[2026-05-18 19:40:05,715][main.py][line:1287][INFO] epoch [5/200], dis_loss: 14.958204, recon_loss:0.224341, adv_loss:0.256776, ae_loss: 0.229476, seg_loss: 1.605676
+[2026-05-18 19:40:08,775][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=27.7% normal=51.9%
+[2026-05-18 19:40:16,834][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.6% normal=51.0%
+[2026-05-18 19:40:17,686][main.py][line:1287][INFO] epoch [6/200], dis_loss: 14.952679, recon_loss:0.243124, adv_loss:0.293861, ae_loss: 0.249001, seg_loss: 1.426331
+[2026-05-18 19:40:24,279][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.6% normal=51.0%
+[2026-05-18 19:40:28,362][main.py][line:1287][INFO] epoch [7/200], dis_loss: 14.960753, recon_loss:0.206264, adv_loss:0.290799, ae_loss: 0.212080, seg_loss: 1.457978
+[2026-05-18 19:40:31,510][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.2% normal=51.4%
+[2026-05-18 19:40:39,476][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.9% perlin=28.5% normal=51.6%
+[2026-05-18 19:40:40,060][main.py][line:1287][INFO] epoch [8/200], dis_loss: 14.957338, recon_loss:0.214745, adv_loss:0.335957, ae_loss: 0.221464, seg_loss: 1.671356
+[2026-05-18 19:41:12,228][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.634197 Pixel_PRO: 0.308462 Image_AUROC: 0.553046 Image_F1: 0.888060 Image_ACC: 0.801325 
+[2026-05-18 19:41:12,229][main.py][line:1324][INFO] Checkpoint score: 1.495705 (best: -inf @ epoch 0)
+[2026-05-18 19:41:13,027][main.py][line:1337][INFO] Saved best checkpoint: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/best.pth
+[2026-05-18 19:41:19,872][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.8% perlin=28.7% normal=51.5%
+[2026-05-18 19:41:24,219][main.py][line:1287][INFO] epoch [9/200], dis_loss: 14.949303, recon_loss:0.201357, adv_loss:0.371383, ae_loss: 0.208785, seg_loss: 1.183892
+[2026-05-18 19:41:27,182][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.9% perlin=28.3% normal=51.7%
+[2026-05-18 19:41:34,820][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=28.6% normal=51.4%
+[2026-05-18 19:41:35,546][main.py][line:1287][INFO] epoch [10/200], dis_loss: 14.940333, recon_loss:0.191139, adv_loss:0.444209, ae_loss: 0.200024, seg_loss: 1.371409
+[2026-05-18 19:41:41,951][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.5% normal=51.1%
+[2026-05-18 19:41:46,270][main.py][line:1287][INFO] epoch [11/200], dis_loss: 14.930552, recon_loss:0.188705, adv_loss:0.517315, ae_loss: 0.199051, seg_loss: 1.069619
+[2026-05-18 19:41:49,336][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.5% normal=51.2%
+[2026-05-18 19:41:56,793][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=28.9% normal=51.1%
+[2026-05-18 19:41:57,739][main.py][line:1287][INFO] epoch [12/200], dis_loss: 14.942017, recon_loss:0.182031, adv_loss:0.564459, ae_loss: 0.193321, seg_loss: 1.467103
+[2026-05-18 19:42:04,421][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.7% normal=51.1%
+[2026-05-18 19:42:08,834][main.py][line:1287][INFO] epoch [13/200], dis_loss: 14.932260, recon_loss:0.180399, adv_loss:0.635210, ae_loss: 0.193104, seg_loss: 1.161651
+[2026-05-18 19:42:11,889][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.7% normal=51.0%
+[2026-05-18 19:42:19,916][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.5% perlin=28.8% normal=50.7%
+[2026-05-18 19:42:20,555][main.py][line:1287][INFO] epoch [14/200], dis_loss: 14.922251, recon_loss:0.173445, adv_loss:0.721527, ae_loss: 0.187876, seg_loss: 0.694034
+[2026-05-18 19:42:27,333][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.7% normal=51.0%
+[2026-05-18 19:42:31,899][main.py][line:1287][INFO] epoch [15/200], dis_loss: 14.916069, recon_loss:0.176576, adv_loss:0.826530, ae_loss: 0.193106, seg_loss: 1.201176
+[2026-05-18 19:42:35,140][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.7% normal=51.1%
+[2026-05-18 19:42:42,523][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.4% normal=51.3%
+[2026-05-18 19:42:43,100][main.py][line:1287][INFO] epoch [16/200], dis_loss: 14.896231, recon_loss:0.170741, adv_loss:0.923665, ae_loss: 0.189214, seg_loss: 0.818092
+[2026-05-18 19:43:14,615][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.731451 Pixel_PRO: 0.432367 Image_AUROC: 0.558298 Image_F1: 0.884758 Image_ACC: 0.794702 
+[2026-05-18 19:43:14,616][main.py][line:1324][INFO] Checkpoint score: 1.722116 (best: 1.495705 @ epoch 8)
+[2026-05-18 19:43:15,331][main.py][line:1337][INFO] Saved best checkpoint: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/best.pth
+[2026-05-18 19:43:22,316][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.5% normal=51.2%
+[2026-05-18 19:43:26,660][main.py][line:1287][INFO] epoch [17/200], dis_loss: 14.888951, recon_loss:0.168300, adv_loss:1.038267, ae_loss: 0.189066, seg_loss: 0.493092
+[2026-05-18 19:43:29,862][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.6% normal=51.2%
+[2026-05-18 19:43:36,941][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.4% normal=51.4%
+[2026-05-18 19:43:37,694][main.py][line:1287][INFO] epoch [18/200], dis_loss: 14.866656, recon_loss:0.166434, adv_loss:1.151897, ae_loss: 0.189472, seg_loss: 0.643594
+[2026-05-18 19:43:44,400][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.4% normal=51.4%
+[2026-05-18 19:43:49,078][main.py][line:1287][INFO] epoch [19/200], dis_loss: 14.848229, recon_loss:0.165312, adv_loss:1.293570, ae_loss: 0.191184, seg_loss: 0.459210
+[2026-05-18 19:43:52,379][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.6% normal=51.1%
+[2026-05-18 19:43:59,883][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.6% normal=51.2%
+[2026-05-18 19:44:00,569][main.py][line:1287][INFO] epoch [20/200], dis_loss: 14.836169, recon_loss:0.164567, adv_loss:1.398842, ae_loss: 0.192544, seg_loss: 0.816213
+[2026-05-18 19:44:07,616][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.8% normal=51.0%
+[2026-05-18 19:44:12,232][main.py][line:1287][INFO] epoch [21/200], dis_loss: 14.801041, recon_loss:0.164169, adv_loss:1.526622, ae_loss: 0.194701, seg_loss: 0.890776
+[2026-05-18 19:44:15,335][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.7% normal=51.1%
+[2026-05-18 19:44:23,345][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.8% normal=50.9%
+[2026-05-18 19:44:24,136][main.py][line:1287][INFO] epoch [22/200], dis_loss: 14.780224, recon_loss:0.160775, adv_loss:1.635119, ae_loss: 0.193478, seg_loss: 0.470349
+[2026-05-18 19:44:31,014][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.7% normal=50.8%
+[2026-05-18 19:44:35,903][main.py][line:1287][INFO] epoch [23/200], dis_loss: 14.758639, recon_loss:0.162660, adv_loss:1.754049, ae_loss: 0.197741, seg_loss: 0.659446
+[2026-05-18 19:44:39,103][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.5% perlin=28.8% normal=50.7%
+[2026-05-18 19:44:46,880][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.9% normal=50.7%
+[2026-05-18 19:44:47,492][main.py][line:1287][INFO] epoch [24/200], dis_loss: 14.741150, recon_loss:0.161560, adv_loss:1.856282, ae_loss: 0.198686, seg_loss: 0.818064
+[2026-05-18 19:45:19,105][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.816458 Pixel_PRO: 0.604251 Image_AUROC: 0.818277 Image_F1: 0.904000 Image_ACC: 0.841060 
+[2026-05-18 19:45:19,106][main.py][line:1324][INFO] Checkpoint score: 2.238986 (best: 1.722116 @ epoch 16)
+[2026-05-18 19:45:19,828][main.py][line:1337][INFO] Saved best checkpoint: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/best.pth
+[2026-05-18 19:45:26,331][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.5% perlin=28.8% normal=50.7%
+[2026-05-18 19:45:30,588][main.py][line:1287][INFO] epoch [25/200], dis_loss: 14.711731, recon_loss:0.161374, adv_loss:1.992258, ae_loss: 0.201219, seg_loss: 1.895061
+[2026-05-18 19:45:33,607][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.5% perlin=28.7% normal=50.8%
+[2026-05-18 19:45:41,057][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.8% normal=50.8%
+[2026-05-18 19:45:41,790][main.py][line:1287][INFO] epoch [26/200], dis_loss: 14.696564, recon_loss:0.156218, adv_loss:2.037000, ae_loss: 0.196958, seg_loss: 0.697113
+[2026-05-18 19:45:48,641][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=28.8% normal=50.8%
+[2026-05-18 19:45:53,021][main.py][line:1287][INFO] epoch [27/200], dis_loss: 14.675135, recon_loss:0.156033, adv_loss:2.090670, ae_loss: 0.197846, seg_loss: 0.519800
+[2026-05-18 19:45:56,063][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.8% normal=50.9%
+[2026-05-18 19:46:03,486][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.9% normal=50.8%
+[2026-05-18 19:46:04,251][main.py][line:1287][INFO] epoch [28/200], dis_loss: 14.686857, recon_loss:0.152312, adv_loss:2.080893, ae_loss: 0.193930, seg_loss: 0.760390
+[2026-05-18 19:46:11,045][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.9% normal=50.9%
+[2026-05-18 19:46:15,228][main.py][line:1287][INFO] epoch [29/200], dis_loss: 14.683528, recon_loss:0.148559, adv_loss:2.058241, ae_loss: 0.189724, seg_loss: 0.344574
+[2026-05-18 19:46:18,466][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=28.9% normal=50.9%
+[2026-05-18 19:46:26,021][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=28.8% normal=50.9%
+[2026-05-18 19:46:26,671][main.py][line:1287][INFO] epoch [30/200], dis_loss: 14.672485, recon_loss:0.144529, adv_loss:2.005086, ae_loss: 0.184631, seg_loss: 0.293034
+[2026-05-18 19:46:34,343][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.1% normal=50.6%
+[2026-05-18 19:46:39,178][main.py][line:1287][INFO] epoch [31/200], dis_loss: 14.639410, recon_loss:0.145758, adv_loss:1.958943, ae_loss: 0.184937, seg_loss: 0.419611
+[2026-05-18 19:46:42,210][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.1% normal=50.6%
+[2026-05-18 19:46:49,480][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.1% normal=50.6%
+[2026-05-18 19:46:50,274][main.py][line:1287][INFO] epoch [32/200], dis_loss: 14.609643, recon_loss:0.145519, adv_loss:1.946103, ae_loss: 0.184441, seg_loss: 0.236624
+[2026-05-18 19:47:22,813][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.668558 Pixel_PRO: 0.314723 Image_AUROC: 0.482143 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 19:47:22,814][main.py][line:1324][INFO] Checkpoint score: 1.465424 (best: 2.238986 @ epoch 24)
+[2026-05-18 19:47:22,814][main.py][line:1365][INFO] AFS warm-up re-initializing once at epoch 32...
+[2026-05-18 19:48:05,623][main.py][line:1371][INFO] AFS layer_0 (re-init @ep32): selected 128/256 channels
+[2026-05-18 19:48:05,624][main.py][line:1371][INFO] AFS layer_1 (re-init @ep32): selected 256/512 channels
+[2026-05-18 19:48:05,624][main.py][line:1371][INFO] AFS layer_2 (re-init @ep32): selected 512/1024 channels
+[2026-05-18 19:48:12,398][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.0% normal=50.6%
+[2026-05-18 19:48:16,743][main.py][line:1287][INFO] epoch [33/200], dis_loss: 16.841570, recon_loss:0.944317, adv_loss:1.909955, ae_loss: 0.982516, seg_loss: 2.198989
+[2026-05-18 19:48:19,811][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.0% normal=50.6%
+[2026-05-18 19:48:27,726][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.0% normal=50.6%
+[2026-05-18 19:48:28,302][main.py][line:1287][INFO] epoch [34/200], dis_loss: 15.221264, recon_loss:0.360272, adv_loss:1.773418, ae_loss: 0.395740, seg_loss: 0.929815
+[2026-05-18 19:48:36,342][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.4%
+[2026-05-18 19:48:40,841][main.py][line:1287][INFO] epoch [35/200], dis_loss: 14.868499, recon_loss:0.295796, adv_loss:1.863056, ae_loss: 0.333057, seg_loss: 1.029882
+[2026-05-18 19:48:43,920][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.4%
+[2026-05-18 19:48:50,911][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.1% normal=50.6%
+[2026-05-18 19:48:51,518][main.py][line:1287][INFO] epoch [36/200], dis_loss: 14.802147, recon_loss:0.273738, adv_loss:1.847300, ae_loss: 0.310684, seg_loss: 1.008392
+[2026-05-18 19:48:58,781][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:49:03,280][main.py][line:1287][INFO] epoch [37/200], dis_loss: 14.782451, recon_loss:0.256755, adv_loss:1.684024, ae_loss: 0.290436, seg_loss: 0.484685
+[2026-05-18 19:49:06,183][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.3% normal=50.5%
+[2026-05-18 19:49:13,122][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.1% normal=50.5%
+[2026-05-18 19:49:13,878][main.py][line:1287][INFO] epoch [38/200], dis_loss: 14.758965, recon_loss:0.249119, adv_loss:1.617260, ae_loss: 0.281464, seg_loss: 0.806151
+[2026-05-18 19:49:20,384][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:49:25,444][main.py][line:1287][INFO] epoch [39/200], dis_loss: 14.740213, recon_loss:0.239335, adv_loss:1.532935, ae_loss: 0.269993, seg_loss: 0.418143
+[2026-05-18 19:49:28,627][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=29.3% normal=50.4%
+[2026-05-18 19:49:35,706][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:49:36,431][main.py][line:1287][INFO] epoch [40/200], dis_loss: 14.709298, recon_loss:0.230829, adv_loss:1.412316, ae_loss: 0.259075, seg_loss: 0.599471
+[2026-05-18 19:50:07,269][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.847022 Pixel_PRO: 0.512343 Image_AUROC: 0.720063 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 19:50:07,269][main.py][line:1324][INFO] Checkpoint score: 2.079428 (best: 2.238986 @ epoch 24)
+[2026-05-18 19:50:13,897][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:50:18,952][main.py][line:1287][INFO] epoch [41/200], dis_loss: 14.657876, recon_loss:0.227114, adv_loss:1.483509, ae_loss: 0.256784, seg_loss: 0.255752
+[2026-05-18 19:50:21,890][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:50:29,070][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:50:29,610][main.py][line:1287][INFO] epoch [42/200], dis_loss: 14.636914, recon_loss:0.232818, adv_loss:1.402560, ae_loss: 0.260870, seg_loss: 0.389639
+[2026-05-18 19:50:36,524][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.2% normal=50.5%
+[2026-05-18 19:50:40,826][main.py][line:1287][INFO] epoch [43/200], dis_loss: 14.662418, recon_loss:0.225589, adv_loss:1.303242, ae_loss: 0.251654, seg_loss: 0.583865
+[2026-05-18 19:50:43,718][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.3% normal=50.4%
+[2026-05-18 19:50:50,932][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.4%
+[2026-05-18 19:50:51,609][main.py][line:1287][INFO] epoch [44/200], dis_loss: 14.609147, recon_loss:0.233506, adv_loss:1.425855, ae_loss: 0.262023, seg_loss: 0.680993
+[2026-05-18 19:50:58,381][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.3%
+[2026-05-18 19:51:02,738][main.py][line:1287][INFO] epoch [45/200], dis_loss: 14.621544, recon_loss:0.224175, adv_loss:1.461362, ae_loss: 0.253402, seg_loss: 0.512878
+[2026-05-18 19:51:05,862][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.4%
+[2026-05-18 19:51:13,060][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.3%
+[2026-05-18 19:51:13,947][main.py][line:1287][INFO] epoch [46/200], dis_loss: 14.694090, recon_loss:0.218299, adv_loss:1.246284, ae_loss: 0.243225, seg_loss: 0.310506
+[2026-05-18 19:51:20,727][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.4%
+[2026-05-18 19:51:25,433][main.py][line:1287][INFO] epoch [47/200], dis_loss: 14.712615, recon_loss:0.214179, adv_loss:1.205046, ae_loss: 0.238280, seg_loss: 0.404686
+[2026-05-18 19:51:28,427][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.2% normal=50.4%
+[2026-05-18 19:51:36,260][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.3% normal=50.4%
+[2026-05-18 19:51:36,885][main.py][line:1287][INFO] epoch [48/200], dis_loss: 14.696573, recon_loss:0.211850, adv_loss:1.248561, ae_loss: 0.236821, seg_loss: 0.221936
+[2026-05-18 19:52:06,924][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.683120 Pixel_PRO: 0.105580 Image_AUROC: 0.423845 Image_F1: 0.887218 Image_ACC: 0.801325 
+[2026-05-18 19:52:06,925][main.py][line:1324][INFO] Checkpoint score: 1.212544 (best: 2.238986 @ epoch 24)
+[2026-05-18 19:52:15,017][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.4% normal=50.3%
+[2026-05-18 19:52:19,732][main.py][line:1287][INFO] epoch [49/200], dis_loss: 14.705850, recon_loss:0.210826, adv_loss:1.152973, ae_loss: 0.233886, seg_loss: 0.112513
+[2026-05-18 19:52:22,845][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.4% normal=50.3%
+[2026-05-18 19:52:31,172][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.5% normal=50.2%
+[2026-05-18 19:52:31,993][main.py][line:1287][INFO] epoch [50/200], dis_loss: 14.724614, recon_loss:0.208534, adv_loss:1.134204, ae_loss: 0.231218, seg_loss: 0.128355
+[2026-05-18 19:52:39,157][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.5% normal=50.1%
+[2026-05-18 19:52:44,073][main.py][line:1287][INFO] epoch [51/200], dis_loss: 14.723413, recon_loss:0.204906, adv_loss:1.115781, ae_loss: 0.227221, seg_loss: 0.494686
+[2026-05-18 19:52:47,622][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.6% normal=50.0%
+[2026-05-18 19:52:55,691][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.6% normal=50.1%
+[2026-05-18 19:52:56,352][main.py][line:1287][INFO] epoch [52/200], dis_loss: 14.697696, recon_loss:0.202294, adv_loss:1.109615, ae_loss: 0.224486, seg_loss: 0.225210
+[2026-05-18 19:53:03,194][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=29.6% normal=50.2%
+[2026-05-18 19:53:07,411][main.py][line:1287][INFO] epoch [53/200], dis_loss: 14.714402, recon_loss:0.198917, adv_loss:1.075602, ae_loss: 0.220429, seg_loss: 0.872951
+[2026-05-18 19:53:10,407][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=29.6% normal=50.2%
+[2026-05-18 19:53:18,267][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.5% normal=50.2%
+[2026-05-18 19:53:19,028][main.py][line:1287][INFO] epoch [54/200], dis_loss: 14.703550, recon_loss:0.201880, adv_loss:1.096326, ae_loss: 0.223806, seg_loss: 0.581949
+[2026-05-18 19:53:26,076][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.5% normal=50.2%
+[2026-05-18 19:53:30,425][main.py][line:1287][INFO] epoch [55/200], dis_loss: 14.682075, recon_loss:0.196246, adv_loss:1.128783, ae_loss: 0.218822, seg_loss: 0.316119
+[2026-05-18 19:53:33,871][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.5% normal=50.2%
+[2026-05-18 19:53:41,279][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.4% normal=50.3%
+[2026-05-18 19:53:41,983][main.py][line:1287][INFO] epoch [56/200], dis_loss: 14.666672, recon_loss:0.196134, adv_loss:1.077432, ae_loss: 0.217683, seg_loss: 0.429323
+[2026-05-18 19:54:14,694][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.540626 Pixel_PRO: 0.013188 Image_AUROC: 0.467962 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 19:54:14,695][main.py][line:1324][INFO] Checkpoint score: 1.021776 (best: 2.238986 @ epoch 24)
+[2026-05-18 19:54:21,915][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.4% normal=50.2%
+[2026-05-18 19:54:26,750][main.py][line:1287][INFO] epoch [57/200], dis_loss: 14.622791, recon_loss:0.189916, adv_loss:1.134228, ae_loss: 0.212601, seg_loss: 0.162350
+[2026-05-18 19:54:29,986][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.5% normal=50.2%
+[2026-05-18 19:54:37,528][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.4% normal=50.2%
+[2026-05-18 19:54:38,141][main.py][line:1287][INFO] epoch [58/200], dis_loss: 14.619023, recon_loss:0.189293, adv_loss:1.122406, ae_loss: 0.211741, seg_loss: 0.216846
+[2026-05-18 19:54:44,896][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.4% normal=50.2%
+[2026-05-18 19:54:49,491][main.py][line:1287][INFO] epoch [59/200], dis_loss: 14.565303, recon_loss:0.188958, adv_loss:1.188554, ae_loss: 0.212729, seg_loss: 0.293371
+[2026-05-18 19:54:52,591][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.5% normal=50.2%
+[2026-05-18 19:55:00,258][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.4% perlin=29.5% normal=50.2%
+[2026-05-18 19:55:01,017][main.py][line:1287][INFO] epoch [60/200], dis_loss: 14.569229, recon_loss:0.186889, adv_loss:1.215827, ae_loss: 0.211206, seg_loss: 0.189609
+[2026-05-18 19:55:07,536][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.5% normal=50.2%
+[2026-05-18 19:55:12,213][main.py][line:1287][INFO] epoch [61/200], dis_loss: 14.513522, recon_loss:0.189735, adv_loss:1.280334, ae_loss: 0.215341, seg_loss: 0.122393
+[2026-05-18 19:55:15,318][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.5% normal=50.2%
+[2026-05-18 19:55:23,071][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.6% normal=50.2%
+[2026-05-18 19:55:23,745][main.py][line:1287][INFO] epoch [62/200], dis_loss: 14.535334, recon_loss:0.184811, adv_loss:1.245428, ae_loss: 0.209720, seg_loss: 0.148688
+[2026-05-18 19:55:30,603][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.6% normal=50.1%
+[2026-05-18 19:55:35,269][main.py][line:1287][INFO] epoch [63/200], dis_loss: 14.555564, recon_loss:0.184731, adv_loss:1.278709, ae_loss: 0.210305, seg_loss: 0.103708
+[2026-05-18 19:55:38,396][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=29.7% normal=50.1%
+[2026-05-18 19:55:45,458][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.3% perlin=29.6% normal=50.1%
+[2026-05-18 19:55:46,181][main.py][line:1287][INFO] epoch [64/200], dis_loss: 14.649704, recon_loss:0.181202, adv_loss:1.001887, ae_loss: 0.201239, seg_loss: 0.371402
+[2026-05-18 19:56:17,275][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.754198 Pixel_PRO: 0.276306 Image_AUROC: 0.639443 Image_F1: 0.888060 Image_ACC: 0.801325 
+[2026-05-18 19:56:17,275][main.py][line:1324][INFO] Checkpoint score: 1.669947 (best: 2.238986 @ epoch 24)
+[2026-05-18 19:56:24,440][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.2% perlin=29.7% normal=50.1%
+[2026-05-18 19:56:28,698][main.py][line:1287][INFO] epoch [65/200], dis_loss: 14.756311, recon_loss:0.174957, adv_loss:0.710587, ae_loss: 0.189169, seg_loss: 0.128981
+[2026-05-18 19:56:32,232][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:56:40,247][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:56:41,010][main.py][line:1287][INFO] epoch [66/200], dis_loss: 14.748903, recon_loss:0.173983, adv_loss:0.688620, ae_loss: 0.187755, seg_loss: 0.599864
+[2026-05-18 19:56:48,145][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:56:52,330][main.py][line:1287][INFO] epoch [67/200], dis_loss: 14.743549, recon_loss:0.170894, adv_loss:0.715521, ae_loss: 0.185205, seg_loss: 0.279499
+[2026-05-18 19:56:55,327][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 19:57:03,261][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 19:57:03,998][main.py][line:1287][INFO] epoch [68/200], dis_loss: 14.684504, recon_loss:0.169541, adv_loss:0.756182, ae_loss: 0.184665, seg_loss: 0.116176
+[2026-05-18 19:57:11,008][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:57:15,646][main.py][line:1287][INFO] epoch [69/200], dis_loss: 14.696447, recon_loss:0.169380, adv_loss:0.761255, ae_loss: 0.184605, seg_loss: 0.221400
+[2026-05-18 19:57:19,052][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:57:27,386][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 19:57:28,108][main.py][line:1287][INFO] epoch [70/200], dis_loss: 14.696596, recon_loss:0.165563, adv_loss:0.727311, ae_loss: 0.180109, seg_loss: 0.488726
+[2026-05-18 19:57:35,060][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 19:57:39,744][main.py][line:1287][INFO] epoch [71/200], dis_loss: 14.690344, recon_loss:0.165355, adv_loss:0.724106, ae_loss: 0.179837, seg_loss: 0.201047
+[2026-05-18 19:57:42,436][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 19:57:49,305][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 19:57:49,960][main.py][line:1287][INFO] epoch [72/200], dis_loss: 14.714141, recon_loss:0.165060, adv_loss:0.715803, ae_loss: 0.179376, seg_loss: 0.410552
+[2026-05-18 19:58:22,258][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.589829 Pixel_PRO: 0.125838 Image_AUROC: 0.382090 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 19:58:22,259][main.py][line:1324][INFO] Checkpoint score: 1.097757 (best: 2.238986 @ epoch 24)
+[2026-05-18 19:58:29,684][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.1%
+[2026-05-18 19:58:34,055][main.py][line:1287][INFO] epoch [73/200], dis_loss: 14.699512, recon_loss:0.165692, adv_loss:0.701478, ae_loss: 0.179721, seg_loss: 0.143467
+[2026-05-18 19:58:37,212][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 19:58:44,479][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:58:45,130][main.py][line:1287][INFO] epoch [74/200], dis_loss: 14.680785, recon_loss:0.164158, adv_loss:0.685682, ae_loss: 0.177872, seg_loss: 0.091012
+[2026-05-18 19:58:51,595][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:58:56,003][main.py][line:1287][INFO] epoch [75/200], dis_loss: 14.674865, recon_loss:0.160892, adv_loss:0.698256, ae_loss: 0.174857, seg_loss: 0.102381
+[2026-05-18 19:58:59,222][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:59:05,913][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 19:59:06,574][main.py][line:1287][INFO] epoch [76/200], dis_loss: 14.640574, recon_loss:0.161349, adv_loss:0.695109, ae_loss: 0.175251, seg_loss: 0.109487
+[2026-05-18 19:59:12,770][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:59:17,068][main.py][line:1287][INFO] epoch [77/200], dis_loss: 14.663588, recon_loss:0.160726, adv_loss:0.678367, ae_loss: 0.174294, seg_loss: 0.168958
+[2026-05-18 19:59:19,839][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:59:27,356][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:59:28,292][main.py][line:1287][INFO] epoch [78/200], dis_loss: 14.630539, recon_loss:0.161106, adv_loss:0.699400, ae_loss: 0.175094, seg_loss: 0.164212
+[2026-05-18 19:59:35,204][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:59:39,821][main.py][line:1287][INFO] epoch [79/200], dis_loss: 14.592911, recon_loss:0.159116, adv_loss:0.746865, ae_loss: 0.174053, seg_loss: 0.106958
+[2026-05-18 19:59:42,640][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 19:59:50,048][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 19:59:50,891][main.py][line:1287][INFO] epoch [80/200], dis_loss: 14.564134, recon_loss:0.160702, adv_loss:0.800954, ae_loss: 0.176721, seg_loss: 0.375239
+[2026-05-18 20:00:22,073][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.462397 Pixel_PRO: 0.015205 Image_AUROC: 0.537027 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:00:22,074][main.py][line:1324][INFO] Checkpoint score: 1.014629 (best: 2.238986 @ epoch 24)
+[2026-05-18 20:00:29,274][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:00:33,760][main.py][line:1287][INFO] epoch [81/200], dis_loss: 14.531384, recon_loss:0.161084, adv_loss:0.816218, ae_loss: 0.177408, seg_loss: 0.148843
+[2026-05-18 20:00:36,611][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:00:44,242][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:00:44,940][main.py][line:1287][INFO] epoch [82/200], dis_loss: 14.558446, recon_loss:0.158455, adv_loss:0.753368, ae_loss: 0.173522, seg_loss: 0.300602
+[2026-05-18 20:00:51,956][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:00:56,380][main.py][line:1287][INFO] epoch [83/200], dis_loss: 14.585828, recon_loss:0.156031, adv_loss:0.751464, ae_loss: 0.171061, seg_loss: 0.106357
+[2026-05-18 20:00:59,522][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:01:07,131][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.9% normal=50.1%
+[2026-05-18 20:01:07,887][main.py][line:1287][INFO] epoch [84/200], dis_loss: 14.551595, recon_loss:0.153636, adv_loss:0.767163, ae_loss: 0.168979, seg_loss: 0.088558
+[2026-05-18 20:01:14,635][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:01:18,790][main.py][line:1287][INFO] epoch [85/200], dis_loss: 14.612306, recon_loss:0.154314, adv_loss:0.754461, ae_loss: 0.169403, seg_loss: 0.409998
+[2026-05-18 20:01:21,602][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:01:29,157][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:01:29,895][main.py][line:1287][INFO] epoch [86/200], dis_loss: 14.554257, recon_loss:0.153258, adv_loss:0.754933, ae_loss: 0.168357, seg_loss: 0.150842
+[2026-05-18 20:01:36,729][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:01:40,965][main.py][line:1287][INFO] epoch [87/200], dis_loss: 14.532148, recon_loss:0.152104, adv_loss:0.701051, ae_loss: 0.166125, seg_loss: 0.184380
+[2026-05-18 20:01:44,111][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:01:51,072][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:01:51,846][main.py][line:1287][INFO] epoch [88/200], dis_loss: 14.484240, recon_loss:0.152993, adv_loss:0.712868, ae_loss: 0.167251, seg_loss: 0.180916
+[2026-05-18 20:02:22,889][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.668140 Pixel_PRO: 0.174561 Image_AUROC: 0.707721 Image_F1: 0.882129 Image_ACC: 0.794702 
+[2026-05-18 20:02:22,890][main.py][line:1324][INFO] Checkpoint score: 1.550422 (best: 2.238986 @ epoch 24)
+[2026-05-18 20:02:29,634][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:02:34,503][main.py][line:1287][INFO] epoch [89/200], dis_loss: 14.496012, recon_loss:0.151661, adv_loss:0.620046, ae_loss: 0.164062, seg_loss: 0.113567
+[2026-05-18 20:02:37,878][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:02:45,340][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.9% perlin=29.8% normal=50.2%
+[2026-05-18 20:02:46,163][main.py][line:1287][INFO] epoch [90/200], dis_loss: 14.496837, recon_loss:0.150411, adv_loss:0.682057, ae_loss: 0.164052, seg_loss: 0.098181
+[2026-05-18 20:02:52,946][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:02:57,478][main.py][line:1287][INFO] epoch [91/200], dis_loss: 14.498882, recon_loss:0.149462, adv_loss:0.727253, ae_loss: 0.164008, seg_loss: 0.067460
+[2026-05-18 20:03:00,347][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.9% perlin=29.8% normal=50.3%
+[2026-05-18 20:03:07,680][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:03:08,343][main.py][line:1287][INFO] epoch [92/200], dis_loss: 14.484599, recon_loss:0.147801, adv_loss:0.724670, ae_loss: 0.162294, seg_loss: 0.508501
+[2026-05-18 20:03:15,213][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:03:19,894][main.py][line:1287][INFO] epoch [93/200], dis_loss: 14.472365, recon_loss:0.146842, adv_loss:0.741048, ae_loss: 0.161663, seg_loss: 0.182435
+[2026-05-18 20:03:22,778][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:03:29,928][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:03:30,619][main.py][line:1287][INFO] epoch [94/200], dis_loss: 14.414419, recon_loss:0.148303, adv_loss:0.726785, ae_loss: 0.162838, seg_loss: 0.058822
+[2026-05-18 20:03:37,534][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:03:41,980][main.py][line:1287][INFO] epoch [95/200], dis_loss: 14.413655, recon_loss:0.148094, adv_loss:0.750112, ae_loss: 0.163096, seg_loss: 0.116808
+[2026-05-18 20:03:45,037][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:03:52,503][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:03:53,272][main.py][line:1287][INFO] epoch [96/200], dis_loss: 14.356646, recon_loss:0.145175, adv_loss:0.777034, ae_loss: 0.160716, seg_loss: 0.069400
+[2026-05-18 20:04:24,723][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.701920 Pixel_PRO: 0.082042 Image_AUROC: 0.588498 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:04:24,724][main.py][line:1324][INFO] Checkpoint score: 1.372459 (best: 2.238986 @ epoch 24)
+[2026-05-18 20:04:31,743][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:04:36,298][main.py][line:1287][INFO] epoch [97/200], dis_loss: 14.447041, recon_loss:0.147759, adv_loss:0.635413, ae_loss: 0.160467, seg_loss: 0.070842
+[2026-05-18 20:04:39,230][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:04:46,599][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:04:47,444][main.py][line:1287][INFO] epoch [98/200], dis_loss: 14.443951, recon_loss:0.145137, adv_loss:0.642530, ae_loss: 0.157987, seg_loss: 0.072501
+[2026-05-18 20:04:54,233][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:04:58,603][main.py][line:1287][INFO] epoch [99/200], dis_loss: 14.449247, recon_loss:0.146215, adv_loss:0.540100, ae_loss: 0.157017, seg_loss: 0.062085
+[2026-05-18 20:05:01,909][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:05:09,295][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:05:09,975][main.py][line:1287][INFO] epoch [100/200], dis_loss: 14.386705, recon_loss:0.145921, adv_loss:0.634072, ae_loss: 0.158603, seg_loss: 0.088031
+[2026-05-18 20:05:16,684][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.1%
+[2026-05-18 20:05:21,242][main.py][line:1287][INFO] epoch [101/200], dis_loss: 14.418975, recon_loss:0.146018, adv_loss:0.652853, ae_loss: 0.159075, seg_loss: 0.048020
+[2026-05-18 20:05:24,196][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:05:31,243][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:05:31,891][main.py][line:1287][INFO] epoch [102/200], dis_loss: 14.409200, recon_loss:0.145604, adv_loss:0.578878, ae_loss: 0.157182, seg_loss: 0.123949
+[2026-05-18 20:05:38,246][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:05:42,512][main.py][line:1287][INFO] epoch [103/200], dis_loss: 14.355578, recon_loss:0.144616, adv_loss:0.616179, ae_loss: 0.156939, seg_loss: 0.075621
+[2026-05-18 20:05:45,536][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:05:52,724][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:05:53,456][main.py][line:1287][INFO] epoch [104/200], dis_loss: 14.370337, recon_loss:0.145974, adv_loss:0.682174, ae_loss: 0.159617, seg_loss: 0.075059
+[2026-05-18 20:06:24,949][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.818069 Pixel_PRO: 0.194020 Image_AUROC: 0.595326 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:06:24,950][main.py][line:1324][INFO] Checkpoint score: 1.607415 (best: 2.238986 @ epoch 24)
+[2026-05-18 20:06:31,818][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:06:36,459][main.py][line:1287][INFO] epoch [105/200], dis_loss: 14.358087, recon_loss:0.142277, adv_loss:0.689160, ae_loss: 0.156060, seg_loss: 0.062371
+[2026-05-18 20:06:39,323][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:06:47,480][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:06:48,094][main.py][line:1287][INFO] epoch [106/200], dis_loss: 14.264128, recon_loss:0.142433, adv_loss:0.691160, ae_loss: 0.156256, seg_loss: 0.061072
+[2026-05-18 20:06:54,240][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:06:58,272][main.py][line:1287][INFO] epoch [107/200], dis_loss: 14.304674, recon_loss:0.142232, adv_loss:0.751805, ae_loss: 0.157268, seg_loss: 0.084659
+[2026-05-18 20:07:01,088][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:07:07,971][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:07:08,684][main.py][line:1287][INFO] epoch [108/200], dis_loss: 14.242533, recon_loss:0.141498, adv_loss:0.779765, ae_loss: 0.157093, seg_loss: 0.035791
+[2026-05-18 20:07:15,174][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:07:19,369][main.py][line:1287][INFO] epoch [109/200], dis_loss: 14.209729, recon_loss:0.140629, adv_loss:0.783798, ae_loss: 0.156305, seg_loss: 0.106304
+[2026-05-18 20:07:22,179][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:07:29,607][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:07:30,335][main.py][line:1287][INFO] epoch [110/200], dis_loss: 14.255676, recon_loss:0.140394, adv_loss:0.782855, ae_loss: 0.156051, seg_loss: 0.104838
+[2026-05-18 20:07:36,738][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:07:41,298][main.py][line:1287][INFO] epoch [111/200], dis_loss: 14.245632, recon_loss:0.139904, adv_loss:0.760590, ae_loss: 0.155116, seg_loss: 0.053162
+[2026-05-18 20:07:44,314][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:07:51,652][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:07:52,340][main.py][line:1287][INFO] epoch [112/200], dis_loss: 14.204959, recon_loss:0.139065, adv_loss:0.810472, ae_loss: 0.155274, seg_loss: 0.049186
+[2026-05-18 20:08:25,662][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.937729 Pixel_PRO: 0.499010 Image_AUROC: 0.872111 Image_F1: 0.889831 Image_ACC: 0.827815 
+[2026-05-18 20:08:25,663][main.py][line:1324][INFO] Checkpoint score: 2.308850 (best: 2.238986 @ epoch 24)
+[2026-05-18 20:08:26,397][main.py][line:1337][INFO] Saved best checkpoint: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/best.pth
+[2026-05-18 20:08:33,261][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:08:38,097][main.py][line:1287][INFO] epoch [113/200], dis_loss: 14.169959, recon_loss:0.139669, adv_loss:0.845410, ae_loss: 0.156577, seg_loss: 0.243623
+[2026-05-18 20:08:41,139][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:08:48,666][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:08:49,355][main.py][line:1287][INFO] epoch [114/200], dis_loss: 14.136401, recon_loss:0.138481, adv_loss:0.756001, ae_loss: 0.153602, seg_loss: 0.046121
+[2026-05-18 20:08:56,032][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:09:00,579][main.py][line:1287][INFO] epoch [115/200], dis_loss: 14.120202, recon_loss:0.138288, adv_loss:0.789776, ae_loss: 0.154084, seg_loss: 0.046418
+[2026-05-18 20:09:03,280][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:09:10,587][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:11,266][main.py][line:1287][INFO] epoch [116/200], dis_loss: 14.138929, recon_loss:0.137012, adv_loss:0.794726, ae_loss: 0.152907, seg_loss: 0.069388
+[2026-05-18 20:09:17,630][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:21,972][main.py][line:1287][INFO] epoch [117/200], dis_loss: 14.192247, recon_loss:0.137478, adv_loss:0.795958, ae_loss: 0.153397, seg_loss: 0.053481
+[2026-05-18 20:09:24,820][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:31,877][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:32,509][main.py][line:1287][INFO] epoch [118/200], dis_loss: 14.201873, recon_loss:0.135925, adv_loss:0.841823, ae_loss: 0.152762, seg_loss: 0.054179
+[2026-05-18 20:09:39,271][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:43,767][main.py][line:1287][INFO] epoch [119/200], dis_loss: 14.038139, recon_loss:0.136991, adv_loss:0.845351, ae_loss: 0.153898, seg_loss: 0.216824
+[2026-05-18 20:09:46,881][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:53,960][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:09:54,734][main.py][line:1287][INFO] epoch [120/200], dis_loss: 14.025950, recon_loss:0.137252, adv_loss:0.818288, ae_loss: 0.153617, seg_loss: 0.043137
+[2026-05-18 20:10:25,714][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.623114 Pixel_PRO: 0.001829 Image_AUROC: 0.403099 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:10:25,715][main.py][line:1324][INFO] Checkpoint score: 1.028042 (best: 2.308850 @ epoch 112)
+[2026-05-18 20:10:32,924][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:10:37,308][main.py][line:1287][INFO] epoch [121/200], dis_loss: 14.046860, recon_loss:0.136504, adv_loss:0.839140, ae_loss: 0.153286, seg_loss: 0.110181
+[2026-05-18 20:10:40,423][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:10:47,567][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.4%
+[2026-05-18 20:10:48,335][main.py][line:1287][INFO] epoch [122/200], dis_loss: 14.022465, recon_loss:0.135536, adv_loss:0.797999, ae_loss: 0.151496, seg_loss: 0.065740
+[2026-05-18 20:10:54,980][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:10:59,810][main.py][line:1287][INFO] epoch [123/200], dis_loss: 14.130308, recon_loss:0.136484, adv_loss:0.793500, ae_loss: 0.152354, seg_loss: 0.067317
+[2026-05-18 20:11:02,554][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:11:10,661][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:11:11,338][main.py][line:1287][INFO] epoch [124/200], dis_loss: 14.131138, recon_loss:0.137381, adv_loss:0.714738, ae_loss: 0.151676, seg_loss: 0.050481
+[2026-05-18 20:11:18,209][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:11:22,494][main.py][line:1287][INFO] epoch [125/200], dis_loss: 14.070097, recon_loss:0.137039, adv_loss:0.741979, ae_loss: 0.151879, seg_loss: 0.052189
+[2026-05-18 20:11:25,422][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:11:32,820][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:11:33,430][main.py][line:1287][INFO] epoch [126/200], dis_loss: 13.994915, recon_loss:0.135566, adv_loss:0.832585, ae_loss: 0.152217, seg_loss: 0.050941
+[2026-05-18 20:11:40,182][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:11:44,555][main.py][line:1287][INFO] epoch [127/200], dis_loss: 14.030523, recon_loss:0.134676, adv_loss:0.752801, ae_loss: 0.149732, seg_loss: 0.055443
+[2026-05-18 20:11:47,562][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:11:54,579][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:11:55,358][main.py][line:1287][INFO] epoch [128/200], dis_loss: 14.082190, recon_loss:0.133489, adv_loss:0.768691, ae_loss: 0.148863, seg_loss: 0.092402
+[2026-05-18 20:12:27,098][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.920209 Pixel_PRO: 0.410453 Image_AUROC: 0.675158 Image_F1: 0.888060 Image_ACC: 0.801325 
+[2026-05-18 20:12:27,098][main.py][line:1324][INFO] Checkpoint score: 2.005819 (best: 2.308850 @ epoch 112)
+[2026-05-18 20:12:34,119][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:12:38,678][main.py][line:1287][INFO] epoch [129/200], dis_loss: 14.067728, recon_loss:0.131320, adv_loss:0.780103, ae_loss: 0.146922, seg_loss: 0.069531
+[2026-05-18 20:12:42,003][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:12:49,723][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:12:50,479][main.py][line:1287][INFO] epoch [130/200], dis_loss: 14.027906, recon_loss:0.128417, adv_loss:0.797397, ae_loss: 0.144365, seg_loss: 0.059337
+[2026-05-18 20:12:57,435][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:01,759][main.py][line:1287][INFO] epoch [131/200], dis_loss: 13.987265, recon_loss:0.127574, adv_loss:0.718699, ae_loss: 0.141948, seg_loss: 0.039257
+[2026-05-18 20:13:04,926][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:12,647][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:13,359][main.py][line:1287][INFO] epoch [132/200], dis_loss: 13.969509, recon_loss:0.126745, adv_loss:0.728137, ae_loss: 0.141308, seg_loss: 0.052553
+[2026-05-18 20:13:19,989][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:24,370][main.py][line:1287][INFO] epoch [133/200], dis_loss: 13.952274, recon_loss:0.125047, adv_loss:0.805693, ae_loss: 0.141161, seg_loss: 0.138168
+[2026-05-18 20:13:27,553][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.9% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:35,291][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:36,048][main.py][line:1287][INFO] epoch [134/200], dis_loss: 14.001380, recon_loss:0.123798, adv_loss:0.709572, ae_loss: 0.137990, seg_loss: 0.046964
+[2026-05-18 20:13:43,271][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:13:47,743][main.py][line:1287][INFO] epoch [135/200], dis_loss: 13.992808, recon_loss:0.124166, adv_loss:0.636530, ae_loss: 0.136896, seg_loss: 0.048692
+[2026-05-18 20:13:50,879][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.4%
+[2026-05-18 20:13:58,842][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=19.9% perlin=29.7% normal=50.4%
+[2026-05-18 20:13:59,549][main.py][line:1287][INFO] epoch [136/200], dis_loss: 13.915462, recon_loss:0.124233, adv_loss:0.623488, ae_loss: 0.136702, seg_loss: 0.209901
+[2026-05-18 20:14:31,997][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.974617 Pixel_PRO: 0.723483 Image_AUROC: 0.960347 Image_F1: 0.946502 Image_ACC: 0.913907 
+[2026-05-18 20:14:31,998][main.py][line:1324][INFO] Checkpoint score: 2.658447 (best: 2.308850 @ epoch 112)
+[2026-05-18 20:14:32,719][main.py][line:1337][INFO] Saved best checkpoint: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/best.pth
+[2026-05-18 20:14:39,651][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.4%
+[2026-05-18 20:14:43,811][main.py][line:1287][INFO] epoch [137/200], dis_loss: 14.017827, recon_loss:0.124826, adv_loss:0.698405, ae_loss: 0.138794, seg_loss: 0.077776
+[2026-05-18 20:14:46,630][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:14:53,876][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:14:54,500][main.py][line:1287][INFO] epoch [138/200], dis_loss: 13.990936, recon_loss:0.122293, adv_loss:0.732709, ae_loss: 0.136947, seg_loss: 0.090955
+[2026-05-18 20:15:01,236][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:15:05,745][main.py][line:1287][INFO] epoch [139/200], dis_loss: 14.010224, recon_loss:0.121849, adv_loss:0.690358, ae_loss: 0.135657, seg_loss: 0.163656
+[2026-05-18 20:15:08,773][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:15:16,063][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:15:16,733][main.py][line:1287][INFO] epoch [140/200], dis_loss: 14.067654, recon_loss:0.118157, adv_loss:0.586112, ae_loss: 0.129879, seg_loss: 0.194520
+[2026-05-18 20:15:23,970][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:15:28,217][main.py][line:1287][INFO] epoch [141/200], dis_loss: 13.946202, recon_loss:0.117307, adv_loss:0.611616, ae_loss: 0.129539, seg_loss: 0.087769
+[2026-05-18 20:15:31,359][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:15:38,584][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.5%
+[2026-05-18 20:15:39,211][main.py][line:1287][INFO] epoch [142/200], dis_loss: 13.991829, recon_loss:0.117109, adv_loss:0.586640, ae_loss: 0.128842, seg_loss: 0.046665
+[2026-05-18 20:15:45,864][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.5%
+[2026-05-18 20:15:50,500][main.py][line:1287][INFO] epoch [143/200], dis_loss: 13.881837, recon_loss:0.117227, adv_loss:0.603995, ae_loss: 0.129307, seg_loss: 0.040401
+[2026-05-18 20:15:53,469][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.5%
+[2026-05-18 20:16:01,387][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:16:02,142][main.py][line:1287][INFO] epoch [144/200], dis_loss: 14.014675, recon_loss:0.117192, adv_loss:0.595134, ae_loss: 0.129094, seg_loss: 0.048579
+[2026-05-18 20:16:34,729][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.959255 Pixel_PRO: 0.682813 Image_AUROC: 0.792542 Image_F1: 0.888060 Image_ACC: 0.801325 
+[2026-05-18 20:16:34,730][main.py][line:1324][INFO] Checkpoint score: 2.434610 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:16:41,723][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:16:46,269][main.py][line:1287][INFO] epoch [145/200], dis_loss: 13.859202, recon_loss:0.115782, adv_loss:0.622415, ae_loss: 0.128230, seg_loss: 0.024181
+[2026-05-18 20:16:49,378][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.4%
+[2026-05-18 20:16:57,076][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.4%
+[2026-05-18 20:16:57,781][main.py][line:1287][INFO] epoch [146/200], dis_loss: 13.947124, recon_loss:0.114907, adv_loss:0.668972, ae_loss: 0.128287, seg_loss: 0.046376
+[2026-05-18 20:17:05,104][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:17:09,702][main.py][line:1287][INFO] epoch [147/200], dis_loss: 13.874982, recon_loss:0.113858, adv_loss:0.623827, ae_loss: 0.126335, seg_loss: 0.133294
+[2026-05-18 20:17:12,387][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:17:19,623][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:17:20,409][main.py][line:1287][INFO] epoch [148/200], dis_loss: 14.080805, recon_loss:0.114589, adv_loss:0.683178, ae_loss: 0.128253, seg_loss: 0.084938
+[2026-05-18 20:17:26,670][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.3%
+[2026-05-18 20:17:31,244][main.py][line:1287][INFO] epoch [149/200], dis_loss: 13.976422, recon_loss:0.113383, adv_loss:0.668007, ae_loss: 0.126743, seg_loss: 0.037458
+[2026-05-18 20:17:34,084][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.3%
+[2026-05-18 20:17:41,631][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.3%
+[2026-05-18 20:17:42,382][main.py][line:1287][INFO] epoch [150/200], dis_loss: 13.927989, recon_loss:0.112973, adv_loss:0.589275, ae_loss: 0.124759, seg_loss: 0.127224
+[2026-05-18 20:17:49,626][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.3%
+[2026-05-18 20:17:54,304][main.py][line:1287][INFO] epoch [151/200], dis_loss: 13.852305, recon_loss:0.110888, adv_loss:0.613610, ae_loss: 0.123160, seg_loss: 0.076225
+[2026-05-18 20:17:57,374][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.6% normal=50.3%
+[2026-05-18 20:18:05,163][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.3%
+[2026-05-18 20:18:05,946][main.py][line:1287][INFO] epoch [152/200], dis_loss: 13.840068, recon_loss:0.111701, adv_loss:0.627000, ae_loss: 0.124241, seg_loss: 0.042010
+[2026-05-18 20:18:38,220][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.961243 Pixel_PRO: 0.752800 Image_AUROC: 0.938813 Image_F1: 0.937759 Image_ACC: 0.900662 
+[2026-05-18 20:18:38,221][main.py][line:1324][INFO] Checkpoint score: 2.652856 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:18:45,589][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.3%
+[2026-05-18 20:18:50,112][main.py][line:1287][INFO] epoch [153/200], dis_loss: 13.828556, recon_loss:0.110692, adv_loss:0.644286, ae_loss: 0.123577, seg_loss: 0.041274
+[2026-05-18 20:18:53,294][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:00,476][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:01,404][main.py][line:1287][INFO] epoch [154/200], dis_loss: 13.833030, recon_loss:0.111203, adv_loss:0.624458, ae_loss: 0.123692, seg_loss: 0.044114
+[2026-05-18 20:19:08,374][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:13,085][main.py][line:1287][INFO] epoch [155/200], dis_loss: 13.945875, recon_loss:0.110257, adv_loss:0.654738, ae_loss: 0.123352, seg_loss: 0.058494
+[2026-05-18 20:19:16,229][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:23,367][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:24,101][main.py][line:1287][INFO] epoch [156/200], dis_loss: 13.795315, recon_loss:0.109079, adv_loss:0.637253, ae_loss: 0.121824, seg_loss: 0.047443
+[2026-05-18 20:19:31,137][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:35,472][main.py][line:1287][INFO] epoch [157/200], dis_loss: 13.983928, recon_loss:0.110620, adv_loss:0.717920, ae_loss: 0.124978, seg_loss: 0.037219
+[2026-05-18 20:19:38,700][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:46,427][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:47,063][main.py][line:1287][INFO] epoch [158/200], dis_loss: 13.768574, recon_loss:0.109027, adv_loss:0.665915, ae_loss: 0.122346, seg_loss: 0.080024
+[2026-05-18 20:19:54,167][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:19:58,619][main.py][line:1287][INFO] epoch [159/200], dis_loss: 13.812157, recon_loss:0.109035, adv_loss:0.702530, ae_loss: 0.123086, seg_loss: 0.093603
+[2026-05-18 20:20:01,823][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:20:09,638][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:20:10,348][main.py][line:1287][INFO] epoch [160/200], dis_loss: 13.708191, recon_loss:0.109549, adv_loss:0.666116, ae_loss: 0.122871, seg_loss: 0.199005
+[2026-05-18 20:20:41,626][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.878162 Pixel_PRO: 0.102741 Image_AUROC: 0.362395 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:20:41,627][main.py][line:1324][INFO] Checkpoint score: 1.343298 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:20:47,924][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:20:53,327][main.py][line:1287][INFO] epoch [161/200], dis_loss: 13.790241, recon_loss:0.106747, adv_loss:0.635615, ae_loss: 0.119459, seg_loss: 0.104442
+[2026-05-18 20:20:56,436][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:21:04,042][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:21:04,684][main.py][line:1287][INFO] epoch [162/200], dis_loss: 13.736888, recon_loss:0.104758, adv_loss:0.626056, ae_loss: 0.117280, seg_loss: 0.068985
+[2026-05-18 20:21:11,470][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:21:15,934][main.py][line:1287][INFO] epoch [163/200], dis_loss: 13.683788, recon_loss:0.105564, adv_loss:0.599210, ae_loss: 0.117548, seg_loss: 0.063206
+[2026-05-18 20:21:18,770][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:21:26,128][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:21:26,808][main.py][line:1287][INFO] epoch [164/200], dis_loss: 13.797290, recon_loss:0.104962, adv_loss:0.597384, ae_loss: 0.116910, seg_loss: 0.066917
+[2026-05-18 20:21:33,517][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:21:37,658][main.py][line:1287][INFO] epoch [165/200], dis_loss: 13.881152, recon_loss:0.104393, adv_loss:0.592252, ae_loss: 0.116238, seg_loss: 0.137920
+[2026-05-18 20:21:40,901][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:21:48,211][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:21:48,856][main.py][line:1287][INFO] epoch [166/200], dis_loss: 13.727270, recon_loss:0.104611, adv_loss:0.743572, ae_loss: 0.119482, seg_loss: 0.058199
+[2026-05-18 20:21:55,608][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:21:59,533][main.py][line:1287][INFO] epoch [167/200], dis_loss: 13.792747, recon_loss:0.105089, adv_loss:0.731199, ae_loss: 0.119713, seg_loss: 0.047676
+[2026-05-18 20:22:02,415][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:22:09,926][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:22:10,594][main.py][line:1287][INFO] epoch [168/200], dis_loss: 13.771221, recon_loss:0.103749, adv_loss:0.674247, ae_loss: 0.117234, seg_loss: 0.056994
+[2026-05-18 20:22:42,535][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.850048 Pixel_PRO: 0.274260 Image_AUROC: 0.658351 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:22:42,536][main.py][line:1324][INFO] Checkpoint score: 1.782659 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:22:49,365][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:22:53,772][main.py][line:1287][INFO] epoch [169/200], dis_loss: 13.668243, recon_loss:0.104032, adv_loss:0.660254, ae_loss: 0.117237, seg_loss: 0.038749
+[2026-05-18 20:22:57,013][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:23:04,626][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:23:05,446][main.py][line:1287][INFO] epoch [170/200], dis_loss: 13.762757, recon_loss:0.103477, adv_loss:0.708615, ae_loss: 0.117650, seg_loss: 0.053467
+[2026-05-18 20:23:12,285][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:23:17,141][main.py][line:1287][INFO] epoch [171/200], dis_loss: 13.545086, recon_loss:0.100503, adv_loss:0.730280, ae_loss: 0.115108, seg_loss: 0.047197
+[2026-05-18 20:23:19,897][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:23:27,369][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:23:28,076][main.py][line:1287][INFO] epoch [172/200], dis_loss: 13.500573, recon_loss:0.100506, adv_loss:0.756989, ae_loss: 0.115646, seg_loss: 0.449440
+[2026-05-18 20:23:34,862][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:23:39,353][main.py][line:1287][INFO] epoch [173/200], dis_loss: 13.502193, recon_loss:0.101088, adv_loss:0.754513, ae_loss: 0.116178, seg_loss: 0.055563
+[2026-05-18 20:23:42,522][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:23:49,706][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:23:50,605][main.py][line:1287][INFO] epoch [174/200], dis_loss: 13.621149, recon_loss:0.109990, adv_loss:0.768869, ae_loss: 0.125367, seg_loss: 0.031386
+[2026-05-18 20:23:57,555][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:24:01,905][main.py][line:1287][INFO] epoch [175/200], dis_loss: 13.630091, recon_loss:0.102729, adv_loss:0.759190, ae_loss: 0.117913, seg_loss: 0.200145
+[2026-05-18 20:24:04,827][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:24:12,525][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:24:13,196][main.py][line:1287][INFO] epoch [176/200], dis_loss: 13.651993, recon_loss:0.101211, adv_loss:0.808031, ae_loss: 0.117371, seg_loss: 0.044147
+[2026-05-18 20:24:44,825][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.913073 Pixel_PRO: 0.645236 Image_AUROC: 0.677784 Image_F1: 0.881481 Image_ACC: 0.788079 
+[2026-05-18 20:24:44,826][main.py][line:1324][INFO] Checkpoint score: 2.236092 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:24:50,958][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:24:55,543][main.py][line:1287][INFO] epoch [177/200], dis_loss: 13.670354, recon_loss:0.101217, adv_loss:0.827896, ae_loss: 0.117775, seg_loss: 0.049377
+[2026-05-18 20:24:58,525][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:25:05,966][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:25:06,878][main.py][line:1287][INFO] epoch [178/200], dis_loss: 13.366009, recon_loss:0.099739, adv_loss:0.772296, ae_loss: 0.115185, seg_loss: 0.029929
+[2026-05-18 20:25:14,029][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:25:18,193][main.py][line:1287][INFO] epoch [179/200], dis_loss: 13.444555, recon_loss:0.099310, adv_loss:0.870905, ae_loss: 0.116728, seg_loss: 0.022068
+[2026-05-18 20:25:21,184][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:25:28,506][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:25:29,044][main.py][line:1287][INFO] epoch [180/200], dis_loss: 13.524125, recon_loss:0.099881, adv_loss:0.807635, ae_loss: 0.116034, seg_loss: 0.028899
+[2026-05-18 20:25:35,643][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.7% normal=50.2%
+[2026-05-18 20:25:40,112][main.py][line:1287][INFO] epoch [181/200], dis_loss: 13.502297, recon_loss:0.097573, adv_loss:0.638954, ae_loss: 0.110352, seg_loss: 0.061133
+[2026-05-18 20:25:43,124][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:25:50,531][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:25:51,310][main.py][line:1287][INFO] epoch [182/200], dis_loss: 13.615132, recon_loss:0.098402, adv_loss:0.737337, ae_loss: 0.113149, seg_loss: 0.032916
+[2026-05-18 20:25:58,397][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:26:02,545][main.py][line:1287][INFO] epoch [183/200], dis_loss: 13.546811, recon_loss:0.097685, adv_loss:0.756568, ae_loss: 0.112817, seg_loss: 0.020668
+[2026-05-18 20:26:05,567][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:26:13,317][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:26:13,959][main.py][line:1287][INFO] epoch [184/200], dis_loss: 13.540988, recon_loss:0.097017, adv_loss:0.736658, ae_loss: 0.111750, seg_loss: 0.024869
+[2026-05-18 20:26:44,699][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.964407 Pixel_PRO: 0.473102 Image_AUROC: 0.891282 Image_F1: 0.901786 Image_ACC: 0.854305 
+[2026-05-18 20:26:44,700][main.py][line:1324][INFO] Checkpoint score: 2.328790 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:26:51,960][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:26:56,506][main.py][line:1287][INFO] epoch [185/200], dis_loss: 13.564326, recon_loss:0.097006, adv_loss:0.730846, ae_loss: 0.111623, seg_loss: 0.025808
+[2026-05-18 20:26:59,499][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:06,670][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:07,439][main.py][line:1287][INFO] epoch [186/200], dis_loss: 13.488278, recon_loss:0.094213, adv_loss:0.672172, ae_loss: 0.107656, seg_loss: 0.055201
+[2026-05-18 20:27:14,421][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:18,667][main.py][line:1287][INFO] epoch [187/200], dis_loss: 13.582646, recon_loss:0.093255, adv_loss:0.775766, ae_loss: 0.108770, seg_loss: 0.046538
+[2026-05-18 20:27:21,829][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:29,522][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:30,225][main.py][line:1287][INFO] epoch [188/200], dis_loss: 13.448811, recon_loss:0.092776, adv_loss:0.691578, ae_loss: 0.106608, seg_loss: 0.026294
+[2026-05-18 20:27:36,712][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:41,683][main.py][line:1287][INFO] epoch [189/200], dis_loss: 13.412162, recon_loss:0.092398, adv_loss:0.690882, ae_loss: 0.106216, seg_loss: 0.029833
+[2026-05-18 20:27:44,582][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:51,903][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:27:52,618][main.py][line:1287][INFO] epoch [190/200], dis_loss: 13.418049, recon_loss:0.091348, adv_loss:0.758610, ae_loss: 0.106520, seg_loss: 0.020159
+[2026-05-18 20:27:59,127][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:28:03,610][main.py][line:1287][INFO] epoch [191/200], dis_loss: 13.652820, recon_loss:0.091783, adv_loss:0.709544, ae_loss: 0.105974, seg_loss: 0.058023
+[2026-05-18 20:28:06,598][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:28:13,886][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.0% perlin=29.8% normal=50.2%
+[2026-05-18 20:28:14,630][main.py][line:1287][INFO] epoch [192/200], dis_loss: 13.378200, recon_loss:0.091810, adv_loss:0.643327, ae_loss: 0.104677, seg_loss: 0.045869
+[2026-05-18 20:28:45,974][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.890249 Pixel_PRO: 0.387974 Image_AUROC: 0.619748 Image_F1: 0.884758 Image_ACC: 0.794702 
+[2026-05-18 20:28:45,974][main.py][line:1324][INFO] Checkpoint score: 1.897971 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:28:53,072][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:28:57,359][main.py][line:1287][INFO] epoch [193/200], dis_loss: 13.515180, recon_loss:0.090517, adv_loss:0.762929, ae_loss: 0.105776, seg_loss: 0.083997
+[2026-05-18 20:29:00,133][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:29:08,548][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:29:09,163][main.py][line:1287][INFO] epoch [194/200], dis_loss: 13.515192, recon_loss:0.091331, adv_loss:0.792042, ae_loss: 0.107172, seg_loss: 0.100688
+[2026-05-18 20:29:16,274][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:29:20,752][main.py][line:1287][INFO] epoch [195/200], dis_loss: 13.616228, recon_loss:0.091212, adv_loss:0.794769, ae_loss: 0.107107, seg_loss: 0.056651
+[2026-05-18 20:29:23,971][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:29:31,523][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:29:32,293][main.py][line:1287][INFO] epoch [196/200], dis_loss: 13.312889, recon_loss:0.090912, adv_loss:0.760421, ae_loss: 0.106120, seg_loss: 0.046321
+[2026-05-18 20:29:39,484][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.2%
+[2026-05-18 20:29:43,761][main.py][line:1287][INFO] epoch [197/200], dis_loss: 13.403975, recon_loss:0.091713, adv_loss:0.780198, ae_loss: 0.107316, seg_loss: 0.028546
+[2026-05-18 20:29:47,063][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.2%
+[2026-05-18 20:29:54,532][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:29:55,303][main.py][line:1287][INFO] epoch [198/200], dis_loss: 13.454834, recon_loss:0.089939, adv_loss:0.721019, ae_loss: 0.104359, seg_loss: 0.035345
+[2026-05-18 20:30:01,666][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:30:06,329][main.py][line:1287][INFO] epoch [199/200], dis_loss: 13.585604, recon_loss:0.089927, adv_loss:0.802857, ae_loss: 0.105984, seg_loss: 0.059310
+[2026-05-18 20:30:09,277][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.8% normal=50.1%
+[2026-05-18 20:30:16,813][anomaly_controller.py][line:187][INFO] [AnomalyController] pixel=20.1% perlin=29.7% normal=50.1%
+[2026-05-18 20:30:17,442][main.py][line:1287][INFO] epoch [200/200], dis_loss: 13.594778, recon_loss:0.090592, adv_loss:0.765748, ae_loss: 0.105907, seg_loss: 0.036152
+[2026-05-18 20:30:48,449][main.py][line:1319][INFO] Test: Pixel_AUROC: 0.802485 Pixel_PRO: 0.316654 Image_AUROC: 0.428309 Image_F1: 0.888060 Image_ACC: 0.801325 
+[2026-05-18 20:30:48,449][main.py][line:1324][INFO] Checkpoint score: 1.547447 (best: 2.658447 @ epoch 136)
+[2026-05-18 20:30:49,036][main.py][line:1384][INFO] Saved last checkpoint: /hy-tmp/checkpoints/table8_cres_max_mean/mvtec/zipper/seed_111/last.pth

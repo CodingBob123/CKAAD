@@ -222,12 +222,22 @@ def save_checkpoint(path, epoch, args, metrics, score, pfe, ae, discriminator,
                     afs=None, rrs=None, ae_optimizer=None,
                     discriminator_optimizer=None, rrs_optimizer=None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    # 检查磁盘空间：低于 1GB 时给出警告
+    stat = os.statvfs(os.path.dirname(path))
+    free_bytes = stat.f_frsize * stat.f_bavail
+    if free_bytes < 1 * 1024**3:
+        logging.getLogger(__name__).warning(
+            "Low disk space: {:.1f}GB free, checkpoint may fail".format(
+                free_bytes / 1024**3))
+
+    # PFE 是冻结的预训练权重，不保存（加载时自动从 torchvision 重建）
+    # 详见 PretrainedFeatureExtractor.__init__ 中的 pretrained=True
     checkpoint = {
         'epoch': epoch,
         'args': vars(args),
         'metrics': metrics,
         'best_score': score,
-        'pfe': pfe.state_dict(),
         'ae': ae.state_dict(),
         'discriminator': discriminator.state_dict(),
         'afs': afs.state_dict() if afs is not None else None,
@@ -236,7 +246,11 @@ def save_checkpoint(path, epoch, args, metrics, score, pfe, ae, discriminator,
         'discriminator_optimizer': discriminator_optimizer.state_dict() if discriminator_optimizer is not None else None,
         'rrs_optimizer': rrs_optimizer.state_dict() if rrs_optimizer is not None else None,
     }
-    torch.save(checkpoint, path)
+
+    # 原子写入：先写 .tmp，再原子替换，避免写入中断导致 zip 损坏
+    tmp_path = path + '.tmp'
+    torch.save(checkpoint, tmp_path)
+    os.replace(tmp_path, path)
 
 
 def append_eval_csv(path, epoch, metrics, score):
@@ -718,7 +732,7 @@ def train(args):
     logger.info("device: {}".format(device))
 
     # 2.加载数据集，获取数据加载器
-    dataset = OODDataSet(root='./data', dataset=args.dataset, image_size=args.img_size, category=args.normal,
+    dataset = OODDataSet(root=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'), dataset=args.dataset, image_size=args.img_size, category=args.normal,
                          labeled_anomaly_ratio=args.labeled_anomaly_ratio,
                          labeled_anomaly_class_num=args.labeled_anomaly_class_num,
                          labeled_anomaly_class=args.labeled_anomaly_class,
@@ -1409,7 +1423,7 @@ def train(args):
     #     # 创建测试数据集（只可视化前几个样本以节省时间）
     #     if args.dataset == 'mvtec':
     #         from dataset.mvtec import MVTecDataset
-    #         viz_dataset = MVTecDataset(root='./data', category=args.normal, train=False,
+    #         viz_dataset = MVTecDataset(root=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'), category=args.normal, train=False,
     #                                  transform=img_transform, gt_target_transform=gt_transform,
     #                                  img_size=args.img_size)
     #         # 只可视化前5个样本（包括正常和异常样本）
